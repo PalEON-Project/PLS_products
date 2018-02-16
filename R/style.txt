@@ -1,0 +1,7 @@
+Some thoughts from Chris on coding style that he plans to use in this repository.
+
+- try to avoid use of "." within object names; instead use "_" and lower-case for object names
+- avoid hard-coding paths and use file.path and relative paths
+- put constants into config file
+- put setup stuff into master.R (and call individual analysis steps from there)
+- use readr / dplyr and piping for dataset manipulations
