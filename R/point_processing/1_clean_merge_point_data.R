@@ -14,6 +14,7 @@ library(Rcpp)
 # ----------------------------------DATA CLEANING: IN + IL --------------------------------------------------
 #---------------------read in data and clean up the column names------------------------
 version <- "1.7-5" # version using 1.8 IL data and 1.7 IN data
+
 # Read in the data
 ind <- read.csv("data/ndinpls_v1.7.csv", stringsAsFactors = FALSE) # version 1.6-1 
 
@@ -155,7 +156,65 @@ degrees <- cbind(as.numeric(inil$degrees),
 #  degree angle.  It also has to deal with a number of special cases.
 #  The code for getAngles is a bit scuzzy, but it leaves only 231 azimuths 
 #  untranslated, this is a manageable number.
-source('R/get_angle_IN.R')
+get_angle_IN <- function(bearings, degrees, dists) {
+  #  This function is used in 'step.one.clean.bind_v1.1.R', it converts the
+  #  text azimuth strings to numeric, 360 degree values.
+  #  This is the vector that will store the values.
+  angl <- degrees
+  
+  #  This is a special case, generally where the tree is plot center.
+  angl[degrees == '0' & dists =='0'] <- 0
+  
+  #  This is a short function that takes cares of NAs in boolean functions, it's
+  #  just a simple wrapper for the boolean function that sets the NA values in
+  #  the vector to FALSE.
+  fx.na <- function(x) { x[ is.na( x ) ] <- FALSE; x }
+  
+  #  Given the text azimuths in the dataset, return the quadrant values.
+  #  This gives a boolean index of the quadrant
+  
+  north <- fx.na(bearings == 'NNA'| bearings == 'NAN' | bearings =='N'|bearings =='N99999'|bearings =='N88888')
+  east <- fx.na(bearings == 'NAE' | bearings =="ENA" | bearings =='E'|bearings =='99999E'|bearings =='88888E')
+  south <- fx.na(bearings == 'SNA' | bearings =="NAS"| bearings == 'S'|bearings =='S99999'|bearings =='S88888')
+  west <- fx.na(bearings == 'NAW' | bearings =="WNA" | bearings == 'W'|bearings =='99999W'|bearings =='88888W')
+  #north <- fx.na( regexpr('N', bearings) > 0 )
+  #east  <- fx.na( regexpr('E', bearings) > 0 | bearings == 'EAST')
+  #south <- fx.na( regexpr('S', bearings) > 0 | bearings == 'SOUTH')
+  #west <-  fx.na( regexpr('W', bearings) > 0 | bearings == 'WEST')
+  
+  ne <- fx.na( (north & east) | bearings == 'NE')
+  se <- fx.na( (south & east) | bearings == 'SE')
+  sw <- fx.na( (south & west) | bearings == 'SW')
+  nw <- fx.na( (north & west) | bearings == 'NW') 
+  
+  #  The cell is in a quadrant, regardless of which.
+  quad <- ne | se | sw | nw
+  
+  #  Special case of the trees with a unidirectional direction.
+  uni  <- (!quad) & !(north | south | east | west) 
+  
+  angl[ uni & north ] <- 0
+  angl[ uni & south ] <- 180
+  angl[ uni & east  ] <- 90 
+  angl[ uni & west  ] <- 270
+  
+ 
+  ##########
+  
+  #  Another set of special cases:
+ 
+  degrees <- apply(degrees, 2, as.numeric)
+  angl[ north ] <- degrees[ north ]
+  angl[ east ] <- 180 - degrees[ east ]
+  angl[ south ] <- 180 + degrees[ south ]
+  angl[ west ] <- 360 - degrees [ west ]
+  
+  return(angl)
+  
+}
+
+
+
 azimuths <- get_angle_IN(bearings, degrees, dists)
 
 #####  Cleaning Trees:  This is already done in the CSV file, but we should check this with jody's update teo the paleon conversion file
@@ -320,18 +379,24 @@ colnames(final.data) <- c('PointX','PointY', 'Township','state',
                           paste('az',      1:4, sep = ''), 'corner', 'surveyyear')
 
                           
-# write the correction factors to a file for reference later:
 Pair <- paste0(as.character(full.final$corner), full.final$surveyyear)
 
-# read in correction factors from charlie + simon
-corr.factor <- read.csv('data//charlie_corrections.csv')
-test.correct <- data.frame(corr.factor$Pair,corr.factor$kappa, corr.factor$zeta,corr.factor$theta, corr.factor$phi)
-colnames(test.correct) <- c('Pair', 'kappa', 'zeta', 'theta', 'phi')
+corr.vals <- read.csv('data/charlie_corrections_full_midwest.csv') # csv with correction factors from charlie--needs to be versioned properly
 
-# merge corretion factors with the Pair dataset for each inil point
-require(plyr)
-corrections <- join(data.frame(Pair), data.frame(test.correct), type="left")
+# get internal vs. ext and qtr vs section corners:                       
+internal <- ifelse(!inil$cornerid %in% c("extsec", "extqtr"), 'internal', 'external')
+#trees    <- ifelse(plot.trees == 2, 'P', '2NQ')
+section  <- ifelse(inil$typecorner %in% "Section", 'section', 'quarter-section')
+state <- final.data$state
 
+# indiana and illinois are based on survey year:                       
+corr.year     <- as.character(final.data$surveyyear)
+
+# match up the correction facters with the inil corner types:
+match.vec <- apply(corr.vals[,c("Pair", "year", "corner", "sectioncorner")], 1, paste, collapse = '')
+to.match <- apply(data.frame(state, corr.year, internal, section, stringsAsFactors = FALSE), 1, paste, collapse = '')
+
+corrections <- corr.vals[match(to.match, match.vec),]
 
 
 #write the data & the density correction factors as a csv
@@ -542,9 +607,8 @@ used.data <- final.data
                        
 # --------------------generate correction factors for southern mi------------------------------:
 # read in the correction factors provided by Charlie Cogbill:
-corr.vals <- read.csv('data/cogbill_corrections.csv')
-
-
+# correction factors for southern MI are based on the spatial location of the survey point + the corner type
+corr.vals <- read.csv('data/charlie_corrections_full_midwest.csv')
 correction <- data.frame(kappa = rep(NA, length(used.data)),
                          theta = rep(NA, length(used.data)),
                          zeta  = rep(NA, length(used.data)),
@@ -554,23 +618,24 @@ species2table <- data.frame(species1 = final.data$species1,
                             species2 = final.data$species2,
                             species3 = final.data$species3,
                             species4 = final.data$species4)
-plot.trees <- rowSums(!(species2table == 'Water' | species2table == 'NonTree'), na.rm = TRUE)
+plot.trees <- rowSums(!(species2table == 'Water' | species2table == 'No tree'), na.rm = TRUE)
 
 point.no <- as.character(final.data$corner)
 
 #  So there are a set of classes here, we can match them all up:
 
 internal <- ifelse(!point.no %in% "Extsec", 'internal', 'external')
-trees    <- ifelse(plot.trees == 2, 'P', '2NQ')
-section  <- ifelse(final.data$cornertype %in% "section", 'section', 'quartersection')
+trees    <- ifelse(plot.trees == 2, 'P', '2nQ')
+section  <- ifelse(final.data$cornertype %in% "section", 'section', 'quarter-section')
 state <- final.data$state
 
-corr.year     <- as.character(final.data$year)
-corr.year[state == 'MI' & final.data$Township %like% "W"] <- 'W'
-corr.year[state == 'MI' & final.data$Township %like% "E"] <- 'E'
 
-match.vec <- apply(corr.vals[,1:4], 1, paste, collapse = '')
-to.match <- apply(data.frame(state, corr.year, internal, section, stringsAsFactors = FALSE), 1, paste, collapse = '')
+corr.year     <- as.character(final.data$year)
+corr.year[state == 'MI' & final.data$Township %like% "W"] <- 'SW'
+corr.year[state == 'MI' & final.data$Township %like% "E"] <- 'SE'
+
+match.vec <- apply(corr.vals[,c("Pair", "year", "corner", "sectioncorner", "point")], 1, paste, collapse = '')
+to.match <- apply(data.frame(state, corr.year, internal, section,trees, stringsAsFactors = FALSE), 1, paste, collapse = '')
 
 correction <- corr.vals[match(to.match, match.vec),]
 
@@ -580,34 +645,36 @@ write.csv(correction, 'data/MI_correction_factors.csv')
 
                        
 # ----------------------------------DATA CLEANING: UMW -------------------------------------------------------
- # data cleaning done in simon's witness tree code. Can add later
+ # data cleaning done in simon's witness tree code
+ # correction factors for UMW are also generated in the witness tree code
   
                        
                        
                        
-#-----------------------Merge all data from UMW, IL, IN, SO MI------------------------------------------------
+#-----------------------Merge all data and correction factors from UMW, IL, IN, SO MI------------------------------------------------
 
-#read in final.data from the Indiana, Illinois script:
 final.data <- read.csv(paste0("outputs/ndilin_pls_for_density_v",version,".csv"), stringsAsFactors = FALSE)
 # corrections for stem density:
 correction.factor <- read.csv("data//correction_factors.csv", header = TRUE)
+colnames(correction.factor) <- c("X","Pair","regions","year","corner" ,      
+                                "sectioncorner", "point" ,"Qdrt.model","kappa","theta" ,       
+                                  "zeta","phi")
 final.data <- final.data[,1:23]
 
-# read in final data from southern michigan
+# read in final data from michigan
 final.data.mi <- read.csv(paste0("data/lower_mi_final_data.csv"), stringsAsFactors = FALSE)
 final.data.mi <- final.data.mi[!names(final.data.mi) %in% c("cornertype", "NA.")]
 
-# southern michigan corrections for stem density:
+# corrections for stem density:
 correction.factor.mi <- read.csv("data//MI_correction_factors.csv", header = TRUE)
-correction.factor.mi <- correction.factor.mi[!names(correction.factor.mi) %in% c("X.1", "State", "Internal", "Section")]
-colnames(correction.factor.mi) <- c("X","Pair", "kappa", "theta", "zeta", "phi")
 
-# read in final data from UMW
-# final.data
-# corrections:
+
+# read in final data from UMW 
+# final.data.umw <- 
+# corrections.umw <- 
 
 # add the lower MI data below the INIL data: 
 
-final.data <- rbind(final.data, final.data.mi)
-correction.factor <- rbind(correction.factor, correction.factor.mi)
+final.data <- rbind(final.data, final.data.mi, final.data.uwm)
+correction.factor <- rbind(correction.factor, correction.factor.mi, correction.factor.umw)
 
