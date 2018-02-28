@@ -201,3 +201,191 @@ write.csv(stem.density, paste0('outputs/IN_IL_MI_densestimates_v',version,'.csv'
 
 
 
+#----------------------------Density Regridding------------------------------
+
+##need to regrid the density estimates onto the paleon centroids
+##create base raster that is extent of midwest domain
+
+base.rast <- raster(xmn = -71000, xmx = 2297000, ncols=296,
+                  ymn = 58000,  ymx = 1498000, nrows = 180,
+                    crs = '+init=epsg:3175')
+
+
+
+#coordinates(final.data)<- ~PointX+PointY
+
+#create spatial object with density, basal area & diameters data
+stem.density <- data.frame(x = final.data$PointX, 
+                           y = final.data$PointY,
+                           corner = final.data$corner,
+                           density = stem.density$stem.density,
+                           basal   = stem.density$basal.area,
+                           state = final.data$state,
+                           township = final.data$Township)#,
+                          #diams = rowMeans(diams[,1:2], na.rm=TRUE) * 2.54)
+
+
+
+# get the density estimates all of southern MI:
+
+
+# find the 99% percentile here for stem density and basal area:
+#nine.nine.pct <- apply(stem.density[,4:5], 2, quantile, probs = 0.99, na.rm=TRUE)
+#99th percentiles still seem high
+#density     basal 
+#1076.0074  251.9382 
+
+# convert anything over 99th percentile to the 99th percentile value
+#stem.density$density[stem.density$density > nine.nine.pct['density']] <- nine.nine.pct['density']
+#stem.density$basal[stem.density$basal > nine.nine.pct['basal']] <- nine.nine.pct['basal']
+
+ggplot(stem.density[stem.density$density <= 1000,], aes(x, y, color=density))+geom_point(size = 0.5)
+# ---------------------fixing some lingering data naming issues:-------------------
+
+
+#fix the captalized "No tree" problem
+species[species == 'No Tree'] <- 'No tree'
+species[species==""]<- "No tree"
+
+#change all No tree densities to 0
+stem.density$density[species[,1] == 'No tree'| species[,2]=='No tree'] <- 0
+#classify trees as zero or as wet trees
+zero.trees <- is.na(stem.density$density) & (species[,2] %in% c('No tree') | species[,1] %in% c('No tree'))
+wet.trees <- (species[,2] %in% c('Wet', "Water") | species[,1] %in% c('Wet','Water'))
+
+#designate all zero trees as density of 0
+stem.density$density[zero.trees] <- 0
+stem.density$basal[zero.trees] <- 0
+
+#desgnate all wet trees as 0
+stem.density$density[wet.trees] <- 0
+stem.density$basal[wet.trees] <- 0
+
+# kill cells with na for x or y:
+stem.density <- stem.density[!is.na(stem.density$x),]
+
+#filter(stem.density, state == "MI" ) %>% summarise(density.ext = mean(density, na.rm = TRUE))
+
+#filter(stem.density, state == "MI" & corner %in% "Extsec") %>% summarise(density.ext = mean(density, na.rm = TRUE))
+#filter(stem.density, state == "MI" & corner %in% "Intsec") %>% summarise(density.ext = mean(density, na.rm = TRUE))
+
+#filter(stem.density, state == "MI" & township %like% "E" & corner %in% "Extsec") %>% group_by(corner)%>% summarise(density = mean(density, na.rm = TRUE))
+#filter(stem.density, state == "MI" & township %like% "E" & corner %in% "Intsec") %>% group_by(corner)%>% summarise(density = mean(density, na.rm = TRUE))
+#filter(stem.density, state == "MI" & township %like% "E" )%>%  summarise(density = mean(density, na.rm = TRUE))
+
+
+#filter(stem.density, state == "MI" & township %like% "W" & corner %in% "Extsec")%>% group_by(corner) %>% summarise(density = mean(density, na.rm = TRUE))
+#filter(stem.density, state == "MI" & township %like% "W" & corner %in% "Intsec")%>% group_by(corner) %>% summarise(density = mean(density, na.rm = TRUE))
+#filter(stem.density, state == "MI" & township %like% "W" )%>% group_by(corner) %>% summarise(density = mean(density, na.rm = TRUE))
+
+# make stem.density spatial
+coordinates(stem.density) <- ~x+y
+proj4string(stem.density)<-CRS('+init=epsg:3175')
+
+# write to an arcGIS compatible shapefile
+writeOGR(obj = stem.density, dsn = "outputs/stem_density_alb_v1.7-5.shp", layer = "stem_density_alb_v1.7-5", driver = "ESRI Shapefile", overwrite=TRUE)
+
+
+#------------------------Formatting for biomass estimation-------------------------
+
+
+numbered.rast <- setValues(base.rast, 1:ncell(base.rast))
+numbered.cell <- raster::extract(numbered.rast, spTransform(stem.density,CRSobj=CRS('+init=epsg:3175')))
+
+species[species==""]<- "No tree" #gets rid of blank listing for no trees
+final.data <- data.frame(final.data)
+#final.data <- read.csv(paste0("outputs/ndilinpls_for_density_v",version,".csv"), stringsAsFactors = FALSE)
+
+#create dataframe with stem density, speceies
+spec.table <- data.frame(PointX = final.data$PointX, 
+                         PointY = final.data$PointY,
+                         cell = numbered.cell,
+                         spec = c(as.character(final.data$species1),as.character(final.data$species2)),
+                         count = 1,
+                         point = 1:nrow(final.data),
+                         density = rep(stem.density$density/2, 2),
+                         #shhould density be /2 or not??
+                         basal =  rep(stem.density$basal/2, 2),
+                         diams = c(final.data$diam1, final.data$diam2),
+                         dists = c(final.data$dist1, final.data$dist2),
+                         state = final.data$state,
+                         corner = final.data$corner, 
+                         township = final.data$Township)#,
+                         #scc = stem.density$SCC,stringsAsFactors = FALSE)
+
+
+
+
+#fix the captalized "No tree" problem
+spec.table$spec[spec.table$spec == 'No Tree'] <- 'No tree'
+
+#change all No tree densities to 0
+spec.table$density[spec.table$spec == 'No tree'] <- 0
+spec.table$density[spec.table$spec == 'Water'] <- 0
+spec.table$density[spec.table$spec == 'Wet'] <- 0
+
+                         
+# This section should be moved to estimating biomss
+#-----------------Estimating Biomass from density and diameter-------------------
+# changing column names
+spec.table$Pointx <- spec.table$PointX
+spec.table$Pointy <- spec.table$PointY
+spec.table[,1:2] <- xyFromCell(base.rast, spec.table$cell)
+colnames(spec.table)[1:2] <- c("x", "y")
+# read in table with allometric equations for each taxa
+biom.table <- read.csv('data/plss.pft.conversion_v0.1-1.csv', 
+                       stringsAsFactors = FALSE)
+
+# this function calculates biomass of an individual tree using taxa-specific allometric equations
+form <- function(x) {
+  
+  eqn <- match(x[c('spec')], biom.table[,1])
+  eqn[is.na(eqn)] <- 1  #  Sets it up for non-tree.
+  
+  b0 <- biom.table[eqn,2]
+  b1 <- biom.table[eqn,3]
+  
+  biomass <- exp(b0 + b1 * log(as.numeric(x[c('diams')])))
+  biomass
+  
+}
+
+#  This is the biomass of individual trees.  It needs to be converted into
+#  a stand level value, through the stem density estimate  The values are
+#  in kg.
+
+#biomass <- rep(NA, nrow(spec.table))
+biomass <- apply(spec.table, 1, form)
+
+
+# convert to Mg./hectare
+spec.table$biom <- biomass * spec.table$density / 1000
+
+spec.table$spec[spec.table$spec == 'No Tree'] <- 'No tree' # this should already be corrected
+
+#spec.table <- spec.table[,2:14]
+colnames(spec.table)[1:2] <- c("x", "y")# rename grid cell x and y colnames
+write.csv(spec.table, 
+        file = paste0('outputs/density_biomass_pointwise.ests_inilmi','_v', 
+                      version, 
+                      '.csv'), row.names = FALSE)
+
+# there are some excessivly high estimates of density + biomss, so we convert these to the 99th percentile value:
+                         
+pre.quantile <- spec.table
+
+#take the 99 percentile of these, since density blows up in some places
+nine.nine.pct <- apply(spec.table[,c("density", "basal", "diams", "dists", "biom")], 2, quantile, probs = 0.995, na.rm=TRUE)
+
+ 
+nine.five.pct <- apply(spec.table[,c("density", "basal", "diams", "dists", "biom")], 2, quantile, probs = 0.95, na.rm=TRUE)
+
+
+
+# assign all points greater than the 99th percentile to 99th percentile values
+spec.table$density[spec.table$density > nine.nine.pct['density']] <- nine.nine.pct['density']
+spec.table$basal[spec.table$basal > nine.nine.pct['basal']] <- nine.nine.pct['basal']
+spec.table  <- spec.table[!is.na(spec.table$density), ]
+
+write.csv(spec.table, file=paste0('outputs/biomass_no_na_pointwise.ests_inilmi','_v',version, '.csv'), row.names = FALSE)
+
