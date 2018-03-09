@@ -5,10 +5,13 @@
 ## note required input files (download from PalEON Wiki)
 
 
-## upper_midwest_file="umw_pls_pointdata_v1.0.csv"
-## southern_michigan_file="southernmi_projected_v1.1.csv"
+## upper_midwest_minnesota_file="umw_mn_pointdata_v1.0.csv"
+## upper_midwest_wisconsin_file="umw_wi_pointdata_v1.0.csv"
+## upper_midwest_michigan_file="umw_mi_pointdata_v1.0.csv"
+## southern_michigan_file="southernmi_projected_v1.2.csv"
 ## indiana_file="ndinpls_v1.7.csv"
-## illinois_file="ndilpls_v1.8-1.csv"
+## illinois_file="ndilpls_v1.8-2.csv"
+## taxa_conversion_file="level0_to_level3a_v0.4-7.csv"
 
 ## setup R packages (with version control) 
 
