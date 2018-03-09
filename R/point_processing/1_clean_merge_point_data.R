@@ -877,7 +877,6 @@ usable.data <- data.frame(diams,
                           azimuths,
                           stringsAsFactors = FALSE)
 
-#species.old, USED THIS TO TRY TO ADD LEVEL1 SPECIES NAMES INTO TABLE
 
 rank.fun <- function(x){
   #  This is the function we use to re-order the points so that the closest is first, based on distances.
@@ -894,7 +893,6 @@ colnames(usable.data) <- c(paste('diam', 1:4, sep =''),
                            paste('species', 1:4, sep = ''),
                            paste('az', 1:4, sep = ''))
                            
-#paste('level1_',1:4,sep = '') USED THIS TO TRY TO ADD LEVEL1 TREE NAMES INTO TABLE
 
 ranked.data <- matrix(nrow = nrow(usable.data),
                       ncol = ncol(usable.data))
@@ -961,7 +959,7 @@ final.data <- data.frame(nwmw$POINT,
                          nwmw$twp,
                          nwmw$rng,
                          ranked.data[,1:8],
-                         species.old, #SEE IF IT WORKS TO ADD THIS HERE
+                         species.old, 
                          species,
                          ranked.data[,13:16],
                          survey.year,
@@ -970,26 +968,40 @@ final.data <- data.frame(nwmw$POINT,
 colnames(final.data) <- c('Point', 'Township', 'Range',
                           paste('diam',    1:4, sep =''),
                           paste('dist',    1:4, sep = ''), 
-                          paste('level1',  1:4, sep = ''), #SEE IF IT WORKS TO ADD THIS HERE
-                          paste('species', 1:4, sep = ''),
+                          paste('level1_',  1:4, sep = ''),
+                          paste('level3a_', 1:4, sep = ''),
                           paste('az',      1:4, sep = ''), 'year')
 
-#  Turn it into a SpatialPointsDataFrame:
+#  Turn it into a SpatialPointsDataFrame and project into Great Lakes St.Lawrence Albers projection:
 coordinates(final.data) <- coordinates(nwmw)
+proj4string(final.data) <- proj4string(nwmw)
+final.data <- spTransform(final.data, CRS('+proj=longlat +init=EPSG:3175'))
 
 # now kill missing cells:
-final.data <- final.data[!final.data$species1 %in% c('Water', 'Missing'),]
-final.data <- final.data[!final.data$species2 %in% c('Water', 'Missing'),]
+#final.data <- final.data[!final.data$species1 %in% c('Water', 'Missing'),] 
+#final.data <- final.data[!final.data$species2 %in% c('Water', 'Missing'),]
+#when Jody ran this all the data disappeared...
 
 
 
 #  Write the data out as a shapefile.
 writeOGR(final.data, 
-         'data/output/minn.wisc.mich.clean_v1.shp', 
-         'minn.wisc.mich.cleanv1', 'ESRI Shapefile',
+         'data/output/uppermidwest_v1.shp', 
+         'uppermidwestv1', 'ESRI Shapefile',
          overwrite_layer = TRUE, check_exists = TRUE)  
                        
                        
+#write the data as a with the data and the coords
+uppermidwest.coords = cbind(final.data@data, final.data@coords)
+colnames(uppermidwest.coords) <- c('Point', 'Township', 'Range',
+                          paste('diam',    1:4, sep =''),
+                          paste('dist',    1:4, sep = ''), 
+                          paste('level1_',  1:4, sep = ''),
+                          paste('level3a_', 1:4, sep = ''),
+                          paste('az',      1:4, sep = ''), 'year', 'x','y')
+
+write.csv(uppermidwest.coords, 'data/output/uppermidwest.coords_v1.csv', row.names = FALSE)
+
                        
 #-----------------------Merge all data and correction factors from UMW, IL, IN, SO MI------------------------------------------------
 
