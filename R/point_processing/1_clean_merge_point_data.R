@@ -319,9 +319,8 @@ species <- data.frame(species1 = sp.levels[ranked.data[, 9]],
 
 
 #  Indiana data has same correction factors for the whole state
-#  There are 8 corners that have 4 trees, and some corners with 3 trees. 
-#  For now, we are treating all corners as '2 trees' for the correction factors
 # correction factors vary depending on which type of corner you are at
+                       
 extsec <- c(100100,200100, 300100, 400100, 500100, 600100, 700100,
             100200, 100300,100400,100500, 100600, 100700, 
             200700, 300700, 400700, 500700, 600700, 700700, 
@@ -348,7 +347,7 @@ intqtr <- c(140200, 240200, 340200, 440200, 540200, 640200,
             200640, 300640, 400640, 500640, 600640)
 corner <- rep('NA', length(inil$cornerid))
 
-corner<- ifelse(inil$cornerid %in% intsec, 'intsec',
+corner <- ifelse(inil$cornerid %in% intsec, 'intsec',
        ifelse(inil$cornerid %in% intqtr, 'intqtr',
               ifelse(inil$cornerid %in% extsec, 'extsec',
                      ifelse(inil$cornerid %in% extqtr,  'extqtr',
@@ -360,6 +359,10 @@ inil$cornertype <- paste0(corner, inil$state)
 
 
 #These are the columns for the final dataset.
+internal <- ifelse(!inil$cornerid %in% c("extsec", "extqtr", "external"), 'internal', 'external')
+#trees    <- ifelse(plot.trees == 2, 'P', '2NQ')
+section  <- ifelse(inil$typecorner %in% "Section", 'section', 'quarter-section')
+point <- rep("P", length(inil$typecorner))
 
 final.data <- data.frame(inil$x,
                          inil$y,
@@ -368,39 +371,19 @@ final.data <- data.frame(inil$x,
                          ranked.data[,1:8],
                          species[,1:4],
                          ranked.data[,13:16], 
-                         inil$cornertype,
+                         internal,
+                         section,
                          inil$surveyyear,
+                         point,
                          stringsAsFactors = FALSE)
 
 colnames(final.data) <- c('PointX','PointY', 'Township','state',
                           paste('diam',    1:4, sep =''),
                           paste('dist',    1:4, sep = ''), 
                           paste('species', 1:4, sep = ''),
-                          paste('az',      1:4, sep = ''), 'corner', 'surveyyear')
+                          paste('az',      1:4, sep = ''), 'corner', "sectioncorner",'surveyyear', "point")
 
                           
-Pair <- paste0(as.character(full.final$corner), full.final$surveyyear)
-
-corr.vals <- read.csv('data/charlie_corrections_full_midwest.csv') # csv with correction factors from charlie--needs to be versioned properly
-
-# get internal vs. ext and qtr vs section corners:                       
-internal <- ifelse(!inil$cornerid %in% c("extsec", "extqtr"), 'internal', 'external')
-#trees    <- ifelse(plot.trees == 2, 'P', '2NQ')
-section  <- ifelse(inil$typecorner %in% "Section", 'section', 'quarter-section')
-state <- final.data$state
-
-# indiana and illinois are based on survey year:                       
-corr.year     <- as.character(final.data$surveyyear)
-
-# match up the correction facters with the inil corner types:
-match.vec <- apply(corr.vals[,c("Pair", "year", "corner", "sectioncorner")], 1, paste, collapse = '')
-to.match <- apply(data.frame(state, corr.year, internal, section, stringsAsFactors = FALSE), 1, paste, collapse = '')
-
-corrections <- corr.vals[match(to.match, match.vec),]
-
-
-#write the data & the density correction factors as a csv
-write.csv(corrections, 'data/correction_factors.csv')
 write.csv(full.final, paste0("outputs/ndilin_pls_for_density_v",version,".csv"))
 
 
@@ -459,12 +442,6 @@ azimuths <- cbind(as.numeric(nwmw$az1_360),
                   as.numeric(nwmw$az4_360))
 
 colnames(azimuths) <- c("az1", "az2","az3", "az3")
-
-# make a dataframe with the values from Q1, Q2, Q3, Q4:
-qvals <- cbind(as.numeric(nwmw$Q1), 
-               as.numeric(nwmw$Q2),
-               as.numeric(nwmw$Q3),
-               as.numeric(nwmw$Q4))
 
 
 species <- cbind(as.character(nwmw$L3_tree1), 
@@ -558,6 +535,23 @@ state <- data.frame(state = rep("MI", length(species$species1)))
 
 corner <- mich$sec_corner
 
+state <- rep("Michigan", length(species$species1))
+year <- rep("NA", length(species$species1))
+
+# assign year as the SW or SE of michigan (this is just for correction factors)
+year[state == 'Michigan' & nwmw$twnrng %like% "W"] <- 'SW'
+year[state == 'Michigan' & nwmw$twnrng %like% "E"] <- 'SE'
+
+plot.trees <- rowSums(!(species == 'Water' | species == 'No tree'), na.rm = TRUE)
+
+point.no <- as.character( mich$sec_corner)
+
+#  So there are a set of classes here, we can match them all up:
+
+internal <- ifelse(!point.no %in% "Extsec", 'internal', 'external')
+trees    <- ifelse(plot.trees == 2, 'P', '2nQ')
+section  <- ifelse(mich$sec_corner %in% "section", 'section', 'quarter-section')
+
 
 #  These are the columns for the final dataset.
 
@@ -568,79 +562,29 @@ final.data <- data.frame(nwmw$point_x,
                         ranked.data[,1:8],
                         species,
                         ranked.data[,13:16],
-                        corner,
-                        nwmw$cornertype,
+                        internal,
+                        section,
                         year ,
-                        nwmw$twnrng,
+                        trees,
                         stringsAsFactors = FALSE)
 
 colnames(final.data) <- c('PointX','PointY', 'Township',"state",
                           paste('diam',    1:4, sep =''),
                           paste('dist',    1:4, sep = ''), 
                           paste('species', 1:4, sep = ''),
-                          paste('az',      1:4, sep = ''), 'corner',"cornertype",'surveyyear')
+                          paste('az',      1:4, sep = ''), 'corner',"sectioncorner",'surveyyear', 'point')
 
-# charlie designated all the NA azimuths as '0', and true 0 azimuths == 360, so get rid of the 0 values here:
+
 final.data$az1[final.data$az1 <= 0 ] <- NA
 final.data$az2[final.data$az2 <= 0] <- NA
 final.data$az3[final.data$az3 <= 0] <- NA
 final.data$az4[final.data$az4 <= 0] <- NA
 
-
+summary(final.data)
 final.data <- final.data[!is.na(final.data$PointX),]
-# kill ths cells that are not == Extsec or ==Intsec
-
-final.data <- final.data[final.data$corner %in% c("Extsec", "Intsec"),]
-
-# now kill missing cells:
-
-# there are a few strange points with erroneous X or Y values. Get rid of them here:
-final.data <- final.data[ !final.data$PointX < 1000, ]
-final.data <- final.data[ !final.data$PointY < 1000, ]
-
-
-#write data to a csv:
-write.csv(final.data, "data/lower_mi_final_data.csv")
-#note there are still many NA values in the dataset--need to remove these!
-
-used.data <- final.data
                        
-# --------------------generate correction factors for southern mi------------------------------:
-# read in the correction factors provided by Charlie Cogbill:
-# correction factors for southern MI are based on the spatial location of the survey point + the corner type
-corr.vals <- read.csv('data/charlie_corrections_full_midwest.csv')
-correction <- data.frame(kappa = rep(NA, length(used.data)),
-                         theta = rep(NA, length(used.data)),
-                         zeta  = rep(NA, length(used.data)),
-                         phi   = rep(NA, length(used.data)))
-
-species2table <- data.frame(species1 = final.data$species1,
-                            species2 = final.data$species2,
-                            species3 = final.data$species3,
-                            species4 = final.data$species4)
-plot.trees <- rowSums(!(species2table == 'Water' | species2table == 'No tree'), na.rm = TRUE)
-
-point.no <- as.character(final.data$corner)
-
-#  So there are a set of classes here, we can match them all up:
-
-internal <- ifelse(!point.no %in% "Extsec", 'internal', 'external')
-trees    <- ifelse(plot.trees == 2, 'P', '2nQ')
-section  <- ifelse(final.data$cornertype %in% "section", 'section', 'quarter-section')
-state <- final.data$state
-
-
-corr.year     <- as.character(final.data$year)
-corr.year[state == 'MI' & final.data$Township %like% "W"] <- 'SW'
-corr.year[state == 'MI' & final.data$Township %like% "E"] <- 'SE'
-
-match.vec <- apply(corr.vals[,c("Pair", "year", "corner", "sectioncorner", "point")], 1, paste, collapse = '')
-to.match <- apply(data.frame(state, corr.year, internal, section,trees, stringsAsFactors = FALSE), 1, paste, collapse = '')
-
-correction <- corr.vals[match(to.match, match.vec),]
-
-
-write.csv(correction, 'data/MI_correction_factors.csv')
+#write to a csv:
+write.csv(final.data, "data/lower_mi_final_data.csv")
 
 
                        
@@ -1002,31 +946,133 @@ colnames(uppermidwest.coords) <- c('Point', 'Township', 'Range',
 
 write.csv(uppermidwest.coords, 'data/output/uppermidwest.coords_v1.csv', row.names = FALSE)
 
+
                        
-#-----------------------Merge all data and correction factors from UMW, IL, IN, SO MI------------------------------------------------
+# kh: need to get the correction factors from UMW:
+                       
+                       
+model.proj <- '+init=epsg:3175'
+#  We use two different projection systems here.  This is the test to create the
+#  base resolution.
+if (model.proj == '+init=epsg:4326') {
+  #  lat/long
+  base.rast <- raster(xmn = -98.6, xmx = -66.1, ncols = 391,
+                      ymn = 36.5,  ymx = 49.75, nrows = 160,
+                      crs = '+init=epsg:4326')
+  numbered.rast <- setValues(base.rast, 1:ncell(base.rast))
+}
 
-final.data <- read.csv(paste0("outputs/ndilin_pls_for_density_v",version,".csv"), stringsAsFactors = FALSE)
-# corrections for stem density:
-correction.factor <- read.csv("data//correction_factors.csv", header = TRUE)
-colnames(correction.factor) <- c("X","Pair","regions","year","corner" ,      
-                                "sectioncorner", "point" ,"Qdrt.model","kappa","theta" ,       
-                                  "zeta","phi")
-final.data <- final.data[,1:23]
+if (model.proj == '+init=epsg:3175') {
+  base.rast <- raster(xmn = -71000, xmx = 2297000, ncols = 296,
+                      ymn = 58000,  ymx = 1498000, nrows = 180,
+                      crs = '+init=epsg:3175')
+  numbered.rast <- setValues(base.rast, 1:ncell(base.rast))
+}
 
-# read in final data from michigan
-final.data.mi <- read.csv(paste0("data/lower_mi_final_data.csv"), stringsAsFactors = FALSE)
-final.data.mi <- final.data.mi[!names(final.data.mi) %in% c("cornertype", "NA.")]
+if (model.proj == '+init=epsg:3175') {
+  # These are narrower boundaries than the base raster for reasons associated with
+  # the broader PalEON project.
+  xylimits <- c(-100000, 1050000, 600000, 1600000)
+}
+if (model.proj == '+init=epsg:4326') {
+  xylimits <- c(-98, -83, 42, 50)
+}
 
-# corrections for stem density:
-correction.factor.mi <- read.csv("data//MI_correction_factors.csv", header = TRUE)
 
 
-# read in final data from UMW 
-# final.data.umw <- 
-# corrections.umw <- 
+used.data <- read.csv('data/output/uppermidwest.coords_v1.csv')
 
-# add the lower MI data below the INIL data: 
+                       coordinates(used.data ) <- ~lon + lat
+if (is.na(proj4string(used.data))) {
+   #Just in case there happens to be no projection information associated with the data.
+  proj4string(used.data) <- CRS('+proj=longlat +ellps=WGS84')
+}
 
-final.data <- rbind(final.data, final.data.mi, final.data.uwm)
-correction.factor <- rbind(correction.factor, correction.factor.mi, correction.factor.umw)
+# converting to great lakes albers proj. and saving for jody
+used.data.alb <- data.frame(spTransform(used.data, CRSobj = CRS("+init=epsg:3175")))
+
+
+
+# need to rearrange data to match southern mi and in/il data:
+
+colnames(used.data.alb)<- c("Point",      "Township" ,  "Range",      "diam1" ,     "diam2"  ,    "diam3" ,     "diam4",     
+"dist1"     , "dist2",      "dist3"  ,    "dist4",      "species1",   "species2",   "species3",  
+ "species4",   "az1"  ,      "az2"  ,      "az3"  ,      "az4",        "surveyyear",       "X",         
+ "X.1"    ,    "optional",   "PointX"    ,    "PointY"   ,     "optional.1")
+
+used.data.alb$state <- ifelse(substr(used.data@data$Township, 1, 2) == 'wi', 'Wisconsin',
+                          ifelse(substr(used.data@data$Township, 1, 2) == 'mi', 'Michigan', 'Minnesota'))
+
+
+
+
+
+
+
+#########################################################################
+#  Clean the tree data:
+
+diams <- used.data.alb[,c("diam1", "diam2", "diam3", "diam4")]
+angles <- used.data.alb[,c("az1", "az2", "az3", "az4")]
+dists <- floor(used.data.alb[,c("dist1", "dist2", "dist3", "dist4")])
+species <- apply(used.data.alb[,c("species1", "species2", "species3", "species4")], 2, as.character)
+species[is.na(species)] <- 'No tree'
+
+#  Points within a township are either sections or quartersections.  This
+#  is the list of points that are sections.  All others are quarter-sections.
+sections <- c(2, 5, 8, 11, 14, 18, 21, 24, 27, 30,
+              34, 37, 40, 43, 46, 50, 53, 56, 59, 62,
+              66, 70, 74, 78, 82,
+              87, 89, 91, 93, 95, 98, 100, 102, 104, 106, 108,
+              109, 111, 113, 115, 117, 119, 122, 123, 124, 125, 126)
+
+#  These are the points on the outside of each township.
+external <- c(109:120, 97:108, 87, 89, 91, 93, 95, 122:126)
+
+#  These correction values are derived empirically and are described in the supplementary material.
+#  One issue right now is the lack of an empirical theta value.
+
+#corr.vals <- read.csv('data/charlie_corrections_full_midwest_mi_all.csv')
+
+correction <- data.frame(kappa = rep(NA, length(used.data.alb)),
+                         theta = rep(NA, length(used.data.alb)),
+                         zeta  = rep(NA, length(used.data.alb)),
+                         phi   = rep(NA, length(used.data.alb)))
+
+plot.trees <- rowSums(!(species == 'Water' | species == 'NonTree'), na.rm = TRUE)
+
+point.no <- as.numeric(as.character(used.data.alb$Point))
+
+#  So there are a set of classes here, we can match them all up:
+
+internal <- ifelse(!point.no %in% external, 'internal', 'external')
+trees    <- ifelse(plot.trees == 2, 'P', '2NQ')
+cornersection  <- ifelse(point.no %in% sections, 'section', 'quartersection')
+#corner <- ifelse(point.no %in% sections, 'section' & point.no %in% "external" , "Extsec","Intsec")
+state    <- ifelse(substr(used.data.alb$Township, 1, 2) == 'wi', 'Wisconsin',
+                   ifelse(substr(used.data.alb$Township, 1, 2) == 'mi', 'Michigan', 'Minnesota'))
+
+used.data.alb$corner <- internal
+used.data.alb$sectioncorner <- cornersection
+used.data.alb$point <- trees
+
+corr.year     <- as.character(used.data.alb$year)
+corr.year[state == 'Michigan' ] <- "allN"
+corr.year[state == 'Wisconsin' & corr.year %in% c('1832-1834', '1834-1846')] <- 1845
+corr.year[state == 'Wisconsin' & !(corr.year %in% c('1832-1834', '1834-1846'))] <- 1907
+corr.year[state == 'Minnesota' & (corr.year %in% (as.character(1847:1855)))] <- 1855
+corr.year[state == 'Minnesota' & !(corr.year %in% (as.character(1847:1855)))] <- 1907
+used.data.alb$surveyyear<- corr.year
+
+used.data.alb <- used.data.alb[,c( "PointX", "PointY", "Township","state", "diam1", "diam2", "diam3","diam4","dist1",
+                 "dist2", "dist3", "dist4" ,"species1", "species2", "species3", "species4", "az1", "az2", 
+                 "az3", "az4", "corner", "sectioncorner","surveyyear", "point")]
+
+
+
+
+# write as csv:
+write.csv(used.data.alb, "data/outputs/Point_Data_From_Goringetal16_used_data_alb.csv", row.names = FALSE)
+
+                       
 
