@@ -978,9 +978,9 @@ proj4string(final.data) <- proj4string(nwmw)
 final.data <- spTransform(final.data, CRS('+proj=longlat +init=EPSG:3175'))
 
 # now kill missing cells:
-#final.data <- final.data[!final.data$species1 %in% c('Water', 'Missing'),] 
-#final.data <- final.data[!final.data$species2 %in% c('Water', 'Missing'),]
-#when Jody ran this all the data disappeared...
+final.data <- final.data[!final.data$level3a_1 %in% c('Water', 'Missing'),] 
+final.data <- final.data[!final.data$level3a_2 %in% c('Water', 'Missing'),]
+
 
 
 
