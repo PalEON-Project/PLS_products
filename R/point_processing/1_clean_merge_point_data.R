@@ -653,8 +653,7 @@ mich$pnt <- as.numeric((substr(as.character(mich$RECNUM_C), 9,11)))
 names(minn)[c(8, 10:25)] <- names(wisc)[c(5, 13:28)]
 names(mich)[c(36, 13:28)] <- names(wisc)[c(5, 13:28)]
 
-#  This step throws up four warnings, the warnings seem to come from 
-#  the distance fields, which are stored as a factor for some reason.
+
 minn$DIST1 <- as.numeric(levels(minn$DIST1)[minn$DIST1])
 minn$DIST2 <- as.numeric(levels(minn$DIST2)[minn$DIST2])
 minn$DIST3 <- as.numeric(levels(minn$DIST3)[minn$DIST3])
@@ -699,7 +698,8 @@ rng <- c(as.character(minn$RNG),
          as.character(mich$rng))
 
 #  The merged dataset is called nwmw, Minnesota comes first, then Wisconsin.
-nwmw <- rbind(minn[,c(8, 10:25)], wisc[,c(5, 13:28)], mich[,c(36, 13:28)]) #six invalid factor level warnings come up
+#  Six invalid factor level warnings come up
+nwmw <- rbind(minn[,c(8, 10:25)], wisc[,c(5, 13:28)], mich[,c(36, 13:28)]) 
 
 nwmw$twp <- twp
 nwmw$rng <- rng
@@ -713,6 +713,9 @@ nwmw@data [ nwmw@data == '99999'] <- NA
 nwmw@data [ nwmw@data == '999999'] <- NA
 nwmw@data [ nwmw@data == '6666'] <- NA
 nwmw@data [ nwmw@data == '999'] <- NA
+nwmw$DIAM1[is.na(nwmw$DIAM1)] <- 0
+nwmw$DIAM2[is.na(nwmw$DIAM2)] <- 0
+
 
 # There is some cleaning to do.  A bit frustrating.  We can't confirm the diameters of
 #  a number of points, although we hope to at some point in the future:
