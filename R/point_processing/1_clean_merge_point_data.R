@@ -713,8 +713,8 @@ nwmw@data [ nwmw@data == '99999'] <- NA
 nwmw@data [ nwmw@data == '999999'] <- NA
 nwmw@data [ nwmw@data == '6666'] <- NA
 nwmw@data [ nwmw@data == '999'] <- NA
-nwmw$DIAM1[is.na(nwmw$DIAM1)] <- 0
-nwmw$DIAM2[is.na(nwmw$DIAM2)] <- 0
+nwmw$DIAM1[is.na(nwmw$DIAM1)] <- 0 #code added by JP to try to deal with errors coming from line 726
+nwmw$DIAM2[is.na(nwmw$DIAM2)] <- 0 #code added by JP to try to deal with errors coming from line 726
 
 
 # There is some cleaning to do.  A bit frustrating.  We can't confirm the diameters of
@@ -939,19 +939,22 @@ writeOGR(final.data,
                        
                        
 #write the data as a with the data and the coords
-uppermidwest.coords = cbind(final.data@data, final.data@coords)
-colnames(uppermidwest.coords) <- c('Point', 'Township', 'Range',
-                          paste('diam',    1:4, sep =''),
-                          paste('dist',    1:4, sep = ''), 
-                          paste('level1_',  1:4, sep = ''),
-                          paste('level3a_', 1:4, sep = ''),
-                          paste('az',      1:4, sep = ''), 'year', 'x','y')
+#Jody included this code to check the data
+#uppermidwest.coords = cbind(final.data@data, final.data@coords)
+#colnames(uppermidwest.coords) <- c('Point', 'Township', 'Range',
+                          #paste('diam',    1:4, sep =''),
+                          #paste('dist',    1:4, sep = ''), 
+                          #paste('level1_',  1:4, sep = ''),
+                          #paste('level3a_', 1:4, sep = ''),
+                          #paste('az',      1:4, sep = ''), 'year', 'x','y')
 
-write.csv(uppermidwest.coords, 'data/output/uppermidwest.coords_v1.csv', row.names = FALSE)
+#write.csv(uppermidwest.coords, 'data/output/uppermidwest.coords_v1.csv', row.names = FALSE)
 
 
                        
 # kh: need to get the correction factors from UMW:
+# KH included the UMW correction factors in the correction factors file (see config.R), 
+# Do we still need to include using the correction factors here? JP thinks it happens in 2_estimate_point_density.R
                        
                        
 model.proj <- '+init=epsg:3175'
