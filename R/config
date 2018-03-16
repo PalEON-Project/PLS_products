@@ -7,7 +7,12 @@ code_dir=""
 pecan_base_logger_commit="3d6cbba"
 pecan_modules_allometry_commit="7064209"
 
-upper_midwest_file="umw_pls_pointdata_v1.0.csv"
+upper_midwest_file="umw_wiki.zip"
+## subdirectory names extracted from the above zip
+minnesota_dir="minn"
+wisconsin_dir="wisc"
+upper_michigan_dir="mich"
+
 southern_michigan_file="southernmi_projected_v1.2.csv"
 indiana_file="ndinpls_v1.7.csv"
 illinois_file="ndilpls_v1.8-2.csv"
