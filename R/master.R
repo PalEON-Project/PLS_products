@@ -52,5 +52,5 @@ if(code_dir == "")
 code_files <- list.files(code_dir, full.names = TRUE)
 sapply(code_files, source)
 
-
-
+# TMP: for seeing all cols instead of tibble
+adf <- as.data.frame

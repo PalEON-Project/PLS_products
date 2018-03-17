@@ -1,8 +1,13 @@
-## to be based on KAH 01a_clean_merge_IN_IL.r 
 ## first step is to clean all the data for Southern MI, Uppermidwest, and Indiana + Illinois separately, get correction factors for all the data, then join together
 ## will work on combining the all the data before estimating correction factors, to make the correction factor generation more intuitive
 ## merge point data from UMW, IL, IN, SO MI
 
+## based on KAH 01a_clean_merge_IN_IL.r and Simon's [Jody/Kelly, what is file name from which this code was obtained]
+
+library(readr)
+library(dplyr)
+
+## all needed?
 library(sp)
 library(spdep)
 library(rgdal)
@@ -12,210 +17,78 @@ library(Rcpp)
 
 
 # ----------------------------------DATA CLEANING: IN + IL --------------------------------------------------
-#---------------------read in data and clean up the column names------------------------
-version <- "1.7-5" # version using 1.8 IL data and 1.7 IN data
 
-# Read in the data
-ind <- read.csv("data/ndinpls_v1.7.csv", stringsAsFactors = FALSE) # version 1.6-1 
+ind <- read_csv(file.path(raw_data_dir, indiana_file), guess_max = 100000)
+il <- read_csv(file.path(raw_data_dir, illinois_file), guess_max = 100000)
 
+if(sum(is.na(ind$L3_tree1)) || sum(is.na(il$L3_tree1)))
+    cat("Missing values in taxon for first tree in IN or IL.\n")
 
-# Read in the il data on version v1.8
-il <- read.csv("data/ndilpls_v1.8.csv", stringsAsFactors = FALSE) # version 1.6
+if(sum(is.na(ind$x)) || sum(is.na(ind$y) || sum(is.na(il$x)) || sum(is.na(il$y))))
+    cat("Missing locations for points in IN or IL.\n")
 
+if(sum(ind$L3_tree2 == "No data", na.rm = TRUE) || sum(il$L3_tree2 == "No data", na.rm = TRUE))
+    cat("'No data' found for second tree in IN or IL; this case not handled by the code.\n")
 
+## TODO: do the L1->L3 conversions in this file
 
-#-------------------------Data cleaning--------------------------------------------------
+ind <- ind %>% filter(L3_tree1 != 'No data')
+il <- il %>% filter(L3_tree1 != 'No data')
 
-# we can't use datapoints listed as no data, or those that are missing data in key variables
-# converting all No data trees to NA's :
-ind[ind$L3_tree1 %in% 'No data',] <- NA
-ind[ind$L3_tree2 %in% 'No data',] <- NA
-
-il[il$L3_tree1 %in% 'No data',] <- NA
-il[il$L3_tree2 %in% 'No data',] <- NA
-
-
-# remove all instances of no data for the l3tree 1
-ind <- ind[!is.na(ind$L3_tree1),]
-il <- il[!is.na(il$L3_tree1),]
-
-
-#  IN distances are in chains
-ind$DIST1 <- as.numeric(ind$chainstree)
-ind$DIST2 <- as.numeric(ind$chainstree2)
-ind$DIST3 <- as.numeric(ind$chainstree3)
-ind$DIST4 <- as.numeric(ind$chainstree4)
-
-# Il distances in chains to tree
-il$DIST1 <- as.numeric(il$chainstree)
-il$DIST2 <- as.numeric(il$chainstree2)
-il$DIST3 <- as.numeric(il$chainstree3)
-il$DIST4 <- as.numeric(il$chainstree4)
+## TODO: probably exclude 'Water' and 'Wet' points (where L3_tree1 is 'Water' or 'Wet') at this stage; we don't want to calculate density or biomass for these points so don't think there is a reason to keep them.
 
 # make sure township names have the state in front of them:
-ind$twp <- c(paste('IN', as.character(ind$TRP)))
+ind <- ind %>% mutate(twp = paste0('IN_', TRP)) %>% select(-TRP)
+il <- il %>% mutate(twp = paste0('IL_', TRP)) %>% select(-TRP)
 
-il$twp_il <- c(paste('IL', as.character(il$TRP)))
+if(any(ind$state != 'IN') || any(il$state != 'IL'))
+    cat("State field missing from one or more rows in IN or IL.\n")
 
+ind <- ind %>% rename(chainstree = dist1, chainstree2 = dist2, chainstree3 = dist3, chainstree4 = dist4,
+                      diameter = diameter1, bearing = bearing1, degrees = degrees1)
+il <- il %>% rename(chainstree = dist1, chainstree2 = dist2, chainstree3 = dist3, chainstree4 = dist4,
+                    diameter = diamger1, bearing = bearing1, degrees = degrees1)
 
-## for the getAngle function to work later, we need a 4 character Azimuth from the tree bearings and bearing direction
-ind$bearings1 <- c(paste0(as.character(ind$bearing),  as.character(ind$bearingdir)))
-ind$bearings2 <- c(paste0(as.character(ind$bearing2),  as.character(ind$bearingdir2)))
-ind$bearings3 <- c(paste0(as.character(ind$bearing3),  as.character(ind$bearingdir3)))
-ind$bearings4 <- c(paste0(as.character(ind$bearing4),  as.character(ind$bearingdir4)))
+## why are we doing this?
+il$dist4 <- NA
 
-il$bearings1 <- c(paste0(as.character(il$bearing),  as.character(il$bearingdir)))
-il$bearings2 <- c(paste0(as.character(il$bearing2),  as.character(il$bearingdir2)))
-il$bearings3 <- c(paste0(as.character(il$bearing3),  as.character(il$bearingdir3)))
-il$bearings4 <- c(paste0(as.character(il$bearing4),  as.character(il$bearingdir4)))
+columns_to_keep <- c("x","y","twp","year","L3_tree1", "L3_tree2", "L3_tree3", "L3_tree4", "bearing1", 
+  "bearing2", "bearing3", "bearing4","degrees1", "degrees2", "degrees3","degrees4", "dist1", "dist2", "dist3", "dist4", "diameter1", "diameter2", "diameter3", "diameter4", "cornerid", "typecorner","state")
 
-il$state <-'IL'
-ind$state <-'IN'
+ind <- ind[keeps] 
+il <- il[keeps]
 
-#create and rename columns to match up columns from indiana and illinois
-il$twp <- il$TRP
+inil <- rbind(ind, il)
 
-il$DIST4 <- NA
+## presumably these codes are NAs
+inil[inil == 88888] <- NA
+inil[inil == 99999] <- NA
 
-keeps <- c("x","y","twp","year","L3_tree1", "L3_tree2", "L3_tree3", "L3_tree4", "bearing", 
-  "bearing2", "bearing3", "bearing4","degrees", "degrees2", "degrees3","degrees4", "DIST1", "DIST2", "DIST3", "DIST4",
-  "diameter", "diameter2", "diameter3", "diameter4", "cornerid", "typecorner","state")
-
-ind.data <- ind[keeps] 
-il.data <- il[keeps]
-
-#  The merged dataset is called inil
-inil <- rbind(data.frame(ind.data), data.frame(il.data))
-inil <-data.frame(inil, stringsAsFactors = FALSE)
-
-
-#  There are a set of 99999 values for distances which I assume are meant to be NAs. 
-
-inil[inil == 88888 ] <- NA
-inil[inil == 99999 ] <- NA
-  
-inil$bearing[inil$bearing == ''] <- NA     
+inil$bearing1[inil$bearing1 == ''] <- NA     
 inil$bearing2[inil$bearing2 == ''] <- NA
 inil$bearing3[inil$bearing3 == ''] <- NA     
 inil$bearing4[inil$bearing4 == ''] <- NA
-inil$year[inil$year == 99999] <- NA # our correction factors are by year, so we need the year
+inil$year[inil$year == 9999] <- NA # our correction factors are by year, so we need the year
+
+notree <- inil %>% filter(L3_tree1 %in% c('No tree', 'Water', 'Wet'))
+num_notree <- nrow(notree)
+if(sum(is.na(inil$dist1) & is.na(inil$dist2) & is.na(inil$dist3) &
+       is.na(inil$diameter1) & is.na(inil$diameter2) & is.na(inil$diameter3)) != num_notree)
+    cat("Found non-NA distances or diameters for no tree, water, wet points in IN or IL.\n")
 
 
-# There are some points in Illinois where distances are listed as 0, but they are "Water" or "wet" or "No tree"
-# Here we change these distnces to 'NA'
+## CJP here as of 2018-03-17
 
-summary(inil[inil$L3_tree1 %in% c('No tree', 'Water', 'Wet') | inil$L3_tree2 %in% c('No tree', 'Water', 'Wet'),])
-zero.trees <-(inil$L3_tree1 %in% c('No tree', 'Water', 'Wet') | inil$L3_tree2 %in% c('No tree', 'Water', 'Wet'))
+## create a survey year variable that coresponds to survey year correction factors
 
-inil[zero.trees, c("DIST1", "DIST2", "DIST3")] <- NA
-inil[zero.trees, c('diameter', 'diameter2', "diameter3")] <- NA
-
-# now kill missing cells:
-inil <- inil[!is.na(inil$y),]
-inil <- inil[!is.na(inil$x),]
-
-# create a survey year variable that coresponds to survey year correction factors
+## QUESTION: what is 'ALL' doing - NAs are not converted to ALL I don't think
 year <- ifelse(inil$year >= 1825, '1825+',
                     ifelse(inil$year < 1825, '< 1825',"ALL"))
 
-inil$surveyyear <- year
+inil$azimuths <- get_angle(inil[ , paste0('bearing', 1:4)],
+                           inil[ , paste0('degrees', 1:4)],
+                           inil[ , paste0('dist', 1:4)])
 
-inil <- data.frame(inil)
-
-# ----------------------------reorganizing INIL data -------------------------------------
-
-# create data frames for diameters, distances, bearings and degrees
-#diameters convertedto cm
-diams <-  cbind(as.numeric(inil$diameter), 
-                as.numeric(inil$diameter2), 
-                as.numeric(inil$diameter3), 
-                as.numeric(inil$diameter4))
-
-#distances converted to meters
-dists <-  cbind(as.numeric(inil$DIST1), 
-                as.numeric(inil$DIST2), 
-                as.numeric(inil$DIST3), 
-                as.numeric(inil$DIST4))
-
-bearings <- cbind(as.character(inil$bearing), 
-                  as.character(inil$bearing2),
-                  as.character(inil$bearing3),
-                  as.character(inil$bearing4))
-
-degrees <- cbind(as.numeric(inil$degrees), 
-                 as.numeric(inil$degrees2),
-                 as.numeric(inil$degrees3),
-                 as.numeric(inil$degrees4))
-
-
-
-#--------------------geting azimuths from distance and direction-----------------
-
-#  Use Simon's getAngle function to find the azimuth 
-#  getAngle converts the four character azimuth (e.g. N43E) to a numeric, 360
-#  degree angle.  It also has to deal with a number of special cases.
-#  The code for getAngles is a bit scuzzy, but it leaves only 231 azimuths 
-#  untranslated, this is a manageable number.
-get_angle_IN <- function(bearings, degrees, dists) {
-  #  This function is used in 'step.one.clean.bind_v1.1.R', it converts the
-  #  text azimuth strings to numeric, 360 degree values.
-  #  This is the vector that will store the values.
-  angl <- degrees
-  
-  #  This is a special case, generally where the tree is plot center.
-  angl[degrees == '0' & dists =='0'] <- 0
-  
-  #  This is a short function that takes cares of NAs in boolean functions, it's
-  #  just a simple wrapper for the boolean function that sets the NA values in
-  #  the vector to FALSE.
-  fx.na <- function(x) { x[ is.na( x ) ] <- FALSE; x }
-  
-  #  Given the text azimuths in the dataset, return the quadrant values.
-  #  This gives a boolean index of the quadrant
-  
-  north <- fx.na(bearings == 'NNA'| bearings == 'NAN' | bearings =='N'|bearings =='N99999'|bearings =='N88888')
-  east <- fx.na(bearings == 'NAE' | bearings =="ENA" | bearings =='E'|bearings =='99999E'|bearings =='88888E')
-  south <- fx.na(bearings == 'SNA' | bearings =="NAS"| bearings == 'S'|bearings =='S99999'|bearings =='S88888')
-  west <- fx.na(bearings == 'NAW' | bearings =="WNA" | bearings == 'W'|bearings =='99999W'|bearings =='88888W')
-  #north <- fx.na( regexpr('N', bearings) > 0 )
-  #east  <- fx.na( regexpr('E', bearings) > 0 | bearings == 'EAST')
-  #south <- fx.na( regexpr('S', bearings) > 0 | bearings == 'SOUTH')
-  #west <-  fx.na( regexpr('W', bearings) > 0 | bearings == 'WEST')
-  
-  ne <- fx.na( (north & east) | bearings == 'NE')
-  se <- fx.na( (south & east) | bearings == 'SE')
-  sw <- fx.na( (south & west) | bearings == 'SW')
-  nw <- fx.na( (north & west) | bearings == 'NW') 
-  
-  #  The cell is in a quadrant, regardless of which.
-  quad <- ne | se | sw | nw
-  
-  #  Special case of the trees with a unidirectional direction.
-  uni  <- (!quad) & !(north | south | east | west) 
-  
-  angl[ uni & north ] <- 0
-  angl[ uni & south ] <- 180
-  angl[ uni & east  ] <- 90 
-  angl[ uni & west  ] <- 270
-  
- 
-  ##########
-  
-  #  Another set of special cases:
- 
-  degrees <- apply(degrees, 2, as.numeric)
-  angl[ north ] <- degrees[ north ]
-  angl[ east ] <- 180 - degrees[ east ]
-  angl[ south ] <- 180 + degrees[ south ]
-  angl[ west ] <- 360 - degrees [ west ]
-  
-  return(angl)
-  
-}
-
-
-
-azimuths <- get_angle_IN(bearings, degrees, dists)
 
 #####  Cleaning Trees:  This is already done in the CSV file, but we should check this with jody's update teo the paleon conversion file
 #      Changing tree codes to lumped names:
@@ -386,6 +259,17 @@ colnames(final.data) <- c('PointX','PointY', 'Township','state',
                           
 write.csv(full.final, paste0("outputs/ndilin_pls_for_density_v",version,".csv"))
 
+
+## for the getAngle function to work later, we need a 4 character Azimuth from the tree bearings and bearing direction
+ind$bearings1 <- c(paste0(as.character(ind$bearing),  as.character(ind$bearingdir)))
+ind$bearings2 <- c(paste0(as.character(ind$bearing2),  as.character(ind$bearingdir2)))
+ind$bearings3 <- c(paste0(as.character(ind$bearing3),  as.character(ind$bearingdir3)))
+ind$bearings4 <- c(paste0(as.character(ind$bearing4),  as.character(ind$bearingdir4)))
+
+il$bearings1 <- c(paste0(as.character(il$bearing),  as.character(il$bearingdir)))
+il$bearings2 <- c(paste0(as.character(il$bearing2),  as.character(il$bearingdir2)))
+il$bearings3 <- c(paste0(as.character(il$bearing3),  as.character(il$bearingdir3)))
+il$bearings4 <- c(paste0(as.character(il$bearing4),  as.character(il$bearingdir4)))
 
 # ----------------------------------DATA CLEANING: SOUTHERN MI --------------------------------------------------
 
