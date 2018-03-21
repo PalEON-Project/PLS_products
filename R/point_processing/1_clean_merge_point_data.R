@@ -713,17 +713,17 @@ nwmw@data [ nwmw@data == '99999'] <- NA
 nwmw@data [ nwmw@data == '999999'] <- NA
 nwmw@data [ nwmw@data == '6666'] <- NA
 nwmw@data [ nwmw@data == '999'] <- NA
-nwmw$DIAM1[is.na(nwmw$DIAM1)] <- 0 #code added by JP to try to deal with errors coming from line 726
-nwmw$DIAM2[is.na(nwmw$DIAM2)] <- 0 #code added by JP to try to deal with errors coming from line 726
-
+nwmw$DIAM1 = as.numeric(as.character(nwmw$DIAM1)) #JP/KH added this because DIAM1 and DIAM2 were showing up as factors
+nwmw$DIAM2 = as.numeric(as.character(nwmw$DIAM2)) #JP/KH added this because DIAM1 and DIAM2 were showing up as factors
 
 # There is some cleaning to do.  A bit frustrating.  We can't confirm the diameters of
 #  a number of points, although we hope to at some point in the future:
 #  No stem density removals, none of the plots look like they have 'weird' points.
 #  Basal area removals:
-nwmw@data[which(as.numeric(nwmw$DIAM1) >100),] <- rep(NA, ncol(nwmw))  #  removes 19 trees with reported diameters over 250cm.
-nwmw@data[which(as.numeric(nwmw$DIAM2) >100),] <- rep(NA, ncol(nwmw))  #  removes an additional 14 trees.
-nwmw@data[(is.na(nwmw$SP1) & nwmw$DIAM1>0) | (is.na(nwmw$SP2) & nwmw$DIAM2>0),] <- rep(NA, ncol(nwmw))  #  removes four records with no identified trees, but identified diameters
+nwmw@data[which(as.numeric(nwmw$DIAM1) >100),] <- rep(NA, ncol(nwmw))  # JP/KH get 18 trees removed. SG originally said: removes 19 trees with reported diameters over 250cm. 
+nwmw@data[which(as.numeric(nwmw$DIAM2) >100),] <- rep(NA, ncol(nwmw))  # JP/KH get 18 trees removed. SG originally said: removes an additional 14 trees.
+nwmw@data[which((is.na(nwmw$SP1) & nwmw$DIAM1>0) | (is.na(nwmw$SP2) & nwmw$DIAM2>0)),] <- rep(NA, ncol(nwmw))  #  removes four records with no identified trees, but identified diameters
+
 
 diams <-  cbind(as.numeric(nwmw$DIAM1), 
                 as.numeric(nwmw$DIAM2), 
@@ -771,9 +771,11 @@ species <- t(apply(species.old, 1,
 #  There are a set of dead taxa (DA, DB & cetera) that we exclude.  Only AM is
 #  unknown at this point.  This excludes 213 trees.
 species[species %in% ''] <- 'No tree'
+species.old[species.old %in% ''] <- 'No tree'
 
 #  Now we assign species that don't fit to the 'No tree' category.
 species[is.na(species)] <- 'No tree'
+species.old[is.na(species.old)] <- 'No tree'
 
 #  Here Simon did a check comparing species.old against species.
 #test.table <- table(unlist(species.old), unlist(species), useNA='always')
@@ -822,6 +824,7 @@ usable.data <- data.frame(diams,
                           dists,
                           species.num,
                           azimuths,
+                          species.old,
                           stringsAsFactors = FALSE)
 
 
@@ -832,13 +835,14 @@ rank.fun <- function(x){
   
   ranker <- order(test.dists, na.last=TRUE)
   
-  return(x[c(ranker, ranker+4, ranker + 8, ranker + 12)])
+  return(x[c(ranker, ranker+4, ranker + 8, ranker + 12, ranker + 16)])
 }
 
 colnames(usable.data) <- c(paste('diam', 1:4, sep =''),
                            paste('dist', 1:4, sep = ''), 
                            paste('species', 1:4, sep = ''),
-                           paste('az', 1:4, sep = ''))
+                           paste('az', 1:4, sep = ''),
+                           paste('species.old',1:4, sep = ''))
                            
 
 ranked.data <- matrix(nrow = nrow(usable.data),
@@ -855,10 +859,10 @@ for(i in 1:nrow(ranked.data)){
 
 #ranked.data <- t(apply(usable.data, 1, rank.fun)) # need to drop 'id'
 
-species <- data.frame(species1 = sp.levels[ranked.data[, 9]],
-                      species2 = sp.levels[ranked.data[,10]],
-                      species3 = sp.levels[ranked.data[,11]],
-                      species4 = sp.levels[ranked.data[,12]])
+species <- data.frame(species1 = sp.levels[as.numeric(ranked.data[, 9])], #JP/KH added the as.numeric because the ranked.data were originally characters and weren't pulling in the level3 taxa names
+                      species2 = sp.levels[as.numeric(ranked.data[,10])], #JP/KH added the as.numeric because the ranked.data were originally characters and weren't pulling in the level3 taxa names
+                      species3 = sp.levels[as.numeric(ranked.data[,11])], #JP/KH added the as.numeric because the ranked.data were originally characters and weren't pulling in the level3 taxa names
+                      species4 = sp.levels[as.numeric(ranked.data[,12])]) #JP/KH added the as.numeric because the ranked.data were originally characters and weren't pulling in the level3 taxa names
 
 #  We need to bin the year information so that we can use it to calculate
 #  appropriate Cottam Correction factors.  The survey instructions for the PLS
@@ -906,7 +910,7 @@ final.data <- data.frame(nwmw$POINT,
                          nwmw$twp,
                          nwmw$rng,
                          ranked.data[,1:8],
-                         species.old, 
+                         ranked.data[,17:20], 
                          species,
                          ranked.data[,13:16],
                          survey.year,
@@ -929,8 +933,6 @@ final.data <- final.data[!final.data$level3a_1 %in% c('Water', 'Missing'),]
 final.data <- final.data[!final.data$level3a_2 %in% c('Water', 'Missing'),]
 
 
-
-
 #  Write the data out as a shapefile.
 writeOGR(final.data, 
          'data/output/uppermidwest_v1.shp', 
@@ -940,23 +942,19 @@ writeOGR(final.data,
                        
 #write the data as a with the data and the coords
 #Jody included this code to check the data
-#uppermidwest.coords = cbind(final.data@data, final.data@coords)
-#colnames(uppermidwest.coords) <- c('Point', 'Township', 'Range',
-                          #paste('diam',    1:4, sep =''),
-                          #paste('dist',    1:4, sep = ''), 
-                          #paste('level1_',  1:4, sep = ''),
-                          #paste('level3a_', 1:4, sep = ''),
-                          #paste('az',      1:4, sep = ''), 'year', 'x','y')
+uppermidwest.coords = cbind(final.data@data, final.data@coords)
+colnames(uppermidwest.coords) <- c('Point', 'Township', 'Range',
+                          paste('diam',    1:4, sep =''),
+                          paste('dist',    1:4, sep = ''), 
+                          paste('level1_',  1:4, sep = ''),
+                          paste('level3a_', 1:4, sep = ''),
+                          paste('az',      1:4, sep = ''), 'year', 'x','y')
 
 #write.csv(uppermidwest.coords, 'data/output/uppermidwest.coords_v1.csv', row.names = FALSE)
 
 
-                       
-# kh: need to get the correction factors from UMW:
-# KH included the UMW correction factors in the correction factors file (see config.R), 
-# Do we still need to include using the correction factors here? JP thinks it happens in 2_estimate_point_density.R
-                       
-                       
+                     
+
 model.proj <- '+init=epsg:3175'
 #  We use two different projection systems here.  This is the test to create the
 #  base resolution.
