@@ -6,6 +6,7 @@
 
 library(readr)
 library(dplyr)
+library(fields)
 
 ## all needed?
 library(sp)
@@ -21,98 +22,120 @@ library(Rcpp)
 ind <- read_csv(file.path(raw_data_dir, indiana_file), guess_max = 100000)
 il <- read_csv(file.path(raw_data_dir, illinois_file), guess_max = 100000)
 
-if(sum(is.na(ind$L3_tree1)) || sum(is.na(il$L3_tree1)))
+if(sum(is.na(ind$L1_tree1)) || sum(is.na(il$L1_tree1)))
     cat("Missing values in taxon for first tree in IN or IL.\n")
 
 if(sum(is.na(ind$x)) || sum(is.na(ind$y) || sum(is.na(il$x)) || sum(is.na(il$y))))
     cat("Missing locations for points in IN or IL.\n")
 
-if(sum(ind$L3_tree2 == "No data", na.rm = TRUE) || sum(il$L3_tree2 == "No data", na.rm = TRUE))
+if(sum(ind$L1_tree2 == "No data", na.rm = TRUE) || sum(il$L1_tree2 == "No data", na.rm = TRUE))
     cat("'No data' found for second tree in IN or IL; this case not handled by the code.\n")
 
 ## TODO: do the L1->L3 conversions in this file
 
-ind <- ind %>% filter(L3_tree1 != 'No data')
-il <- il %>% filter(L3_tree1 != 'No data')
+ind <- ind %>% filter(L1_tree1 != 'No data')
+il <- il %>% filter(L1_tree1 != 'No data')
 
 ## TODO: probably exclude 'Water' and 'Wet' points (where L3_tree1 is 'Water' or 'Wet') at this stage; we don't want to calculate density or biomass for these points so don't think there is a reason to keep them.
 
 # make sure township names have the state in front of them:
-ind <- ind %>% mutate(twp = paste0('IN_', TRP)) %>% select(-TRP)
-il <- il %>% mutate(twp = paste0('IL_', TRP)) %>% select(-TRP)
+ind <- ind %>% mutate(twp = paste0('IN_', TRP)) %>% dplyr::select(-TRP)
+il <- il %>% mutate(twp = paste0('IL_', TRP)) %>% dplyr::select(-TRP)
 
 if(any(ind$state != 'IN') || any(il$state != 'IL'))
     cat("State field missing from one or more rows in IN or IL.\n")
 
-ind <- ind %>% rename(chainstree = dist1, chainstree2 = dist2, chainstree3 = dist3, chainstree4 = dist4,
-                      diameter = diameter1, bearing = bearing1, degrees = degrees1)
-il <- il %>% rename(chainstree = dist1, chainstree2 = dist2, chainstree3 = dist3, chainstree4 = dist4,
-                    diameter = diamger1, bearing = bearing1, degrees = degrees1)
+ind <- ind %>% rename(dist1 = chainstree, dist2 = chainstree2, dist3 = chainstree3, dist4 = chainstree4, diameter1 = diameter, bearing1 = bearing, bearingdir1 = bearingdir, degrees1 = degrees)
+il <- il %>% rename(dist1 = chainstree, dist2 = chainstree2, dist3 = chainstree3, dist4 = chainstree4, diameter1 = diameter, bearing1 = bearing, bearingdir1 = bearingdir, degrees1 = degrees)
 
-## why are we doing this?
-il$dist4 <- NA
+ind$bearing1 <- paste0(ind$bearing1, ind$bearingdir1)
+ind$bearing2 <- paste0(ind$bearing2, ind$bearingdir2)
+ind$bearing3 <- paste0(ind$bearing3, ind$bearingdir3)
+ind$bearing4 <- paste0(ind$bearing4, ind$bearingdir4)
+il$bearing1 <- paste0(il$bearing1, il$bearingdir1)
+il$bearing2 <- paste0(il$bearing2, il$bearingdir2)
+il$bearing3 <- paste0(il$bearing3, il$bearingdir3)
+il$bearing4 <- paste0(il$bearing4, il$bearingdir4)
 
-columns_to_keep <- c("x","y","twp","year","L3_tree1", "L3_tree2", "L3_tree3", "L3_tree4", "bearing1", 
-  "bearing2", "bearing3", "bearing4","degrees1", "degrees2", "degrees3","degrees4", "dist1", "dist2", "dist3", "dist4", "diameter1", "diameter2", "diameter3", "diameter4", "cornerid", "typecorner","state")
+columns_to_keep <- c("x","y","twp","year","L1_tree1", "L1_tree2", "L1_tree3", "L1_tree4", "bearing1", 
+  "bearing2", "bearing3", "bearing4", "degrees1", "degrees2", "degrees3","degrees4", "dist1", "dist2", "dist3", "dist4", "diameter1", "diameter2", "diameter3", "diameter4", "cornerid", "typecorner","state")
 
-ind <- ind[keeps] 
-il <- il[keeps]
+ind <- ind[columns_to_keep] 
+il <- il[columns_to_keep]
 
 inil <- rbind(ind, il)
 
-## presumably these codes are NAs
-inil[inil == 88888] <- NA
-inil[inil == 99999] <- NA
+inil <- inil %>% filter(!L1_tree1 %in% c('Water', 'Wet'))
 
-inil$bearing1[inil$bearing1 == ''] <- NA     
-inil$bearing2[inil$bearing2 == ''] <- NA
-inil$bearing3[inil$bearing3 == ''] <- NA     
-inil$bearing4[inil$bearing4 == ''] <- NA
-inil$year[inil$year == 9999] <- NA # our correction factors are by year, so we need the year
+## Don't change 88888/99999 in bearing or taxon columns as they are needed for angle calculations and L1->L3 conversion
 
-notree <- inil %>% filter(L3_tree1 %in% c('No tree', 'Water', 'Wet'))
+convert_to_NA <- function(x, missingCodes = c(88888, 99999)) {
+    x[x %in% missingCodes] <- NA
+    return(x)
+}
+
+cols <- c("degrees1", "degrees2", "degrees3","degrees4",
+          "dist1", "dist2", "dist3", "dist4",
+          "diameter1", "diameter2", "diameter3", "diameter4")
+
+inil[ , cols] <- sapply(inil[ , cols], convert_to_NA)
+
+
+notree <- inil %>% filter(L1_tree1 == 'No tree')
 num_notree <- nrow(notree)
-if(sum(is.na(inil$dist1) & is.na(inil$dist2) & is.na(inil$dist3) &
-       is.na(inil$diameter1) & is.na(inil$diameter2) & is.na(inil$diameter3)) != num_notree)
-    cat("Found non-NA distances or diameters for no tree, water, wet points in IN or IL.\n")
-
-
-## CJP here as of 2018-03-17
+if(sum(is.na(notree$dist1) & is.na(notree$dist2) & is.na(notree$dist3) &
+       is.na(notree$diameter1) & is.na(notree$diameter2) & is.na(notree$diameter3)) != num_notree)
+    cat("Found non-NA distances or diameters for no tree points in IN or IL.\n")
 
 ## create a survey year variable that coresponds to survey year correction factors
 
-## QUESTION: what is 'ALL' doing - NAs are not converted to ALL I don't think
-year <- ifelse(inil$year >= 1825, '1825+',
-                    ifelse(inil$year < 1825, '< 1825',"ALL"))
+## We have some corners in IN & IL that are missing years,
+## which means we have to either discard b/c we dont know which correction factors to use,
+## or impute the surveyyear.
+## JP, KH, & CP detemined that for most of these missing years, it is safe to
+## assume these points were surveyed at a similar time as the points around them.
+## Here we impute the year of these missing points:
+
+## this is a lot faster than using gDistance
+dists <- rdist(inil[inil$year == 9999, c('x', 'y')],
+              inil[inil$year != 9999, c('x', 'y')])
+closest <- apply(dists, 1, which.min)
+
+inil$year[inil$year == 9999] <- inil$year[inil$year != 9999][closest]
+if(sum(is.na(inil$year)) || min(inil$year < 1799) || max(inil$year > 1849))
+    cat("Unexpected missing year or year outside 1799-1849 range")
+
+# create a survey year variable that coresponds to survey year correction factors
+inil <- inil %>% mutate(surveyyear = ifelse(year >= 1825, '1825+', '< 1825'))
+
 
 inil$azimuths <- get_angle(inil[ , paste0('bearing', 1:4)],
                            inil[ , paste0('degrees', 1:4)],
                            inil[ , paste0('dist', 1:4)])
 
+## Converting L1 (survey abbreviation) to L3 (Paleon nomenclature) taxa; currently this overwrites existing L3 but ensuring use of current taxon conversion file; in future L3 will not be in the input files and will solely be created here.
 
-#####  Cleaning Trees:  This is already done in the CSV file, but we should check this with jody's update teo the paleon conversion file
-#      Changing tree codes to lumped names:
-#spec.codes <- read.csv('data/input/relation_tables/fullpaleon_conversion_v0.3-3.csv', stringsAsFactor = FALSE)
-#spec.codes <- subset(spec.codes, Domain %in% 'Upper Midwest')
+spec_codes <- read_csv(file.path(conversions_data_dir, taxa_conversion_file), guess_max = 1000)
+spec_codes <- spec_codes %>%
+    filter(domain %in% c(indiana_conversion_domain, illinois_conversion_domain)) %>%
+    select(level1, level3a) %>%
+    unique()  ## because we can get the same conversion from both IN and IL
 
-#lumped <- data.frame(abbr = as.character(spec.codes$Level.1),
- #                    lump = as.character(spec.codes$Level.3a))
-
-species.old <- data.frame(as.character(inil$L3_tree1), 
-                          as.character(inil$L3_tree2), 
-                          as.character(inil$L3_tree3), 
-                          as.character(inil$L3_tree4), stringsAsFactors = FALSE)
-species <- species.old #since species is already converted
-#species <- t(apply(species.old, 1, 
- #                  function(x) lumped[match(tolower(x), tolower(lumped[,1])), 2]))
+inil <- inil %>% 
+    left_join(spec_codes, by = c('L1_tree1' = 'level1')) %>% rename(L3_tree1 = level3a) %>%
+    left_join(spec_codes, by = c('L1_tree2' = 'level1')) %>% rename(L3_tree2 = level3a) %>%
+    left_join(spec_codes, by = c('L1_tree3' = 'level1')) %>% rename(L3_tree3 = level3a) %>%
+    left_join(spec_codes, by = c('L1_tree4' = 'level1')) %>% rename(L3_tree4 = level3a)
 
 
+## CJP: I don't like this - missing does not mean no tree was found.
+## see if we really need to get rid of the NAs.
 #  Now we assign species that don't fit to the 'No tree' category.
+if(FALSE) {
 species[is.na(species)] <- 'No tree'
+}
 
-#  Here there needs to be a check, comparing species.old against species.
-test.table <- table(unlist(species.old), unlist(species), useNA='always')
-write.csv(test.table, 'data/outputs/clean.bind.test.csv')
+## CJP here 2018-03-23
 
 ######
 #  Some annoying things that need to be done:

@@ -19,6 +19,10 @@ illinois_file="ndilpls_v1.8-2.csv"
 
 taxa_conversion_file="level0_to_level3a_v0.4-7.csv"
 
+indiana_conversion_domain="ND Indiana v1.7"
+illinois_conversion_domain="Illinois_v1.8-2"
+
+
 correction_factors = "charlie_corrections_full_midwest_v1.0.csv"
 
 diameter_cutoff_inches=8
