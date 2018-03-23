@@ -9,6 +9,7 @@ library(rgdal)
 library(raster)
 library(ggplot2)
 library(Rcpp)
+library(rgeos)
 
 
 # ----------------------------------DATA CLEANING: IN + IL --------------------------------------------------
@@ -20,7 +21,7 @@ ind <- read.csv("data/ndinpls_v1.7.csv", stringsAsFactors = FALSE) # version 1.6
 
 
 # Read in the il data on version v1.8
-il <- read.csv("data/ndilpls_v1.8.csv", stringsAsFactors = FALSE) # version 1.6
+il <- read.csv("data/ndilpls_v1.8-2.csv", stringsAsFactors = FALSE) # version 1.6
 
 
 
@@ -77,8 +78,8 @@ il$twp <- il$TRP
 
 il$DIST4 <- NA
 
-keeps <- c("x","y","twp","year","L3_tree1", "L3_tree2", "L3_tree3", "L3_tree4", "bearing", 
-  "bearing2", "bearing3", "bearing4","degrees", "degrees2", "degrees3","degrees4", "DIST1", "DIST2", "DIST3", "DIST4",
+keeps <- c("x","y","twp","year","L3_tree1", "L3_tree2", "L3_tree3", "L3_tree4", "bearings1", 
+  "bearings2", "bearings3", "bearings4","degrees", "degrees2", "degrees3","degrees4", "DIST1", "DIST2", "DIST3", "DIST4",
   "diameter", "diameter2", "diameter3", "diameter4", "cornerid", "typecorner","state")
 
 ind.data <- ind[keeps] 
@@ -86,7 +87,7 @@ il.data <- il[keeps]
 
 #  The merged dataset is called inil
 inil <- rbind(data.frame(ind.data), data.frame(il.data))
-inil <-data.frame(inil, stringsAsFactors = FALSE)
+inil <- data.frame(inil, stringsAsFactors = FALSE)
 
 
 #  There are a set of 99999 values for distances which I assume are meant to be NAs. 
@@ -94,15 +95,20 @@ inil <-data.frame(inil, stringsAsFactors = FALSE)
 inil[inil == 88888 ] <- NA
 inil[inil == 99999 ] <- NA
   
-inil$bearing[inil$bearing == ''] <- NA     
-inil$bearing2[inil$bearing2 == ''] <- NA
-inil$bearing3[inil$bearing3 == ''] <- NA     
-inil$bearing4[inil$bearing4 == ''] <- NA
-inil$year[inil$year == 99999] <- NA # our correction factors are by year, so we need the year
+inil$bearings1[inil$bearings1 == ''] <- NA     
+inil$bearings2[inil$bearings2 == ''] <- NA
+inil$bearings3[inil$bearings3 == ''] <- NA     
+inil$bearings4[inil$bearings4 == ''] <- NA
+
+inil$bearings1[!inil$bearings1 %in% c("SE", "NW", "SW", "NE", "S", "N","E", "W")] <- NA # assign all non directional bearings as NA
+inil$bearings2[!inil$bearings2 %in% c("SE", "NW", "SW", "NE", "S", "N","E", "W")] <- NA # assign all non directional bearings as NA
+inil$bearings3[!inil$bearings3 %in% c("SE", "NW", "SW", "NE", "S", "N","E", "W")] <- NA # assign all non directional bearings as NA
+inil$bearings4[!inil$bearings4 %in% c("SE", "NW", "SW", "NE", "S", "N","E", "W")] <- NA # assign all non directional bearings as NA
+
+#inil$year[inil$year == 99999] <- NA # our correction factors are by year, so we need the year
 
 
-# There are some points in Illinois where distances are listed as 0, but they are "Water" or "wet" or "No tree"
-# Here we change these distnces to 'NA'
+# Assign dist == NA to all INIL points that have no tree, water or wet. In general, the dist and diam should already be == NA, so this is a check 
 
 summary(inil[inil$L3_tree1 %in% c('No tree', 'Water', 'Wet') | inil$L3_tree2 %in% c('No tree', 'Water', 'Wet'),])
 zero.trees <-(inil$L3_tree1 %in% c('No tree', 'Water', 'Wet') | inil$L3_tree2 %in% c('No tree', 'Water', 'Wet'))
@@ -114,9 +120,36 @@ inil[zero.trees, c('diameter', 'diameter2', "diameter3")] <- NA
 inil <- inil[!is.na(inil$y),]
 inil <- inil[!is.na(inil$x),]
 
+# we have some corners in IN & IL that are missing years, which means we have to either discard b/c we dont know which correction factors to use, or impute the surveyyear
+# JP, KH, & CP detemined that for most of these missing years, it is safe to assume these points were surveyed at a similar time as the points around them
+# Here we impute the year of thes missing points:
+
+inil.sp <- inil
+coordinates(inil.sp) <- ~x + y
+
+
+# get all valid inil points without years
+inil.wo.years <- inil[inil$year == 9999,]
+
+coordinates(inil.wo.years) <- ~x + y
+
+# get all valid inil points with years
+inil.with.years <- inil[!inil$year == 9999,]
+coordinates(inil.with.years) <- ~x + y
+
+# get the closest point that has a valid year 
+nearest_in_set2 <- apply(gDistance( inil.with.years,inil.wo.years, byid=TRUE), 1, which.min)
+inil.wo.years@data$year <- inil.with.years@data[nearest_in_set2,]$year # assign year of closest point to year 
+
+inil.wo.years <- data.frame(inil.wo.years)
+inil.with.years <- data.frame(inil.with.years)
+
+# combine together:
+inil <- rbind(inil.wo.years, inil.with.years)
+
 # create a survey year variable that coresponds to survey year correction factors
 year <- ifelse(inil$year >= 1825, '1825+',
-                    ifelse(inil$year < 1825, '< 1825',"ALL"))
+                    ifelse(inil$year < 1825, '< 1825',"NA"))
 
 inil$surveyyear <- year
 
@@ -137,10 +170,10 @@ dists <-  cbind(as.numeric(inil$DIST1),
                 as.numeric(inil$DIST3), 
                 as.numeric(inil$DIST4))
 
-bearings <- cbind(as.character(inil$bearing), 
-                  as.character(inil$bearing2),
-                  as.character(inil$bearing3),
-                  as.character(inil$bearing4))
+bearings <- cbind(as.character(inil$bearings1), 
+                  as.character(inil$bearings2),
+                  as.character(inil$bearings3),
+                  as.character(inil$bearings4))
 
 degrees <- cbind(as.numeric(inil$degrees), 
                  as.numeric(inil$degrees2),
@@ -223,15 +256,24 @@ azimuths <- get_angle_IN(bearings, degrees, dists)
 #spec.codes <- subset(spec.codes, Domain %in% 'Upper Midwest')
 
 #lumped <- data.frame(abbr = as.character(spec.codes$Level.1),
- #                    lump = as.character(spec.codes$Level.3a))
+ #                  lump = as.character(spec.codes$Level.3a))
+
+spec.codes <- read.csv('data/level0_to_level3a_v0.4-7.csv', stringsAsFactor = FALSE)
+spec.codes <- subset(spec.codes, domain %in% c("ND Indiana v1.7", "Illinois_v1.8-2"))
+
+lumped <- data.frame(abbr = as.character(spec.codes$level1),
+                     lump = as.character(spec.codes$level3a))
 
 species.old <- data.frame(as.character(inil$L3_tree1), 
                           as.character(inil$L3_tree2), 
                           as.character(inil$L3_tree3), 
                           as.character(inil$L3_tree4), stringsAsFactors = FALSE)
-species <- species.old #since species is already converted
-#species <- t(apply(species.old, 1, 
- #                  function(x) lumped[match(tolower(x), tolower(lumped[,1])), 2]))
+
+species <- t(apply(species.old, 1, 
+                   function(x) lumped[match(tolower(x), tolower(lumped[,1])), 2]))
+
+# KH: using the indiana and illinois domains of species conversion, Unknown trees are converted to NA
+
 
 
 #  Now we assign species that don't fit to the 'No tree' category.
@@ -384,7 +426,7 @@ colnames(final.data) <- c('PointX','PointY', 'Township','state',
                           paste('az',      1:4, sep = ''), 'corner', "sectioncorner",'surveyyear', "point")
 
                           
-write.csv(full.final, paste0("outputs/ndilin_pls_for_density_v",version,".csv"))
+write.csv(final.data, paste0("ndilin_pls_for_density_v",version,".csv"))
 
 
 # ----------------------------------DATA CLEANING: SOUTHERN MI --------------------------------------------------
