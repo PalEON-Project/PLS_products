@@ -41,7 +41,7 @@ ind <- ind[!is.na(ind$L3_tree1),]
 il <- il[!is.na(il$L3_tree1),]
 
 
-#  IN distances are in chains
+#  IN distances are in chains, need to make sure they are numeric
 ind$DIST1 <- as.numeric(ind$chainstree)
 ind$DIST2 <- as.numeric(ind$chainstree2)
 ind$DIST3 <- as.numeric(ind$chainstree3)
@@ -91,23 +91,21 @@ inil <- data.frame(inil, stringsAsFactors = FALSE)
 
 #  There are a set of 99999 values for distances which I assume are meant to be NAs. 
 
-#inil[inil == 88888 ] <- NA
-#inil[inil == 99999 ] <- NA
-
 inil$DIST1[inil$DIST1 == '88888' | inil$DIST1 == '88888'] <- NA     
 inil$DIST2[inil$DIST2 == '88888' | inil$DIST2 == '88888'] <- NA
 inil$DIST3[inil$DIST3 == '88888' | inil$DIST3 == '88888'] <- NA     
 inil$DIST4[inil$DIST4 == '88888'| inil$DIST4 == '88888'] <- NA
-  
+
+# if we dont have a bearing direction, we cant use the data
 inil$bearings1[inil$bearings1 == ''] <- NA     
 inil$bearings2[inil$bearings2 == ''] <- NA
 inil$bearings3[inil$bearings3 == ''] <- NA     
 inil$bearings4[inil$bearings4 == ''] <- NA
 
-inil$bearings1[!inil$bearings1 %in% c("SE", "NW", "SW", "NE", "S", "N","E", "W")] <- NA # assign all non directional bearings as NA
-inil$bearings2[!inil$bearings2 %in% c("SE", "NW", "SW", "NE", "S", "N","E", "W")] <- NA # assign all non directional bearings as NA
-inil$bearings3[!inil$bearings3 %in% c("SE", "NW", "SW", "NE", "S", "N","E", "W")] <- NA # assign all non directional bearings as NA
-inil$bearings4[!inil$bearings4 %in% c("SE", "NW", "SW", "NE", "S", "N","E", "W")] <- NA # assign all non directional bearings as NA
+#inil$bearings1[!inil$bearings1 %in% c("SE", "NW", "SW", "NE", "S", "N","E", "W")] <- NA # assign all non directional bearings as NA
+#inil$bearings2[!inil$bearings2 %in% c("SE", "NW", "SW", "NE", "S", "N","E", "W")] <- NA # assign all non directional bearings as NA
+#inil$bearings3[!inil$bearings3 %in% c("SE", "NW", "SW", "NE", "S", "N","E", "W")] <- NA # assign all non directional bearings as NA
+#inil$bearings4[!inil$bearings4 %in% c("SE", "NW", "SW", "NE", "S", "N","E", "W")] <- NA # assign all non directional bearings as NA
 
 #inil$year[inil$year == 99999] <- NA # our correction factors are by year, so we need the year
 
@@ -216,10 +214,12 @@ get_angle_IN <- function(bearings, degrees, dists) {
   #  Given the text azimuths in the dataset, return the quadrant values.
   #  This gives a boolean index of the quadrant
   
-  north <- fx.na(bearings == 'NNA'| bearings == 'NAN' | bearings =='N'|bearings =='N99999'|bearings =='N88888')
-  east <- fx.na(bearings == 'NAE' | bearings =="ENA" | bearings =='E'|bearings =='99999E'|bearings =='88888E')
-  south <- fx.na(bearings == 'SNA' | bearings =="NAS"| bearings == 'S'|bearings =='S99999'|bearings =='S88888')
-  west <- fx.na(bearings == 'NAW' | bearings =="WNA" | bearings == 'W'|bearings =='99999W'|bearings =='88888W')
+  # north == "NNA" or "NAN or "N
+  north <- fx.na(bearings == 'NNA'| bearings == 'NAN' | bearings =='N') #|bearings =='N99999'|bearings =='N88888')
+  east <- fx.na(bearings == 'NAE' | bearings =="ENA" | bearings =='E') #|bearings =='99999E'|bearings =='88888E')
+  south <- fx.na(bearings == 'SNA' | bearings =="NAS"| bearings == 'S') #|bearings =='S99999'|bearings =='S88888')
+  west <- fx.na(bearings == 'NAW' | bearings =="WNA" | bearings == 'W') #|bearings =='99999W'|bearings =='88888W')
+  
   #north <- fx.na( regexpr('N', bearings) > 0 )
   #east  <- fx.na( regexpr('E', bearings) > 0 | bearings == 'EAST')
   #south <- fx.na( regexpr('S', bearings) > 0 | bearings == 'SOUTH')
@@ -260,6 +260,9 @@ get_angle_IN <- function(bearings, degrees, dists) {
 
 azimuths <- get_angle_IN(bearings, degrees, dists)
 
+# there are still 654 instances of azimuths == 88888 or 99999, here I assume these are NA rather than 0
+azimuths[which(azimuths > 360)] <- NA
+
 #####  Cleaning Trees: Need to convert surveyors abbreviations to Paleon taxa:
 
 spec.codes <- read.csv('data/level0_to_level3a_v0.4-7.csv', stringsAsFactor = FALSE)
@@ -282,7 +285,7 @@ species[is.na(species)] <- 'No tree'
 
 #  Here there needs to be a check, comparing species.old against species.
 test.table <- table(unlist(species.old), unlist(species), useNA='always')
-write.csv(test.table, 'data/outputs/clean.bind.test.csv')
+write.csv(test.table, 'data/clean.bind.test.csv')
 
 ######
 #  Some annoying things that need to be done:
@@ -429,7 +432,7 @@ colnames(final.data) <- c('PointX','PointY', 'Township','state',
                           
 write.csv(final.data, paste0("ndilin_pls_for_density_v",version,".csv"))
 
-
+ggplot(final.data, aes(PointX, PointY, color = az1))+geom_point(size = 0.5)
 # ----------------------------------DATA CLEANING: SOUTHERN MI --------------------------------------------------
 
 # check this is the same file
@@ -489,11 +492,23 @@ colnames(azimuths) <- c("az1", "az2","az3", "az3")
 
 
 # converting level 1 species to level 3 species:
-species.old <- cbind(as.character(mi$species1), 
-                 as.character(mi$species2), 
-                 as.character(mi$species3), 
-                 as.character(mi$species4))
 
+
+#####  Cleaning Trees:  
+#      Changing tree codes to lumped names:
+spec.codes <- read.csv('data/level0_to_level3a_v0.4-7.csv', stringsAsFactor = FALSE)
+spec.codes <- subset(spec.codes, domain %in% 'Southern MI v1.2')
+
+lumped <- data.frame(abbr = as.character(spec.codes$level1),
+                     lump = as.character(spec.codes$level3a))
+
+species.old <- cbind(as.character(mi$species1), 
+                     as.character(mi$species2), 
+                     as.character(mi$species3), 
+                     as.character(mi$species4))
+
+species <- t(apply(species.old, 1, 
+                   function(x) lumped[match(tolower(x), tolower(lumped[,1])), 2]))
 
 
 species[species %in% ''] <- 'No tree'
@@ -585,6 +600,7 @@ state <- rep("Michigan", length(species$species1))
 year <- rep("NA", length(species$species1))
 
 # assign year as the SW or SE of michigan (this is just for correction factors)
+library(data.table)
 year[state == 'Michigan' & mi$twnrng %like% "W"] <- 'SW'
 year[state == 'Michigan' & mi$twnrng %like% "E"] <- 'SE'
 
