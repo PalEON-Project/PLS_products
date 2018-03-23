@@ -430,9 +430,14 @@ colnames(final.data) <- c('PointX','PointY', 'Township','state',
                           paste('az',      1:4, sep = ''), 'corner', "sectioncorner",'surveyyear', "point")
 
                           
+
+# remove anly points that are 'water' or 'wet' or "missing:
+wet.trees <- (final.data$species1 %in% c( 'Water', 'Wet', "Missing") | final.data$species2 %in% c('Water', 'Wet', "Missing"))
+
+final.data <- final.data[!final.data %in% wet.trees,]
 write.csv(final.data, paste0("ndilin_pls_for_density_v",version,".csv"))
 
-ggplot(final.data, aes(PointX, PointY, color = az1))+geom_point(size = 0.5)
+
 # ----------------------------------DATA CLEANING: SOUTHERN MI --------------------------------------------------
 
 # check this is the same file
@@ -637,13 +642,30 @@ colnames(final.data) <- c('PointX','PointY', 'Township',"state",
                           paste('az',      1:4, sep = ''), 'corner',"sectioncorner",'surveyyear', 'point')
 
 
+
+# in so. mi, all the azimuths == 0 are actually NA (from communication with Charlie):
 final.data$az1[final.data$az1 <= 0 ] <- NA
 final.data$az2[final.data$az2 <= 0] <- NA
 final.data$az3[final.data$az3 <= 0] <- NA
 final.data$az4[final.data$az4 <= 0] <- NA
 
-summary(final.data)
-final.data <- final.data[!is.na(final.data$PointX),]
+# need to remove water and wet points: # KH only finds 1 water point, but oddly, the water is listed as the second tree and has a diameter:
+
+#PointX   PointY Township    state diam1 diam2 diam3 diam4 dist1 dist2 dist3 dist4
+#10067 966468.2 743796.1   10N07E Michigan    18    10     0     0    15    NA    NA    NA
+#species1 species2 species3 species4 az1 az2 az3 az4   corner   sectioncorner surveyyear
+#10067 Basswood    Water  No tree  No tree  85 344  NA  NA internal quarter-section         SE
+#point
+#10067   2nQ
+
+# this might be a good point to have someone check, but we get rid of it here:
+
+wet.trees <- (final.data$species1 %in% c( 'Water', 'Wet', "Missing") | final.data$species2 %in% c('Water', 'Wet', "Missing"))
+
+final.data <- final.data[!final.data %in% wet.trees,]
+
+ggplot(final.data, aes(PointX, PointY, color = az1))+geom_point(size = 0.5)
+
                        
 #write to a csv:
 write.csv(final.data, "data/lower_mi_final_data.csv")
