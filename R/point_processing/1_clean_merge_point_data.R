@@ -76,7 +76,6 @@ ind$state <-'IN'
 #create and rename columns to match up columns from indiana and illinois
 il$twp <- il$TRP
 
-il$DIST4 <- NA
 
 keeps <- c("x","y","twp","year","L1_tree1", "L1_tree2", "L1_tree3", "L1_tree4","L3_tree1", "L3_tree2", "L3_tree3", "L3_tree4", "bearings1", 
   "bearings2", "bearings3", "bearings4","degrees", "degrees2", "degrees3","degrees4", "DIST1", "DIST2", "DIST3", "DIST4",
@@ -429,65 +428,60 @@ write.csv(final.data, paste0("ndilin_pls_for_density_v",version,".csv"))
 
 # check this is the same file
 mich <- read.csv("data/southernmi_projected_v1/southernMI_projected_v1.0.csv", stringsAsFactors = FALSE)
-#mich <- read.csv("data/southernmi_projected_v1.2.csv", stringsAsFactors = FALSE)
+mich <- read.csv("data/southernmi_projected_v1.2.csv", stringsAsFactors = FALSE)
 
 
-not.no.tree <- !(!is.na(mich$L3_tree1) & is.na(mich$species1))
-no.tree     <- is.na(mich$species1)
+#not.no.tree <- !(!is.na(mich$L3_tree1) & is.na(mich$species1))
+#no.tree     <- is.na(mich$species1)
 #mich <- mich[not.no.tree & !no.tree,]
 
 #  Character vectors are read into R as factors, to merge them they need to
 #  be converted to character strings first and then bound together.  To ensure
 #  township and ranges are unique we add a state abbreviation to the front of
 #  the twonship name.
-twp <- c(#paste('mn', as.character(minn$TWP)), 
-         #paste('wi', as.character(wisc$TOWNSHIP)), 
-         paste('mi', as.character(mich$town)))
-rng <- c(#as.character(minn$RNG), 
-         #paste(as.character(wisc$RANGE),as.character(wisc$RANGDIR), sep=''), 
-         as.character(mich$range))
+twp <- c(paste('mi', as.character(mich$town)))
+rng <- c(as.character(mich$range))
 
-#  The merged dataset is called nwmw, Minnesota comes first, then Wisconsin.
-#nwmw <- rbind(minn[,c(8, 10:25)], wisc[,c(5, 13:28)], mich[,c(36, 13:28)])
-nwmw <- mich
-nwmw$twp <- twp
-nwmw$rng <- rng
+# some data cleaning for the southern michigan dataset
+mi <- mich
+mi$twp <- twp
+mi$rng <- rng
 
  #  There are a set of 9999 values for distances which I assume are meant to be NAs.  Also, there are a set of points where
 #  the distance to the tree is 1 or 2 feet.  They cause really big density estimates!
-nwmw [ nwmw == '9999'] <- NA
-nwmw [ nwmw == '8888'] <- NA
-nwmw [ nwmw == '_'] <- NA       # Except those that have already been assigned to 'QQ'
-nwmw [ nwmw == '99999'] <- NA
-nwmw [ nwmw == '999999'] <- NA
-nwmw [ nwmw == '6666'] <- NA
-nwmw [ nwmw == '999'] <- NA
+mi [ mi == '9999'] <- NA
+mi [ mi == '8888'] <- NA
+mi [ mi == '_'] <- NA       # Except those that have already been assigned to 'QQ'
+mi [ mi == '99999'] <- NA
+mi [ mi == '999999'] <- NA
+mi [ mi == '6666'] <- NA
+mi [ mi == '999'] <- NA
 
-nwmw[(is.na(nwmw$species1) & nwmw$diam1 > 0) | (is.na(nwmw$species2) & nwmw$diam2>0),] <- rep(NA, ncol(nwmw))  #  removes four records with no identified trees, but identified diameters
+mi[(is.na(mi$species1) & mi$diam1 > 0) | (is.na(mi$species2) & mi$diam2>0),] <- rep(NA, ncol(mi))  #  removes four records with no identified trees, but identified diameters
 
-diams <-  cbind(as.numeric(nwmw$diam1), 
-                as.numeric(nwmw$diam2), 
-                as.numeric(nwmw$diam3), 
-                as.numeric(nwmw$diam4))
+diams <-  cbind(as.numeric(mi$diam1), 
+                as.numeric(mi$diam2), 
+                as.numeric(mi$diam3), 
+                as.numeric(mi$diam4))
 
-dists <-  cbind(as.numeric(nwmw$dist1), 
-                as.numeric(nwmw$dist2), 
-                as.numeric(nwmw$dist3), 
-                as.numeric(nwmw$dist4))
+dists <-  cbind(as.numeric(mi$dist1), 
+                as.numeric(mi$dist2), 
+                as.numeric(mi$dist3), 
+                as.numeric(mi$dist4))
 
 # mi azimuths are from 0 to 60
-azimuths <- cbind(as.numeric(nwmw$az1_360), 
-                  as.numeric(nwmw$az2_360),
-                  as.numeric(nwmw$az3_360),
-                  as.numeric(nwmw$az4_360))
+azimuths <- cbind(as.numeric(mi$az1_360), 
+                  as.numeric(mi$az2_360),
+                  as.numeric(mi$az3_360),
+                  as.numeric(mi$az4_360))
 
 colnames(azimuths) <- c("az1", "az2","az3", "az3")
 
 
-species <- cbind(as.character(nwmw$L3_tree1), 
-                 as.character(nwmw$L3_tree2), 
-                 as.character(nwmw$L3_tree3), 
-                 as.character(nwmw$L3_tree4))
+species <- cbind(as.character(mi$species1), 
+                 as.character(mi$species2), 
+                 as.character(mi$species3), 
+                 as.character(mi$species4))
 
 
 species[species %in% ''] <- 'No tree'
@@ -579,8 +573,8 @@ state <- rep("Michigan", length(species$species1))
 year <- rep("NA", length(species$species1))
 
 # assign year as the SW or SE of michigan (this is just for correction factors)
-year[state == 'Michigan' & nwmw$twnrng %like% "W"] <- 'SW'
-year[state == 'Michigan' & nwmw$twnrng %like% "E"] <- 'SE'
+year[state == 'Michigan' & mi$twnrng %like% "W"] <- 'SW'
+year[state == 'Michigan' & mi$twnrng %like% "E"] <- 'SE'
 
 plot.trees <- rowSums(!(species == 'Water' | species == 'No tree'), na.rm = TRUE)
 
@@ -595,9 +589,9 @@ section  <- ifelse(mich$sec_corner %in% "section", 'section', 'quarter-section')
 
 #  These are the columns for the final dataset.
 
-final.data <- data.frame(nwmw$point_x,
-                         nwmw$point_y,
-                        nwmw$twnrng,
+final.data <- data.frame(mi$point_x,
+                         mi$point_y,
+                        mi$twnrng,
                         state,
                         ranked.data[,1:8],
                         species,
