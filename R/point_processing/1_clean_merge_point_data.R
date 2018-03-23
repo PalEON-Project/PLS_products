@@ -78,7 +78,7 @@ il$twp <- il$TRP
 
 il$DIST4 <- NA
 
-keeps <- c("x","y","twp","year","L3_tree1", "L3_tree2", "L3_tree3", "L3_tree4", "bearings1", 
+keeps <- c("x","y","twp","year","L1_tree1", "L1_tree2", "L1_tree3", "L1_tree4","L3_tree1", "L3_tree2", "L3_tree3", "L3_tree4", "bearings1", 
   "bearings2", "bearings3", "bearings4","degrees", "degrees2", "degrees3","degrees4", "DIST1", "DIST2", "DIST3", "DIST4",
   "diameter", "diameter2", "diameter3", "diameter4", "cornerid", "typecorner","state")
 
@@ -92,8 +92,13 @@ inil <- data.frame(inil, stringsAsFactors = FALSE)
 
 #  There are a set of 99999 values for distances which I assume are meant to be NAs. 
 
-inil[inil == 88888 ] <- NA
-inil[inil == 99999 ] <- NA
+#inil[inil == 88888 ] <- NA
+#inil[inil == 99999 ] <- NA
+
+inil$DIST1[inil$DIST1 == '88888' | inil$DIST1 == '88888'] <- NA     
+inil$DIST2[inil$DIST2 == '88888' | inil$DIST2 == '88888'] <- NA
+inil$DIST3[inil$DIST3 == '88888' | inil$DIST3 == '88888'] <- NA     
+inil$DIST4[inil$DIST4 == '88888'| inil$DIST4 == '88888'] <- NA
   
 inil$bearings1[inil$bearings1 == ''] <- NA     
 inil$bearings2[inil$bearings2 == ''] <- NA
@@ -250,13 +255,7 @@ get_angle_IN <- function(bearings, degrees, dists) {
 
 azimuths <- get_angle_IN(bearings, degrees, dists)
 
-#####  Cleaning Trees:  This is already done in the CSV file, but we should check this with jody's update teo the paleon conversion file
-#      Changing tree codes to lumped names:
-#spec.codes <- read.csv('data/input/relation_tables/fullpaleon_conversion_v0.3-3.csv', stringsAsFactor = FALSE)
-#spec.codes <- subset(spec.codes, Domain %in% 'Upper Midwest')
-
-#lumped <- data.frame(abbr = as.character(spec.codes$Level.1),
- #                  lump = as.character(spec.codes$Level.3a))
+#####  Cleaning Trees: Need to convert surveyors abbreviations to Paleon taxa:
 
 spec.codes <- read.csv('data/level0_to_level3a_v0.4-7.csv', stringsAsFactor = FALSE)
 spec.codes <- subset(spec.codes, domain %in% c("ND Indiana v1.7", "Illinois_v1.8-2"))
@@ -264,16 +263,13 @@ spec.codes <- subset(spec.codes, domain %in% c("ND Indiana v1.7", "Illinois_v1.8
 lumped <- data.frame(abbr = as.character(spec.codes$level1),
                      lump = as.character(spec.codes$level3a))
 
-species.old <- data.frame(as.character(inil$L3_tree1), 
-                          as.character(inil$L3_tree2), 
-                          as.character(inil$L3_tree3), 
-                          as.character(inil$L3_tree4), stringsAsFactors = FALSE)
+species.old <- data.frame(l1<- as.character(inil$L1_tree1), 
+                          l2<- as.character(inil$L1_tree2), 
+                          l3<- as.character(inil$L1_tree3), 
+                          l4<-as.character(inil$L1_tree4), stringsAsFactors = FALSE)
 
 species <- t(apply(species.old, 1, 
                    function(x) lumped[match(tolower(x), tolower(lumped[,1])), 2]))
-
-# KH: using the indiana and illinois domains of species conversion, Unknown trees are converted to NA
-
 
 
 #  Now we assign species that don't fit to the 'No tree' category.
@@ -431,7 +427,9 @@ write.csv(final.data, paste0("ndilin_pls_for_density_v",version,".csv"))
 
 # ----------------------------------DATA CLEANING: SOUTHERN MI --------------------------------------------------
 
+# check this is the same file
 mich <- read.csv("data/southernmi_projected_v1/southernMI_projected_v1.0.csv", stringsAsFactors = FALSE)
+#mich <- read.csv("data/southernmi_projected_v1.2.csv", stringsAsFactors = FALSE)
 
 
 not.no.tree <- !(!is.na(mich$L3_tree1) & is.na(mich$species1))
