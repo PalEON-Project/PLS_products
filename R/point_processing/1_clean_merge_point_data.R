@@ -193,6 +193,12 @@ degrees <- cbind(as.numeric(inil$degrees),
 #  degree angle.  It also has to deal with a number of special cases.
 #  The code for getAngles is a bit scuzzy, but it leaves only 231 azimuths 
 #  untranslated, this is a manageable number.
+
+
+#### KH fix get_angle_IN: NEeed to remove points where bearing dir or bearing == 88888 or 99999
+
+
+
 get_angle_IN <- function(bearings, degrees, dists) {
   #  This function is used in 'step.one.clean.bind_v1.1.R', it converts the
   #  text azimuth strings to numeric, 360 degree values.
@@ -427,9 +433,11 @@ write.csv(final.data, paste0("ndilin_pls_for_density_v",version,".csv"))
 # ----------------------------------DATA CLEANING: SOUTHERN MI --------------------------------------------------
 
 # check this is the same file
-mich <- read.csv("data/southernmi_projected_v1/southernMI_projected_v1.0.csv", stringsAsFactors = FALSE)
+#mich <- read.csv("data/southernmi_projected_v1/southernMI_projected_v1.0.csv", stringsAsFactors = FALSE)
 mich <- read.csv("data/southernmi_projected_v1.2.csv", stringsAsFactors = FALSE)
 
+
+# species == 8888 or 9999 are missing, so leave these and they will get converted to unknown tree using conversion table
 
 #not.no.tree <- !(!is.na(mich$L3_tree1) & is.na(mich$species1))
 #no.tree     <- is.na(mich$species1)
@@ -447,15 +455,17 @@ mi <- mich
 mi$twp <- twp
 mi$rng <- rng
 
+# ******these need to be changed so that trees of 9999 and 8888 are not converted to NA
+
  #  There are a set of 9999 values for distances which I assume are meant to be NAs.  Also, there are a set of points where
 #  the distance to the tree is 1 or 2 feet.  They cause really big density estimates!
-mi [ mi == '9999'] <- NA
-mi [ mi == '8888'] <- NA
-mi [ mi == '_'] <- NA       # Except those that have already been assigned to 'QQ'
-mi [ mi == '99999'] <- NA
-mi [ mi == '999999'] <- NA
-mi [ mi == '6666'] <- NA
-mi [ mi == '999'] <- NA
+#mi [ mi == '9999'] <- NA
+#mi [ mi == '8888'] <- NA
+#mi [ mi == '_'] <- NA       # Except those that have already been assigned to 'QQ'
+#mi [ mi == '99999'] <- NA
+#mi [ mi == '999999'] <- NA
+#mi [ mi == '6666'] <- NA
+#mi [ mi == '999'] <- NA
 
 mi[(is.na(mi$species1) & mi$diam1 > 0) | (is.na(mi$species2) & mi$diam2>0),] <- rep(NA, ncol(mi))  #  removes four records with no identified trees, but identified diameters
 
@@ -469,7 +479,7 @@ dists <-  cbind(as.numeric(mi$dist1),
                 as.numeric(mi$dist3), 
                 as.numeric(mi$dist4))
 
-# mi azimuths are from 0 to 60
+# mi azimuths == 0 are NA values
 azimuths <- cbind(as.numeric(mi$az1_360), 
                   as.numeric(mi$az2_360),
                   as.numeric(mi$az3_360),
@@ -478,10 +488,12 @@ azimuths <- cbind(as.numeric(mi$az1_360),
 colnames(azimuths) <- c("az1", "az2","az3", "az3")
 
 
-species <- cbind(as.character(mi$species1), 
+# converting level 1 species to level 3 species:
+species.old <- cbind(as.character(mi$species1), 
                  as.character(mi$species2), 
                  as.character(mi$species3), 
                  as.character(mi$species4))
+
 
 
 species[species %in% ''] <- 'No tree'
