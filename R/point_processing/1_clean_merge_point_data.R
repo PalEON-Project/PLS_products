@@ -48,14 +48,14 @@ if(any(ind$state != 'IN') || any(il$state != 'IL'))
 ind <- ind %>% rename(dist1 = chainstree, dist2 = chainstree2, dist3 = chainstree3, dist4 = chainstree4, diameter1 = diameter, bearing1 = bearing, bearingdir1 = bearingdir, degrees1 = degrees)
 il <- il %>% rename(dist1 = chainstree, dist2 = chainstree2, dist3 = chainstree3, dist4 = chainstree4, diameter1 = diameter, bearing1 = bearing, bearingdir1 = bearingdir, degrees1 = degrees)
 
-ind$bearing1 <- paste0(ind$bearing1, ind$bearingdir1)
-ind$bearing2 <- paste0(ind$bearing2, ind$bearingdir2)
-ind$bearing3 <- paste0(ind$bearing3, ind$bearingdir3)
-ind$bearing4 <- paste0(ind$bearing4, ind$bearingdir4)
-il$bearing1 <- paste0(il$bearing1, il$bearingdir1)
-il$bearing2 <- paste0(il$bearing2, il$bearingdir2)
-il$bearing3 <- paste0(il$bearing3, il$bearingdir3)
-il$bearing4 <- paste0(il$bearing4, il$bearingdir4)
+ind$bearing1 <- paste(ind$bearing1, ind$bearingdir1, sep = '_')
+ind$bearing2 <- paste(ind$bearing2, ind$bearingdir2, sep = '_')
+ind$bearing3 <- paste(ind$bearing3, ind$bearingdir3, sep = '_')
+ind$bearing4 <- paste(ind$bearing4, ind$bearingdir4, sep = '_')
+il$bearing1 <- paste(il$bearing1, il$bearingdir1, sep = '_')
+il$bearing2 <- paste(il$bearing2, il$bearingdir2, sep = '_')
+il$bearing3 <- paste(il$bearing3, il$bearingdir3, sep = '_')
+il$bearing4 <- paste(il$bearing4, il$bearingdir4, sep = '_')
 
 columns_to_keep <- c("x","y","twp","year","L1_tree1", "L1_tree2", "L1_tree3", "L1_tree4", "bearing1", 
   "bearing2", "bearing3", "bearing4", "degrees1", "degrees2", "degrees3","degrees4", "dist1", "dist2", "dist3", "dist4", "diameter1", "diameter2", "diameter3", "diameter4", "cornerid", "typecorner","state")
@@ -128,14 +128,14 @@ inil <- inil %>%
     left_join(spec_codes, by = c('L1_tree4' = 'level1')) %>% rename(L3_tree4 = level3a)
 
 
-## CJP: I don't like this - missing does not mean no tree was found.
+## CJP: I don't like this - missing does not mean no tree was found,
+## as we know for tree3 and tree4.
 ## see if we really need to get rid of the NAs.
 #  Now we assign species that don't fit to the 'No tree' category.
 if(FALSE) {
 species[is.na(species)] <- 'No tree'
 }
 
-## CJP here 2018-03-23
 
 ######
 #  Some annoying things that need to be done:
