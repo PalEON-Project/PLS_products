@@ -113,6 +113,11 @@ inil$azimuths <- get_angle_inil(inil[ , paste0('bearing', 1:4)],
                            inil[ , paste0('degrees', 1:4)],
                            inil[ , paste0('dist', 1:4)])
 
+## check this
+inil <- inil %>% mutate(azimuths = ifelse(azimuths > 360, NA, azimuths))
+# azimuths[which(azimuths > 360)] <- NA
+
+
 ## Converting L1 (survey abbreviation) to L3 (Paleon nomenclature) taxa; currently this overwrites existing L3 but ensuring use of current taxon conversion file; in future L3 will not be in the input files and will solely be created here.
 
 spec_codes <- read_csv(file.path(conversions_data_dir, taxa_conversion_file), guess_max = 1000)
@@ -161,7 +166,25 @@ dists[rowSums(dists == 1, na.rm=T) > 1, ] <- rep(NA, 4)
 #  At this point we need to make sure that the species are ordered by distance
 #  so that trees one and two are actually the closest two trees.
 
+## CJP: test this code
+ords <- apply(as.matrix(inil[ , paste0('dist', 1:4)], 1, order, na.last = TRUE))
 
+reorder_blocks <- function(data, colname, ords) {
+    cols <- paste0(colname, 1:4)
+    tmp <- data[ , cols]
+    tmp <- mapply(function(x, inds) x[inds], tmp, ords)
+    data[ , cols] <- tmp
+    return(data)
+}
+
+inil <- reorder_blocks(inil, 'dist', ords)
+inil <- reorder_blocks(inil, 'L3_tree', ords)
+inil <- reorder_blocks(inil, 'bearing', ords)
+inil <- reorder_blocks(inil, 'degrees', ords)
+inil <- reorder_blocks(inil, 'diameter', ords)
+
+
+              
 sp.levels <- levels(factor(unlist(species)))
 
 species.num <- t(apply(species, 1, function(x) match(x, sp.levels)))
