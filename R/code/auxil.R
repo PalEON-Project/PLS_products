@@ -1,4 +1,4 @@
-get_angle <- function(bearings, degrees, dists) {
+get_angle_inil <- function(bearings, degrees, dists) {
   ##  This function converts the
   ##  text azimuth strings to numeric, 360 degree values.
   ##  This is the vector that will store the values.

@@ -97,9 +97,9 @@ if(sum(is.na(notree$dist1) & is.na(notree$dist2) & is.na(notree$dist3) &
 ## Here we impute the year of these missing points:
 
 ## this is a lot faster than using gDistance
-dists <- rdist(inil[inil$year == 9999, c('x', 'y')],
+distances <- rdist(inil[inil$year == 9999, c('x', 'y')],
               inil[inil$year != 9999, c('x', 'y')])
-closest <- apply(dists, 1, which.min)
+closest <- apply(distances, 1, which.min)
 
 inil$year[inil$year == 9999] <- inil$year[inil$year != 9999][closest]
 if(sum(is.na(inil$year)) || min(inil$year < 1799) || max(inil$year > 1849))
@@ -109,7 +109,7 @@ if(sum(is.na(inil$year)) || min(inil$year < 1799) || max(inil$year > 1849))
 inil <- inil %>% mutate(surveyyear = ifelse(year >= 1825, '1825+', '< 1825'))
 
 
-inil$azimuths <- get_angle(inil[ , paste0('bearing', 1:4)],
+inil$azimuths <- get_angle_inil(inil[ , paste0('bearing', 1:4)],
                            inil[ , paste0('degrees', 1:4)],
                            inil[ , paste0('dist', 1:4)])
 
