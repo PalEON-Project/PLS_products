@@ -1,3 +1,8 @@
+convert_to_NA <- function(x, missingCodes = c(88888, 99999)) {
+    x[x %in% missingCodes] <- NA
+    return(x)
+}
+
 get_angle_inil <- function(bearings, degrees, dists) {
   ##  This function converts the
   ##  text azimuth strings to numeric, 360 degree values.

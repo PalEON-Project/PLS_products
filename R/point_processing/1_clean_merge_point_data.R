@@ -112,10 +112,6 @@ inil <- rbind(ind, il)
 
 ## Don't change 88888/99999 in bearing or taxon columns as they are needed for angle calculations and L1->L3 conversion
 
-convert_to_NA <- function(x, missingCodes = c(88888, 99999)) {
-    x[x %in% missingCodes] <- NA
-    return(x)
-}
 
 cols <- c("degrees1", "degrees2", "degrees3","degrees4",
           "dist1", "dist2", "dist3", "dist4",
@@ -152,11 +148,11 @@ if(sum(is.na(inil$year)) || min(inil$year < 1799) || max(inil$year > 1849))
 inil <- inil %>% mutate(surveyyear = ifelse(year >= 1825, '1825+', '< 1825'))
 
 ## TODO: check this once get clarity from KAH on the get_angle function issues
-inil$azimuths <- get_angle_inil(inil[ , paste0('bearing', 1:4)],
+inil[ , paste0('az', 1:4)] <- get_angle_inil(inil[ , paste0('bearing', 1:4)],
                            inil[ , paste0('degrees', 1:4)],
                            inil[ , paste0('dist', 1:4)])
 
-## check this
+## check this and use 'az'
 inil <- inil %>% mutate(azimuths = ifelse(azimuths > 360, NA, azimuths))
 # azimuths[which(azimuths > 360)] <- NA
 
@@ -181,32 +177,6 @@ azimuths[treed.center,1] <- 0 #assign azimuth to 0
 dists[rowSums(dists == 1, na.rm=T) > 1, ] <- rep(NA, 4)
 
 
-
-#--------------Reorder the tree number by distance to the point-----------------
-
-#  At this point we need to make sure that the species are ordered by distance
-#  so that trees one and two are actually the closest two trees.
-
-## find reordering vector for each row
-ords <- t(apply(as.matrix(inil[ , paste0('dist', 1:4)]), 1, order, na.last = TRUE))
-
-reorder_col_blocks <- function(data, colname, ords) {
-    ## applies reordering vector by row to a 4-column block
-    rowIndex <- 1:nrow(data)
-    cols <- paste0(colname, 1:4)
-    tmp <- as.matrix(data[ , cols])
-    for(j in 1:4)
-        data[ , cols[j]] <- tmp[cbind(rowIndex, ords[ , j])]
-    return(data)
-}
-
-inil <- inil %>%
-    reorder_col_blocks('dist', ords) %>% 
-    reorder_col_blocks('L1_tree', ords) %>% 
-    reorder_col_blocks('L3_tree', ords) %>% 
-    reorder_col_blocks('bearing', ords) %>% 
-    reorder_col_blocks('degrees', ords) %>%
-    reorder_col_blocks('diameter', ords)
 
 #----------Getting correction factors----------------------
 
@@ -255,74 +225,60 @@ inil <- inil %>% mutate(cornertype = paste0(corner, state),
 inil <- inil %>% select(-cornerid, -typecorner)
 
 
+## TODO: things we probably move to after combining all regions:
+##    reorder columns based on increasing distance
+
+
 # ----------------------------------DATA CLEANING: SOUTHERN MI --------------------------------------------------
 
-mich <- read.csv("data/southernmi_projected_v1/southernMI_projected_v1.0.csv", stringsAsFactors = FALSE)
+mi <- read_csv(file.path(raw_data_dir, southern_michigan_file), guess_max = 100000)
+
+mi <- mi %>% filter(!(species1 %in% c('No data', 'Water', 'Wet')))
+
+## make sure township names have the state in front of them:
+mi <- mi %>% mutate(twp = paste0('MI_', town)) %>% dplyr::select(-town) %>%
+    mutate(state = 'MI')
+
+## CJP: I don't see these 4 trees.
+if(FALSE) {
+    mi[(is.na(mi$species1) & mi$diam1 > 0) | (is.na(mi$species2) & mi$diam2>0),] <- rep(NA, ncol(mi))  #  removes four records with no identified trees, but identified diameters
+}
 
 
-not.no.tree <- !(!is.na(mich$L3_tree1) & is.na(mich$species1))
-no.tree     <- is.na(mich$species1)
-#mich <- mich[not.no.tree & !no.tree,]
+##  converting level 1 species to level 3 species:
 
-#  Character vectors are read into R as factors, to merge them they need to
-#  be converted to character strings first and then bound together.  To ensure
-#  township and ranges are unique we add a state abbreviation to the front of
-#  the twonship name.
-twp <- c(#paste('mn', as.character(minn$TWP)), 
-         #paste('wi', as.character(wisc$TOWNSHIP)), 
-         paste('mi', as.character(mich$town)))
-rng <- c(#as.character(minn$RNG), 
-         #paste(as.character(wisc$RANGE),as.character(wisc$RANGDIR), sep=''), 
-         as.character(mich$range))
+spec_codes <- read_csv(file.path(conversions_data_dir, taxa_conversion_file), guess_max = 1000) %>% 
+    filter(domain == southern_michigan_conversion_domain) %>%
+    select(level1, level3a) 
 
-#  The merged dataset is called nwmw, Minnesota comes first, then Wisconsin.
-#nwmw <- rbind(minn[,c(8, 10:25)], wisc[,c(5, 13:28)], mich[,c(36, 13:28)])
-nwmw <- mich
-nwmw$twp <- twp
-nwmw$rng <- rng
+mi <- mi %>% select(-L3_tree1, -L3_tree2, -L3_tree3, -L3_tree4) %>%  ## so can directly overwrite these columns
+    left_join(spec_codes, by = c('species1' = 'level1')) %>% rename(L1_tree1 = species1, L3_tree1 = level3a) %>%
+    left_join(spec_codes, by = c('species2' = 'level1')) %>% rename(L1_tree2 = species2, L3_tree2 = level3a) %>%
+    left_join(spec_codes, by = c('species3' = 'level1')) %>% rename(L1_tree3 = species3, L3_tree3 = level3a) %>%
+    left_join(spec_codes, by = c('species4' = 'level1')) %>% rename(L1_tree4 = species4, L3_tree4 = level3a)
 
- #  There are a set of 9999 values for distances which I assume are meant to be NAs.  Also, there are a set of points where
-#  the distance to the tree is 1 or 2 feet.  They cause really big density estimates!
-nwmw [ nwmw == '9999'] <- NA
-nwmw [ nwmw == '8888'] <- NA
-nwmw [ nwmw == '_'] <- NA       # Except those that have already been assigned to 'QQ'
-nwmw [ nwmw == '99999'] <- NA
-nwmw [ nwmw == '999999'] <- NA
-nwmw [ nwmw == '6666'] <- NA
-nwmw [ nwmw == '999'] <- NA
-
-nwmw[(is.na(nwmw$species1) & nwmw$diam1 > 0) | (is.na(nwmw$species2) & nwmw$diam2>0),] <- rep(NA, ncol(nwmw))  #  removes four records with no identified trees, but identified diameters
-
-diams <-  cbind(as.numeric(nwmw$diam1), 
-                as.numeric(nwmw$diam2), 
-                as.numeric(nwmw$diam3), 
-                as.numeric(nwmw$diam4))
-
-dists <-  cbind(as.numeric(nwmw$dist1), 
-                as.numeric(nwmw$dist2), 
-                as.numeric(nwmw$dist3), 
-                as.numeric(nwmw$dist4))
-
-# mi azimuths are from 0 to 60
-azimuths <- cbind(as.numeric(nwmw$az1_360), 
-                  as.numeric(nwmw$az2_360),
-                  as.numeric(nwmw$az3_360),
-                  as.numeric(nwmw$az4_360))
-
-colnames(azimuths) <- c("az1", "az2","az3", "az3")
+if(sum(is.na(mi$L3_tree1)) != sum(is.na(mi$L1_tree1)) ||
+   sum(is.na(mi$L3_tree2)) != sum(is.na(mi$L1_tree2)) ||
+   sum(is.na(mi$L3_tree3)) != sum(is.na(mi$L1_tree3)) ||
+   sum(is.na(mi$L3_tree4)) != sum(is.na(mi$L1_tree4)))
+    cat("Apparently some L1 taxa are missing from the Michigan L1 to L3 conversion table.\n")
 
 
-species <- cbind(as.character(nwmw$L3_tree1), 
-                 as.character(nwmw$L3_tree2), 
-                 as.character(nwmw$L3_tree3), 
-                 as.character(nwmw$L3_tree4))
+## The az_360 columns were calculated using the quadrant and the az_x (x = 1:4), values.
+## e.g., if the quadrant number was 1, the AZ as read from the mylar maps was used as is.
+## If the quadrant number was 2, az1_360 is 180-az1.
+## Quadrants of 3 were 180+az1 and quadrants of 4 were 360-az1.
+## NOTE: Missing azimuths are listed as "0" in az_360.
+
+## in so. mi, all the azimuths == 0 are actually NA (from communication with Charlie):
+
+mi <- mi %>% mutate(az1 = convert_to_NA(az1_360, 0),
+                    az2 = convert_to_NA(az2_360, 0),
+                    az3 = convert_to_NA(az3_360, 0),
+                    az4 = convert_to_NA(az4_360, 0),
 
 
-species[species %in% ''] <- 'No tree'
-
-#  Now we assign species that don't fit to the 'No tree' category.
-species[is.na(species)] <- 'No tree'
-
+## CJP as with IN/IL, check on this after clarity wrt get_angle
 
 ######
 #  Some annoying things that need to be done:
@@ -338,122 +294,25 @@ treed.center[is.na(treed.center)] <- FALSE
 
 azimuths[treed.center,1] <- 0
 
-#  Another special case, two trees of distance 1.  What's up with that?!
+##  Another special case, two trees of distance 1.  What's up with that?!
 dists[rowSums(dists == 1, na.rm=T) > 1, ] <- NA#,rep(NA, 4)
 
-#  When the object is NA, or the species is not a tree (NonTree or Water), set
-#  the distance to NA.
-dists[is.na(species) | species %in% c('No tree', 'Water', 'Missing')] <- NA
+## determine subdomain for use with correction factors
+## should we find domain of closest point for those without 'E' or 'W'
+surveyyear <- rep(NA, nrow(mi))
+surveyyear[grep('E', mi$twnrng)] <- "SE"
+surveyyear[grep('W', mi$twnrng)] <- "SW"
+mi$surveyyear <- surveyyear
 
+mi <- mi %>% rename(corner = sec_corner)
 
-#  At this point we need to make sure that the species are ordered by distance
-#  so that trees one and two are actually the closest two trees.
+num_notrees <- (mi$species1 == 'No tree') + (mi$species2 == 'No tree')
 
+mi <- mi %>% mutate(corner = ifelse(corner == "Extsec", 'external', 'internal'),
+                    point = ifelse(num_notrees == 2, 'P', '2nQ'),
+                    sectioncorner = ifelse(corner == 'section',  'section', 'quarter-section'))
 
-sp.levels <- levels(factor(unlist(species)))
-
-species.num <- t(apply(species, 1, function(x) match(x, sp.levels)))
-
-usable.data <- data.frame(diams,
-                          dists,
-                          species.num,
-                          azimuths,
-                          stringsAsFactors = FALSE)
-
-rank.fun <- function(x){
-  #  This is the function we use to re-order the points so that the closest is first, based on distances.
-  
-  test.dists <- as.vector(x[c(5:8)])
-  
-  ranker <- order(test.dists, na.last=TRUE)
-  
-  return(x[c(ranker, ranker+4, ranker + 8, ranker + 12)])
-}
-
-colnames(usable.data) <- c(paste('diam', 1:4, sep =''),
-                         paste('dist', 1:4, sep = ''), 
-                         paste('species', 1:4, sep = ''),
-                         paste('az', 1:4, sep = ''))
-
-ranked.data <- matrix(nrow = nrow(usable.data),
-                      ncol = ncol(usable.data))
-
-for(i in 1:nrow(ranked.data)){
-  if( sum(is.na(ranked.data[i,5:8]))<2 ){
-    ranked.data[i,] <- unlist(usable.data[i,])
-  } else{
-    ranked.data[i,] <- unlist(rank.fun(usable.data[i,]))
-  }
-  if(i%%6500 == 0)cat('.')
-}
-
-ranked.data <- t(apply(usable.data, 1, rank.fun)) # need to drop 'id'
-colnames(ranked.data) <- c(paste('diam', 1:4, sep =''),
-                           paste('dist', 1:4, sep = ''), 
-                           paste('species', 1:4, sep = ''),
-                           paste('az', 1:4, sep = ''))
-
-species <- data.frame(species1 = sp.levels[as.numeric(ranked.data[, 9])],
-                      species2 = sp.levels[as.numeric(ranked.data[,10])],
-                      species3 = sp.levels[as.numeric(ranked.data[,11])],
-                      species4 = sp.levels[as.numeric(ranked.data[,12])])
-
-year <- rep("NA", length(species$species1))
-state <- data.frame(state = rep("MI", length(species$species1)))
-
-corner <- mich$sec_corner
-
-state <- rep("Michigan", length(species$species1))
-year <- rep("NA", length(species$species1))
-
-# assign year as the SW or SE of michigan (this is just for correction factors)
-year[state == 'Michigan' & nwmw$twnrng %like% "W"] <- 'SW'
-year[state == 'Michigan' & nwmw$twnrng %like% "E"] <- 'SE'
-
-plot.trees <- rowSums(!(species == 'Water' | species == 'No tree'), na.rm = TRUE)
-
-point.no <- as.character( mich$sec_corner)
-
-#  So there are a set of classes here, we can match them all up:
-
-internal <- ifelse(!point.no %in% "Extsec", 'internal', 'external')
-trees    <- ifelse(plot.trees == 2, 'P', '2nQ')
-section  <- ifelse(mich$sec_corner %in% "section", 'section', 'quarter-section')
-
-
-#  These are the columns for the final dataset.
-
-final.data <- data.frame(nwmw$point_x,
-                         nwmw$point_y,
-                        nwmw$twnrng,
-                        state,
-                        ranked.data[,1:8],
-                        species,
-                        ranked.data[,13:16],
-                        internal,
-                        section,
-                        year ,
-                        trees,
-                        stringsAsFactors = FALSE)
-
-colnames(final.data) <- c('PointX','PointY', 'Township',"state",
-                          paste('diam',    1:4, sep =''),
-                          paste('dist',    1:4, sep = ''), 
-                          paste('species', 1:4, sep = ''),
-                          paste('az',      1:4, sep = ''), 'corner',"sectioncorner",'surveyyear', 'point')
-
-
-final.data$az1[final.data$az1 <= 0 ] <- NA
-final.data$az2[final.data$az2 <= 0] <- NA
-final.data$az3[final.data$az3 <= 0] <- NA
-final.data$az4[final.data$az4 <= 0] <- NA
-
-summary(final.data)
-final.data <- final.data[!is.na(final.data$PointX),]
-                       
-#write to a csv:
-write.csv(final.data, "data/lower_mi_final_data.csv")
-
+mi <- mi %>% rename(x = point_x, y = point_y, twp = twnrng)
 
                        
 # ----------------------------------DATA CLEANING: UMW -------------------------------------------------------
@@ -493,9 +352,9 @@ library(spdep)
 library(rgdal)
 library(raster)
 
-wisc <- readOGR('data/wisc/glo_corn.shp','glo_corn')
-minn <- readOGR('data/minn/Minnesota.shp', 'Minnesota')
-mich <- readOGR('data/mich/michigan_filled/michigan_filled.shp', 'michigan_filled')
+wisc <- readOGR('../data/points/wisc/glo_corn.shp','glo_corn')
+minn <- readOGR('../data/points/minn/Minnesota.shp', 'Minnesota')
+mich <- readOGR('../data/points/mich/michigan_filled/michigan_filled.shp', 'michigan_filled')
 
 #  The files are in unique projections, this standardizes the projections to
 #  a long-lat projection:
@@ -674,59 +533,6 @@ dists[is.na(species) | species %in% c('No tree', 'Water', 'Missing')] <- NA
 #  59 points with three trees
 #  380645 points with four trees
 
-#  At this point we need to make sure that the species are ordered by distance
-#  so that trees one and two are actually the closest two trees.
-
-#  There's an annoying problem that has to do with having a character string in
-#  the subsequent sort/order function, in that it converts everything to a
-#  character string.  To fix it I change the string 'species' into a numeric
-#  where each number is associated with a factor level.
-
-sp.levels <- levels(factor(unlist(species)))
-
-species.num <- t(apply(species, 1, function(x) match(x, sp.levels)))
-
-usable.data <- data.frame(diams,
-                          dists,
-                          species.num,
-                          azimuths,
-                          stringsAsFactors = FALSE)
-
-
-rank.fun <- function(x){
-  #  This is the function we use to re-order the points so that the closest is first, based on distances.
-  
-  test.dists <- as.vector(x[c(5:8)])
-  
-  ranker <- order(test.dists, na.last=TRUE)
-  
-  return(x[c(ranker, ranker+4, ranker + 8, ranker + 12)])
-}
-
-colnames(usable.data) <- c(paste('diam', 1:4, sep =''),
-                           paste('dist', 1:4, sep = ''), 
-                           paste('species', 1:4, sep = ''),
-                           paste('az', 1:4, sep = ''))
-                           
-
-ranked.data <- matrix(nrow = nrow(usable.data),
-                      ncol = ncol(usable.data))
-
-for(i in 1:nrow(ranked.data)){
-  if( sum(is.na(ranked.data[i,5:8]))<2 ){
-    ranked.data[i,] <- unlist(usable.data[i,])
-  } else{
-    ranked.data[i,] <- unlist(rank.fun(usable.data[i,]))
-  }
-  if(i%%6500 == 0)cat('.')
-}
-
-#ranked.data <- t(apply(usable.data, 1, rank.fun)) # need to drop 'id'
-
-species <- data.frame(species1 = sp.levels[ranked.data[, 9]],
-                      species2 = sp.levels[ranked.data[,10]],
-                      species3 = sp.levels[ranked.data[,11]],
-                      species4 = sp.levels[ranked.data[,12]])
 
 #  We need to bin the year information so that we can use it to calculate
 #  appropriate Cottam Correction factors.  The survey instructions for the PLS
@@ -947,3 +753,29 @@ write.csv(used.data.alb, "data/outputs/Point_Data_From_Goringetal16_used_data_al
 
                        
 
+
+#--------------Reorder the tree number by distance to the point-----------------
+
+#  At this point we need to make sure that the species are ordered by distance
+#  so that trees one and two are actually the closest two trees.
+
+## find reordering vector for each row
+ords <- t(apply(as.matrix(full_data[ , paste0('dist', 1:4)]), 1, order, na.last = TRUE))
+
+reorder_col_blocks <- function(data, colname, ords) {
+    ## applies reordering vector by row to a 4-column block
+    rowIndex <- 1:nrow(data)
+    cols <- paste0(colname, 1:4)
+    tmp <- as.matrix(data[ , cols])
+    for(j in 1:4)
+        data[ , cols[j]] <- tmp[cbind(rowIndex, ords[ , j])]
+    return(data)
+}
+
+full_data <- full_data %>%
+    reorder_col_blocks('dist', ords) %>% 
+    reorder_col_blocks('L1_tree', ords) %>% 
+    reorder_col_blocks('L3_tree', ords) %>% 
+    reorder_col_blocks('bearing', ords) %>% 
+    reorder_col_blocks('degrees', ords) %>%
+    reorder_col_blocks('diameter', ords)
