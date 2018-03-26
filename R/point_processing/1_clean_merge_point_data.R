@@ -31,14 +31,50 @@ if(sum(is.na(ind$x)) || sum(is.na(ind$y) || sum(is.na(il$x)) || sum(is.na(il$y))
 if(sum(ind$L1_tree2 == "No data", na.rm = TRUE) || sum(il$L1_tree2 == "No data", na.rm = TRUE))
     cat("'No data' found for second tree in IN or IL; this case not handled by the code.\n")
 
-## TODO: do the L1->L3 conversions in this file
+## Our density/biomass calculations are on a per-land-area basis, excluding water area
+ind <- ind %>% filter(!(L1_tree1 %in% c('No data', 'Water', 'Wet')))
+il <- il %>% filter(!(L1_tree1 %in% c('No data', 'Water', 'Wet')))
 
-ind <- ind %>% filter(L1_tree1 != 'No data')
-il <- il %>% filter(L1_tree1 != 'No data')
+## Converting L1 (survey abbreviation) to L3 (Paleon nomenclature) taxa; currently this overwrites existing L3 but ensuring use of current taxon conversion file; in future L3 will not be in the input files and will solely be created here.
 
-## TODO: probably exclude 'Water' and 'Wet' points (where L3_tree1 is 'Water' or 'Wet') at this stage; we don't want to calculate density or biomass for these points so don't think there is a reason to keep them.
+spec_codes <- read_csv(file.path(conversions_data_dir, taxa_conversion_file), guess_max = 1000) %>% 
+    filter(domain == indiana_conversion_domain) %>%
+    select(level1, level3a) 
 
-# make sure township names have the state in front of them:
+ind <- ind %>% select(-L3_tree1, -L3_tree2, -L3_tree3, -L3_tree4) %>%  ## so can directly overwrite these columns
+    left_join(spec_codes, by = c('L1_tree1' = 'level1')) %>% rename(L3_tree1 = level3a) %>%
+    left_join(spec_codes, by = c('L1_tree2' = 'level1')) %>% rename(L3_tree2 = level3a) %>%
+    left_join(spec_codes, by = c('L1_tree3' = 'level1')) %>% rename(L3_tree3 = level3a) %>%
+    left_join(spec_codes, by = c('L1_tree4' = 'level1')) %>% rename(L3_tree4 = level3a)
+
+if(sum(is.na(ind$L3_tree1)) != sum(is.na(ind$L1_tree1)) ||
+   sum(is.na(ind$L3_tree2)) != sum(is.na(ind$L1_tree2)) ||
+   sum(is.na(ind$L3_tree3)) != sum(is.na(ind$L1_tree3)) ||
+   sum(is.na(ind$L3_tree4)) != sum(is.na(ind$L1_tree4)))
+    cat("Apparently some L1 taxa are missing from the Indiana L1 to L3 conversion table.\n")
+
+spec_codes <- read_csv(file.path(conversions_data_dir, taxa_conversion_file), guess_max = 1000) %>% 
+    filter(domain == illinois_conversion_domain) %>%
+    select(level1, level3a) 
+
+il <- il %>% select(-L3_tree1, -L3_tree2, -L3_tree3, -L3_tree4) %>%  ## so can directly overwrite these columns
+    left_join(spec_codes, by = c('L1_tree1' = 'level1')) %>% rename(L3_tree1 = level3a) %>%
+    left_join(spec_codes, by = c('L1_tree2' = 'level1')) %>% rename(L3_tree2 = level3a) %>%
+    left_join(spec_codes, by = c('L1_tree3' = 'level1')) %>% rename(L3_tree3 = level3a) %>%
+    left_join(spec_codes, by = c('L1_tree4' = 'level1')) %>% rename(L3_tree4 = level3a)
+
+if(sum(is.na(ind$L3_tree1)) != sum(is.na(ind$L1_tree1)) ||
+   sum(is.na(ind$L3_tree2)) != sum(is.na(ind$L1_tree2)) ||
+   sum(is.na(ind$L3_tree3)) != sum(is.na(ind$L1_tree3)) ||
+   sum(is.na(ind$L3_tree4)) != sum(is.na(ind$L1_tree4)))
+    cat("Apparently some L1 taxa are missing from the Illinois L1 to L3 conversion table.\n")
+
+## Note that check for NAs appearing in L3 that did not occur in L1 replaces a former
+## replacement of NAs with 'No tree', which is not accurate since
+## a non-available conversion is not the same as no tree appearing.
+## If we really don't know the L3 taxon, we should convert to 'Unknown tree'.
+
+## make sure township names have the state in front of them:
 ind <- ind %>% mutate(twp = paste0('IN_', TRP)) %>% dplyr::select(-TRP)
 il <- il %>% mutate(twp = paste0('IL_', TRP)) %>% dplyr::select(-TRP)
 
@@ -57,15 +93,22 @@ il$bearing2 <- paste(il$bearing2, il$bearingdir2, sep = '_')
 il$bearing3 <- paste(il$bearing3, il$bearingdir3, sep = '_')
 il$bearing4 <- paste(il$bearing4, il$bearingdir4, sep = '_')
 
-columns_to_keep <- c("x","y","twp","year","L1_tree1", "L1_tree2", "L1_tree3", "L1_tree4", "bearing1", 
-  "bearing2", "bearing3", "bearing4", "degrees1", "degrees2", "degrees3","degrees4", "dist1", "dist2", "dist3", "dist4", "diameter1", "diameter2", "diameter3", "diameter4", "cornerid", "typecorner","state")
+columns_to_keep <- c("x","y","twp","year",
+                     "L1_tree1", "L1_tree2", "L1_tree3", "L1_tree4",
+                     "L3_tree1", "L3_tree2", "L3_tree3", "L3_tree4",
+                     "bearing1", "bearing2", "bearing3", "bearing4",
+                     "degrees1", "degrees2", "degrees3","degrees4",
+                     "dist1", "dist2", "dist3", "dist4",
+                     "diameter1", "diameter2", "diameter3", "diameter4",
+                     "cornerid", "typecorner","state")
+
+inil <- inil %>% select(x, y, twp, state, internal, section, surveryear, point,
+
 
 ind <- ind[columns_to_keep] 
 il <- il[columns_to_keep]
 
 inil <- rbind(ind, il)
-
-inil <- inil %>% filter(!L1_tree1 %in% c('Water', 'Wet'))
 
 ## Don't change 88888/99999 in bearing or taxon columns as they are needed for angle calculations and L1->L3 conversion
 
@@ -92,7 +135,7 @@ if(sum(is.na(notree$dist1) & is.na(notree$dist2) & is.na(notree$dist3) &
 ## We have some corners in IN & IL that are missing years,
 ## which means we have to either discard b/c we dont know which correction factors to use,
 ## or impute the surveyyear.
-## JP, KH, & CP detemined that for most of these missing years, it is safe to
+## JP, KH, & CP determined that for most of these missing years, it is safe to
 ## assume these points were surveyed at a similar time as the points around them.
 ## Here we impute the year of these missing points:
 
@@ -108,7 +151,7 @@ if(sum(is.na(inil$year)) || min(inil$year < 1799) || max(inil$year > 1849))
 # create a survey year variable that coresponds to survey year correction factors
 inil <- inil %>% mutate(surveyyear = ifelse(year >= 1825, '1825+', '< 1825'))
 
-
+## TODO: check this once get clarity from KAH on the get_angle function issues
 inil$azimuths <- get_angle_inil(inil[ , paste0('bearing', 1:4)],
                            inil[ , paste0('degrees', 1:4)],
                            inil[ , paste0('dist', 1:4)])
@@ -117,30 +160,8 @@ inil$azimuths <- get_angle_inil(inil[ , paste0('bearing', 1:4)],
 inil <- inil %>% mutate(azimuths = ifelse(azimuths > 360, NA, azimuths))
 # azimuths[which(azimuths > 360)] <- NA
 
-
-## Converting L1 (survey abbreviation) to L3 (Paleon nomenclature) taxa; currently this overwrites existing L3 but ensuring use of current taxon conversion file; in future L3 will not be in the input files and will solely be created here.
-
-spec_codes <- read_csv(file.path(conversions_data_dir, taxa_conversion_file), guess_max = 1000)
-spec_codes <- spec_codes %>%
-    filter(domain %in% c(indiana_conversion_domain, illinois_conversion_domain)) %>%
-    select(level1, level3a) %>%
-    unique()  ## because we can get the same conversion from both IN and IL
-
-inil <- inil %>% 
-    left_join(spec_codes, by = c('L1_tree1' = 'level1')) %>% rename(L3_tree1 = level3a) %>%
-    left_join(spec_codes, by = c('L1_tree2' = 'level1')) %>% rename(L3_tree2 = level3a) %>%
-    left_join(spec_codes, by = c('L1_tree3' = 'level1')) %>% rename(L3_tree3 = level3a) %>%
-    left_join(spec_codes, by = c('L1_tree4' = 'level1')) %>% rename(L3_tree4 = level3a)
-
-
-## CJP: I don't like this - missing does not mean no tree was found,
-## as we know for tree3 and tree4.
-## see if we really need to get rid of the NAs.
-#  Now we assign species that don't fit to the 'No tree' category.
-if(FALSE) {
-species[is.na(species)] <- 'No tree'
-}
-
+## CJP is checking on this with KAH in a Github issue, as treating two
+## distance = 1 trees seems oddly specific.
 
 ######
 #  Some annoying things that need to be done:
@@ -166,76 +187,28 @@ dists[rowSums(dists == 1, na.rm=T) > 1, ] <- rep(NA, 4)
 #  At this point we need to make sure that the species are ordered by distance
 #  so that trees one and two are actually the closest two trees.
 
-## CJP: test this code
-ords <- apply(as.matrix(inil[ , paste0('dist', 1:4)], 1, order, na.last = TRUE))
+## find reordering vector for each row
+ords <- t(apply(as.matrix(inil[ , paste0('dist', 1:4)]), 1, order, na.last = TRUE))
 
-reorder_blocks <- function(data, colname, ords) {
+reorder_col_blocks <- function(data, colname, ords) {
+    ## applies reordering vector by row to a 4-column block
+    rowIndex <- 1:nrow(data)
     cols <- paste0(colname, 1:4)
-    tmp <- data[ , cols]
-    tmp <- mapply(function(x, inds) x[inds], tmp, ords)
-    data[ , cols] <- tmp
+    tmp <- as.matrix(data[ , cols])
+    for(j in 1:4)
+        data[ , cols[j]] <- tmp[cbind(rowIndex, ords[ , j])]
     return(data)
 }
 
-inil <- reorder_blocks(inil, 'dist', ords)
-inil <- reorder_blocks(inil, 'L3_tree', ords)
-inil <- reorder_blocks(inil, 'bearing', ords)
-inil <- reorder_blocks(inil, 'degrees', ords)
-inil <- reorder_blocks(inil, 'diameter', ords)
+inil <- inil %>%
+    reorder_col_blocks('dist', ords) %>% 
+    reorder_col_blocks('L1_tree', ords) %>% 
+    reorder_col_blocks('L3_tree', ords) %>% 
+    reorder_col_blocks('bearing', ords) %>% 
+    reorder_col_blocks('degrees', ords) %>%
+    reorder_col_blocks('diameter', ords)
 
-
-              
-sp.levels <- levels(factor(unlist(species)))
-
-species.num <- t(apply(species, 1, function(x) match(x, sp.levels)))
-
-usable.data <- data.frame(diams,
-                          dists,
-                          species.num,
-                          azimuths,
-                          stringsAsFactors = FALSE)
-
-rank.fun <- function(x){
-  #  This is the function we use to re-order the points so that the closest is first, based on distances.
-  
-  test.dists <- as.vector(x[c(5:8)])
-  
-  ranker <- order(test.dists, na.last=TRUE) #order function sorts the distances
-  
-  return(x[c(ranker, ranker+4, ranker + 8, ranker + 12)])
-}
-
-colnames(usable.data) <- c(paste('diam', 1:4, sep =''),
-                           paste('dist', 1:4, sep = ''), 
-                           paste('species', 1:4, sep = ''),
-                           paste('az', 1:4, sep = ''))
-
-ranked.data <- matrix(nrow = nrow(usable.data),
-                      ncol = ncol(usable.data))
-
-for(i in 1:nrow(ranked.data)){
-  if( sum(is.na(ranked.data[i,5:8]))<2 ){
-    ranked.data[i,] <- unlist(usable.data[i,]) # if there is only 1 tree, just use the usable data as is
-  } else{
-    ranked.data[i,] <- unlist(rank.fun(usable.data[i,])) #if there is more than 1 tree, rank.fun sorts by distance
-  }
-  if(i%%6500 == 0)cat(':)') #prints a ':)' for each 6500 rows
-}
-
-ranked.data <- t(apply(usable.data, 1, rank.fun)) # need to drop 'id'
-ranked.data <-data.frame(ranked.data)
-
-# Convert species from numeric codes back into text
-species <- data.frame(species1 = sp.levels[ranked.data[, 9]],
-                      species2 = sp.levels[ranked.data[,10]],
-                      species3 = sp.levels[ranked.data[,11]],
-                      species4 = sp.levels[ranked.data[,12]],
-                      stringsAsFactors=FALSE)
-                       
- 
 #----------Getting correction factors----------------------
-
-
 
 #  Indiana data has same correction factors for the whole state
 # correction factors vary depending on which type of corner you are at
@@ -264,58 +237,23 @@ intqtr <- c(140200, 240200, 340200, 440200, 540200, 640200,
             200440, 300440, 400440, 500440, 600440,
             200540, 300540, 400540, 500540, 600540,
             200640, 300640, 400640, 500640, 600640)
-corner <- rep('NA', length(inil$cornerid))
 
-corner <- ifelse(inil$cornerid %in% intsec, 'intsec',
-       ifelse(inil$cornerid %in% intqtr, 'intqtr',
-              ifelse(inil$cornerid %in% extsec, 'extsec',
-                     ifelse(inil$cornerid %in% extqtr,  'extqtr',
-                            ifelse(inil$typecorner == "(1/4) Section", "intqtr",
-                                   ifelse(inil$typecorner == "Section", "intsec", "extsec"))))))
-       
+inil$corner <- ifelse(inil$cornerid %in% intsec, 'intsec',
+          ifelse(inil$cornerid %in% intqtr, 'intqtr',
+          ifelse(inil$cornerid %in% extsec, 'extsec',
+          ifelse(inil$cornerid %in% extqtr,  'extqtr',
+          ifelse(inil$typecorner == "(1/4) Section", "intqtr",
+          ifelse(inil$typecorner == "Section", "intsec", "extsec"))))))
 
-inil$cornertype <- paste0(corner, inil$state)
+## we should rename either 'typecorner' or 'cornertype' as the naming is confusing
 
+inil <- inil %>% mutate(cornertype = paste0(corner, state),
+                        internal = ifelse(!cornerid %in% c("extsec", "extqtr", "external"), 'internal', 'external'),
+                        section =  ifelse(typecorner %in% "Section", 'section', 'quarter-section'),
+                        point = rep("P", nrow(inil)))
 
-#These are the columns for the final dataset.
-internal <- ifelse(!inil$cornerid %in% c("extsec", "extqtr", "external"), 'internal', 'external')
-#trees    <- ifelse(plot.trees == 2, 'P', '2NQ')
-section  <- ifelse(inil$typecorner %in% "Section", 'section', 'quarter-section')
-point <- rep("P", length(inil$typecorner))
+inil <- inil %>% select(-cornerid, -typecorner)
 
-final.data <- data.frame(inil$x,
-                         inil$y,
-                         inil$twp,
-                         as.character(inil$state),
-                         ranked.data[,1:8],
-                         species[,1:4],
-                         ranked.data[,13:16], 
-                         internal,
-                         section,
-                         inil$surveyyear,
-                         point,
-                         stringsAsFactors = FALSE)
-
-colnames(final.data) <- c('PointX','PointY', 'Township','state',
-                          paste('diam',    1:4, sep =''),
-                          paste('dist',    1:4, sep = ''), 
-                          paste('species', 1:4, sep = ''),
-                          paste('az',      1:4, sep = ''), 'corner', "sectioncorner",'surveyyear', "point")
-
-                          
-write.csv(full.final, paste0("outputs/ndilin_pls_for_density_v",version,".csv"))
-
-
-## for the getAngle function to work later, we need a 4 character Azimuth from the tree bearings and bearing direction
-ind$bearings1 <- c(paste0(as.character(ind$bearing),  as.character(ind$bearingdir)))
-ind$bearings2 <- c(paste0(as.character(ind$bearing2),  as.character(ind$bearingdir2)))
-ind$bearings3 <- c(paste0(as.character(ind$bearing3),  as.character(ind$bearingdir3)))
-ind$bearings4 <- c(paste0(as.character(ind$bearing4),  as.character(ind$bearingdir4)))
-
-il$bearings1 <- c(paste0(as.character(il$bearing),  as.character(il$bearingdir)))
-il$bearings2 <- c(paste0(as.character(il$bearing2),  as.character(il$bearingdir2)))
-il$bearings3 <- c(paste0(as.character(il$bearing3),  as.character(il$bearingdir3)))
-il$bearings4 <- c(paste0(as.character(il$bearing4),  as.character(il$bearingdir4)))
 
 # ----------------------------------DATA CLEANING: SOUTHERN MI --------------------------------------------------
 
