@@ -417,9 +417,6 @@ mn <- mn %>% mutate(sp1 = ifelse(vegtype %in% waterTypes & sp1 == '_', 'QQ', sp1
 
 nomi <- nomi %>% filter(!is.na(sp1))
 
-#  The merged dataset is called nwmw, Minnesota comes first, then Wisconsin.
-                                        #  Six invalid factor level warnings come up
-
 # what about twp, rng etc?
 columns_to_keep <- c("point",
                      "sp1", "sp2", "sp3", "sp4",
@@ -432,43 +429,43 @@ mn <- mn[columns_to_keep]
 nomi <- nomi[columns_to_keep]
 wi <- wi[columns_to_keep]
 
-nwmw <- rbind(mn, wi, nomi)
+umw <- rbind(mn, wi, nomi)
 
 #  There are a set of 9999 values for distances which I assume are meant to be NAs.  Also, there are a set of points where
 #  the distance to the tree is 1 or 2 feet.  They cause really big density estimates!
-nwmw@data [ nwmw@data == '9999'] <- NA
-nwmw@data [ nwmw@data == '8888'] <- NA
-nwmw@data [ nwmw@data == '_'] <- NA       # Except those that have already been assigned to 'QQ'
-nwmw@data [ nwmw@data == '99999'] <- NA
-nwmw@data [ nwmw@data == '999999'] <- NA
-nwmw@data [ nwmw@data == '6666'] <- NA
-nwmw@data [ nwmw@data == '999'] <- NA
-nwmw$DIAM1[is.na(nwmw$DIAM1)] <- 0
-nwmw$DIAM2[is.na(nwmw$DIAM2)] <- 0
+umw@data [ umw@data == '9999'] <- NA
+umw@data [ umw@data == '8888'] <- NA
+umw@data [ umw@data == '_'] <- NA       # Except those that have already been assigned to 'QQ'
+umw@data [ umw@data == '99999'] <- NA
+umw@data [ umw@data == '999999'] <- NA
+umw@data [ umw@data == '6666'] <- NA
+umw@data [ umw@data == '999'] <- NA
+umw$DIAM1[is.na(umw$DIAM1)] <- 0
+umw$DIAM2[is.na(umw$DIAM2)] <- 0
 
 
 # There is some cleaning to do.  A bit frustrating.  We can't confirm the diameters of
 #  a number of points, although we hope to at some point in the future:
 #  No stem density removals, none of the plots look like they have 'weird' points.
 #  Basal area removals:
-nwmw@data[which(as.numeric(nwmw$DIAM1) >100),] <- rep(NA, ncol(nwmw))  #  removes 19 trees with reported diameters over 250cm.
-nwmw@data[which(as.numeric(nwmw$DIAM2) >100),] <- rep(NA, ncol(nwmw))  #  removes an additional 14 trees.
-nwmw@data[(is.na(nwmw$SP1) & nwmw$DIAM1>0) | (is.na(nwmw$SP2) & nwmw$DIAM2>0),] <- rep(NA, ncol(nwmw))  #  removes four records with no identified trees, but identified diameters
+umw@data[which(as.numeric(umw$DIAM1) >100),] <- rep(NA, ncol(umw))  #  removes 19 trees with reported diameters over 250cm.
+umw@data[which(as.numeric(umw$DIAM2) >100),] <- rep(NA, ncol(umw))  #  removes an additional 14 trees.
+umw@data[(is.na(umw$SP1) & umw$DIAM1>0) | (is.na(umw$SP2) & umw$DIAM2>0),] <- rep(NA, ncol(umw))  #  removes four records with no identified trees, but identified diameters
 
-diams <-  cbind(as.numeric(nwmw$DIAM1), 
-                as.numeric(nwmw$DIAM2), 
-                as.numeric(nwmw$DIAM3), 
-                as.numeric(nwmw$DIAM4))
+diams <-  cbind(as.numeric(umw$DIAM1), 
+                as.numeric(umw$DIAM2), 
+                as.numeric(umw$DIAM3), 
+                as.numeric(umw$DIAM4))
 
-dists <-  cbind(as.numeric(nwmw$DIST1), 
-                as.numeric(nwmw$DIST2), 
-                as.numeric(nwmw$DIST3), 
-                as.numeric(nwmw$DIST4))
+dists <-  cbind(as.numeric(umw$DIST1), 
+                as.numeric(umw$DIST2), 
+                as.numeric(umw$DIST3), 
+                as.numeric(umw$DIST4))
 
-azimuths <- cbind(as.character(nwmw$AZ1), 
-                  as.character(nwmw$AZ2),
-                  as.character(nwmw$AZ3),
-                  as.character(nwmw$AZ4))
+azimuths <- cbind(as.character(umw$AZ1), 
+                  as.character(umw$AZ2),
+                  as.character(umw$AZ3),
+                  as.character(umw$AZ4))
 
 #  getAngle converts the four character azimuth (e.g. N43E) to a numeric, 360
 #  degree angle.  It also has to deal with a number of special cases.
@@ -478,6 +475,15 @@ source('R/point_processing/get_angle.R')
 azimuths <- apply(azimuths, 2, get_angle)
 
 
+spec_codes <- read_csv(file.path(conversions_data_dir, taxa_conversion_file), guess_max = 1000) %>% 
+    filter(domain == upper_midwest_conversion_domain) %>%
+    select(level1, level3a) 
+
+umw <- umw %>% 
+    left_join(spec_codes, by = c('sp1' = 'level1')) %>% rename(L1_tree1 = species1, L3_tree1 = level3a) %>%
+    left_join(spec_codes, by = c('sp2' = 'level1')) %>% rename(L1_tree2 = species2, L3_tree2 = level3a) %>%
+    left_join(spec_codes, by = c('sp3' = 'level1')) %>% rename(L1_tree3 = species3, L3_tree3 = level3a) %>%
+    left_join(spec_codes, by = c('sp4' = 'level1')) %>% rename(L1_tree4 = species4, L3_tree4 = level3a)
 
 #  We need to indicate water and remove it.  There are 43495 cells with 'water'
 #  indicated, and another 784 cells with 'missing' data.
@@ -534,7 +540,7 @@ wisc.year <- ifelse(wisc@data$YEAR_ > 1851, '1851+',
                                   ifelse(wisc@data$YEAR_ > 1832, '1832-1834','None'))))
 
 #  Michigan has 47 instances where the year is '2', and 12 where the year is '9999'
-#  The 9999s don't clean up because we're not using the nwmw data here:
+#  The 9999s don't clean up because we're not using the umw data here:
 
 mich.year <- as.numeric(as.character(mich@data$SURVYR))
 mich.year[mich.year == '9999'] <- 2
@@ -549,9 +555,9 @@ survey.year <- factor(c(minn.year, wisc.year, mich.year))
 
 #  These are the columns for the final dataset.
 
-final.data <- data.frame(nwmw$POINT,
-                         nwmw$twp,
-                         nwmw$rng,
+final.data <- data.frame(umw$POINT,
+                         umw$twp,
+                         umw$rng,
                          ranked.data[,1:8],
                          species.old, 
                          species,
@@ -567,8 +573,8 @@ colnames(final.data) <- c('Point', 'Township', 'Range',
                           paste('az',      1:4, sep = ''), 'year')
 
 #  Turn it into a SpatialPointsDataFrame and project into Great Lakes St.Lawrence Albers projection:
-coordinates(final.data) <- coordinates(nwmw)
-proj4string(final.data) <- proj4string(nwmw)
+coordinates(final.data) <- coordinates(umw)
+proj4string(final.data) <- proj4string(umw)
 final.data <- spTransform(final.data, CRS('+proj=longlat +init=EPSG:3175'))
 
 # now kill missing cells:
