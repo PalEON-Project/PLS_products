@@ -19,6 +19,8 @@ michigan_file="mich/michigan_filled/michigan_filled.shp"
 
 taxa_conversion_file="level0_to_level3a_v0.4-7.csv"
 
+minnesota_survey_file="MN_Surveys.csv"
+
 indiana_conversion_domain="ND Indiana v1.7"
 illinois_conversion_domain="Illinois_v1.8-2"
 southern_michigan_conversion_domain="Southern MI v1.2"

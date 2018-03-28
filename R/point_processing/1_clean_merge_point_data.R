@@ -385,14 +385,6 @@ mn <- mn %>% mutate(sp1 = ifelse(sp1 == 'BE', 'IR', sp1),
                     sp4 = ifelse(sp4 == 'BE', 'IR', sp4),
 
 
-minn$SP1 <- as.character(minn$SP1)
-minn$SP2 <- as.character(minn$SP2)
-minn$SP1[minn$VEGTYPE %in% c('L', 'M', 'S', 'R', 'A') & minn$SP1 %in% '_'] <- 'QQ'
-minn$SP2[minn$VEGTYPE %in% c('L', 'M', 'S', 'R', 'A') & minn$SP2 %in% '_'] <- 'QQ'
-
-## Simon was filtering certain vegtypes with missing sp1 or sp2 to be 'QQ'
-## but not clear why we wouldn't do this for sp3 and sp4
-
 ##  We want the Minnesota data to reflect water in the same way that the Wisconsin data does.
 ##  Almendinger references the following land cover codes that are likely to have water:
 ##  'A' - Creek (unlikely to be exclusively water)
@@ -402,9 +394,56 @@ minn$SP2[minn$VEGTYPE %in% c('L', 'M', 'S', 'R', 'A') & minn$SP2 %in% '_'] <- 'Q
 ##  'R' - not sure what this is - not indicated in Simon's code
 waterTypes <- c('L', 'M', 'S', 'R', 'A')
 mn <- mn %>% mutate(sp1 = ifelse(vegtype %in% waterTypes & sp1 == '_', 'QQ', sp1),
-                    sp2 = ifelse(vegtype %in% waterTypes & sp2 == '_', 'QQ', sp1),
-                    sp3 = ifelse(vegtype %in% waterTypes & sp3 == '_', 'QQ', sp1),
-                    sp4 = ifelse(vegtype %in% waterTypes & sp4 == '_', 'QQ', sp1))
+                    sp2 = ifelse(vegtype %in% waterTypes & sp1 == '_', 'QQ', sp1),
+                    sp3 = ifelse(vegtype %in% waterTypes & sp1 == '_', 'QQ', sp1),
+                    sp4 = ifelse(vegtype %in% waterTypes & sp1 == '_', 'QQ', sp1))
+
+if(sum(mn$vegtype %in% waterTypes & mn$sp1 == '_' & (mn$sp2 != '_' | mn$sp3 != '_' | mn$sp4 != '_')))
+    cat("MN water corners have trees with species info.\n")
+
+
+mn_survey <- read_csv(file.path(raw_data_dir, minnesota_survey_file), guess_max = 10000)
+mn_survey <- mn_survey %>% mutate(TOWN = paste0('T', formatC(TOWN, width=3, flag='0'), 'N'),
+                                  RANG = paste0('R', formatC(RANG, width=2, flag='0'), RDIR)) %>%
+    dplyr::select(TOWN, RANG, YEAR)
+
+mn <- mn %>% left_join(mn_survey, by = c('twp' = 'TOWN', 'rng' = 'RANG'))
+mn <- mn %>% rename(surveyyear = YEAR)
+
+## two points with twp/rng not in survey file
+distances <- rdist(mn[is.na(mn$surveyyear), c('x','y')],
+                   mn[!is.na(mn$surveyyear), c('x','y')])
+closest <- apply(distances, 1, which.min)
+
+mn$surveyyear[is.na(mn$surveyyear)] <- mn$surveyyear[!is.na(mn$surveyyear)][closest]
+
+if(sum(is.na(mn$surveyyear)) || min(mn$surveyyear < 1847) || max(mn$surveyyear > 1907))
+    cat("Unexpected missing year or year outside 1847-1907 range")
+
+
+#  We need to bin the year information so that we can use it to calculate
+#  appropriate Cottam Correction factors.  The survey instructions for the PLS
+#  change at a number of points during the sirveys in Wisconsin, but are
+#  considered to be fixed by the time.
+#  Some wisconsin samples don't have a year.  Look this up and figure out why.
+#  It causes a problem with the Cottam correction factor.
+
+## the inequalities here are not precise, but this is what we have from Simon
+## check if it matters in terms of how corrections are assigned
+wi <- wi %>% mutate(surveyyear = ifelse(year_ > 1851, '1851+',
+                                 ifelse(year_ > 1846, '1846-1851',
+                                 ifelse(year_ > 1834, '1834-1846',
+                                 ifelse(year_ >= 1832, '1832-1834', NA)))))
+
+distances <- rdist(wi[is.na(wi$surveyyear), c('x','y')],
+                   wi[!is.na(wi$surveyyear), c('x','y')])
+closest <- apply(distances, 1, which.min)
+
+wi$surveyyear[wi$surveyyear)] <- wi$surveyyear[!is.na(wi$surveyyear)][closest]
+
+if(sum(is.na(wi$surveyyear)) || min(wi$surveyyear < 1832) || max(wi$surveyyear > 1891))
+    cat("Unexpected missing year or year outside 1847-1907 range")
+
 
 #  There are also some weird Michigan points:
 #  1.  Michigan has a set of points with NA as SPP1 but identifiable trees listed as
@@ -413,12 +452,31 @@ mn <- mn %>% mutate(sp1 = ifelse(vegtype %in% waterTypes & sp1 == '_', 'QQ', sp1
 #  2.  There are also 2909 no tree points in Michigan.  Most of these points are quarter
 #      section points, and there is clear grographic bias.  We assume these points are
 #      early survey points and remove them entirely.
-## case 1 is a subset of case 2, so just remove case 2
+## CJP: case 1 is a subset of case 2, so just remove case 2
 
 nomi <- nomi %>% filter(!is.na(sp1))
+## check this: there are ~10 cases where sp2,sp3, or sp4 not NA but sp1 is NA
+
+##  Michigan has 47 instances where the year is '2'
+## Simon also noted  12 where the year is '9999' but no longer seen
+## Simon note:  The 9999s don't clean up because we're not using the umw data here (unclear)
+
+nomi <- nomi %>% mutate(surveyyear = ifelse(survyr > 1851, '1851+',
+                                 ifelse(survyr > 1846, '1846-1851',
+                                 ifelse(survyr > 1834, '1834-1846',
+                                 ifelse(survyr >= 1832, '1832-1834', NA)))))
+
+distances <- rdist(nomi[is.na(nomi$surveyyear), c('x','y')],
+                   nomi[!is.na(nomi$surveyyear), c('x','y')])
+closest <- apply(distances, 1, which.min)
+
+nomi$surveyyear[nomi$surveyyear)] <- nomi$surveyyear[!is.na(nomi$surveyyear)][closest]
+
+if(sum(is.na(nomi$surveyyear)) || min(nomi$surveyyear < 1836) || max(nomi$surveyyear > 1888))
+    cat("Unexpected missing year or year outside 1836-1888 range")
 
 # what about twp, rng etc?
-columns_to_keep <- c("point",
+columns_to_keep <- c("point", "surveyyear",
                      "sp1", "sp2", "sp3", "sp4",
                      "az1", "az2", "az3", "az4",
                      "dist1", "dist2", "dist3", "dist4",
@@ -444,13 +502,6 @@ umw$DIAM1[is.na(umw$DIAM1)] <- 0
 umw$DIAM2[is.na(umw$DIAM2)] <- 0
 
 
-# There is some cleaning to do.  A bit frustrating.  We can't confirm the diameters of
-#  a number of points, although we hope to at some point in the future:
-#  No stem density removals, none of the plots look like they have 'weird' points.
-#  Basal area removals:
-umw@data[which(as.numeric(umw$DIAM1) >100),] <- rep(NA, ncol(umw))  #  removes 19 trees with reported diameters over 250cm.
-umw@data[which(as.numeric(umw$DIAM2) >100),] <- rep(NA, ncol(umw))  #  removes an additional 14 trees.
-umw@data[(is.na(umw$SP1) & umw$DIAM1>0) | (is.na(umw$SP2) & umw$DIAM2>0),] <- rep(NA, ncol(umw))  #  removes four records with no identified trees, but identified diameters
 
 diams <-  cbind(as.numeric(umw$DIAM1), 
                 as.numeric(umw$DIAM2), 
@@ -471,8 +522,10 @@ azimuths <- cbind(as.character(umw$AZ1),
 #  degree angle.  It also has to deal with a number of special cases.
 #  The code for getAngles is a bit scuzzy, but it leaves only 231 azimuths 
 #  untranslated, this is a manageable number.
-source('R/point_processing/get_angle.R')
-azimuths <- apply(azimuths, 2, get_angle)
+## TODO: check this once get clarity from KAH on the get_angle function issues
+umw[ , paste0('az', 1:4)] <- get_angle(umw[ , paste0('az', 1:4)])
+
+## azimuths <- apply(azimuths, 2, get_angle)
 
 
 spec_codes <- read_csv(file.path(conversions_data_dir, taxa_conversion_file), guess_max = 1000) %>% 
@@ -485,73 +538,8 @@ umw <- umw %>%
     left_join(spec_codes, by = c('sp3' = 'level1')) %>% rename(L1_tree3 = species3, L3_tree3 = level3a) %>%
     left_join(spec_codes, by = c('sp4' = 'level1')) %>% rename(L1_tree4 = species4, L3_tree4 = level3a)
 
-#  We need to indicate water and remove it.  There are 43495 cells with 'water'
-#  indicated, and another 784 cells with 'missing' data.
-#  when we limit these to the first two columns of the species table we get
-#  a total of 25416 samples removed.
-
-#  There are a set of dead taxa (DA, DB & cetera) that we exclude.  Only AM is
-#  unknown at this point.  This excludes 213 trees.
-species[species %in% ''] <- 'No tree'
-
-#  Now we assign species that don't fit to the 'No tree' category.
-species[is.na(species)] <- 'No tree'
-
-#  Here Simon did a check comparing species.old against species.
-#test.table <- table(unlist(species.old), unlist(species), useNA='always')
-#write.csv(test.table, 'data/output/clean.bind.test.csv')
 
 
-#  When the object is NA, or the species is not a tree (NonTree or Water), set
-#  the distance to NA.
-dists[is.na(species) | species %in% c('No tree', 'Water', 'Missing')] <- NA
-
-#  Now we're looking at 36843 points with no usable data,
-#  5022 points with only one tree
-#  524 points with only two trees
-#  59 points with three trees
-#  380645 points with four trees
-
-
-#  We need to bin the year information so that we can use it to calculate
-#  appropriate Cottam Correction factors.  The survey instructions for the PLS
-#  change at a number of points during the sirveys in Wisconsin, but are
-#  considered to be fixed by the time.
-#  Some wisconsin samples don't have a year.  Look this up and figure out why.
-#  It causes a problem with the Cottam correction factor.
-
-mn_survey <- read.csv('data/minn/MN_Surveys.csv')
-mn_survey$TOWN <- paste('T', formatC(mn_survey$TOWN, width=3, flag='0'), 'N', sep ='')
-mn_survey$RANG <- paste('R', formatC(mn_survey$RANG, width=2, flag='0'), mn_survey$RDIR, sep ='')
-
-get.minn.year <- function(x)which(paste(mn_survey$TOWN, mn_survey$RANG) == paste(x$TWP, x$RNG))
-
-minn.year <- rep(NA, nrow(minn@data))
-for(i in 1:nrow(minn@data)){
-  if(is.na(minn.year[i])){
-    minn.test <- get.minn.year(minn@data[i,])
-    if(length(minn.test) == 1)minn.year[i] <- mn_survey$YEAR[minn.test]
-  } 
-}
-
-wisc.year <- ifelse(wisc@data$YEAR_ > 1851, '1851+',
-                    ifelse(wisc@data$YEAR_ > 1846, '1846-1851',
-                           ifelse(wisc@data$YEAR_ > 1834, '1834-1846',
-                                  ifelse(wisc@data$YEAR_ > 1832, '1832-1834','None'))))
-
-#  Michigan has 47 instances where the year is '2', and 12 where the year is '9999'
-#  The 9999s don't clean up because we're not using the umw data here:
-
-mich.year <- as.numeric(as.character(mich@data$SURVYR))
-mich.year[mich.year == '9999'] <- 2
-
-mich.year <- ifelse(mich.year > 1851, '1851+',
-                    ifelse(mich.year > 1846, '1846-1851',
-                           ifelse(mich.year > 1834, '1834-1846',
-                                  ifelse(mich.year > 1832, '1832-1834','None'))))
-mich.year[is.na(mich.year)] <- 'None'
-
-survey.year <- factor(c(minn.year, wisc.year, mich.year))
 
 #  These are the columns for the final dataset.
 
@@ -658,10 +646,6 @@ colnames(used.data.alb)<- c("Point",      "Township" ,  "Range",      "diam1" , 
 
 used.data.alb$state <- ifelse(substr(used.data@data$Township, 1, 2) == 'wi', 'Wisconsin',
                           ifelse(substr(used.data@data$Township, 1, 2) == 'mi', 'Michigan', 'Minnesota'))
-
-
-
-
 
 
 
@@ -781,4 +765,28 @@ azimuths[treed.center,1] <- 0 #assign azimuth to 0
 #  Another special case, two trees of distance 1. 
 dists[rowSums(dists == 1, na.rm=T) > 1, ] <- rep(NA, 4)
 
+## CJP note: I don't see any '' cases; as far as NA, I think we
+## want to leave as NA for now rather than treat as No tree
+#  We need to indicate water and remove it.  There are 43495 cells with 'water'
+#  indicated, and another 784 cells with 'missing' data.
+#  when we limit these to the first two columns of the species table we get
+#  a total of 25416 samples removed.
 
+#  There are a set of dead taxa (DA, DB & cetera) that we exclude.  Only AM is
+#  unknown at this point.  This excludes 213 trees.
+species[species %in% ''] <- 'No tree'
+
+#  Now we assign species that don't fit to the 'No tree' category.
+species[is.na(species)] <- 'No tree'
+
+# There is some cleaning to do.  A bit frustrating.  We can't confirm the diameters of
+#  a number of points, although we hope to at some point in the future:
+#  No stem density removals, none of the plots look like they have 'weird' points.
+#  Basal area removals:
+umw@data[which(as.numeric(umw$DIAM1) >100),] <- rep(NA, ncol(umw))  #  removes 19 trees with reported diameters over 250cm.
+umw@data[which(as.numeric(umw$DIAM2) >100),] <- rep(NA, ncol(umw))  #  removes an additional 14 trees.
+umw@data[(is.na(umw$SP1) & umw$DIAM1>0) | (is.na(umw$SP2) & umw$DIAM2>0),] <- rep(NA, ncol(umw))  #  removes four records with no identified trees, but identified diameters
+
+#  When the object is NA, or the species is not a tree (NonTree or Water), set
+#  the distance to NA.
+dists[is.na(species) | species %in% c('No tree', 'Water', 'Missing')] <- NA
