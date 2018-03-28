@@ -12,10 +12,6 @@ library(fields)
 library(sp)
 library(spdep)
 library(rgdal)
-library(raster)
-library(ggplot2)
-library(Rcpp)
-
 
 # ----------------------------------DATA CLEANING: IN + IL --------------------------------------------------
 
@@ -153,11 +149,6 @@ inil[ , paste0('az', 1:4)] <- get_angle_inil(inil[ , paste0('bearing', 1:4)],
 ## check this and use 'az'
 inil <- inil %>% mutate(azimuths = ifelse(azimuths > 360, NA, azimuths))
 # azimuths[which(azimuths > 360)] <- NA
-
-## CJP is checking on this with KAH in a Github issue, as treating two
-## distance = 1 trees seems oddly specific.
-
-
 
 
 #----------Getting correction factors----------------------
@@ -420,6 +411,9 @@ mn$surveyyear[is.na(mn$surveyyear)] <- mn$surveyyear[!is.na(mn$surveyyear)][clos
 if(sum(is.na(mn$surveyyear)) || min(mn$surveyyear < 1847) || max(mn$surveyyear > 1907))
     cat("Unexpected missing year or year outside 1847-1907 range")
 
+mn <- mn %>% mutate(surveyyear = ifelse(surveyyear <= 1855, "1855", "1907"))
+
+
 
 #  We need to bin the year information so that we can use it to calculate
 #  appropriate Cottam Correction factors.  The survey instructions for the PLS
@@ -429,7 +423,7 @@ if(sum(is.na(mn$surveyyear)) || min(mn$surveyyear < 1847) || max(mn$surveyyear >
 #  It causes a problem with the Cottam correction factor.
 
 ## the inequalities here are not precise, but this is what we have from Simon
-## check if it matters in terms of how corrections are assigned
+## only current ambiguity is whether 1846 should be assigned to "1845"
 wi <- wi %>% mutate(surveyyear = ifelse(year_ > 1851, '1851+',
                                  ifelse(year_ > 1846, '1846-1851',
                                  ifelse(year_ > 1834, '1834-1846',
@@ -444,6 +438,7 @@ wi$surveyyear[wi$surveyyear)] <- wi$surveyyear[!is.na(wi$surveyyear)][closest]
 if(sum(is.na(wi$surveyyear)) || min(wi$surveyyear < 1832) || max(wi$surveyyear > 1891))
     cat("Unexpected missing year or year outside 1847-1907 range")
 
+wi <- wi %>% mutate(surveyyear = ifelse(surveyyear %in% c('1832-1834', '1834-1846'), "1845", "1907"))
 
 #  There are also some weird Michigan points:
 #  1.  Michigan has a set of points with NA as SPP1 but identifiable trees listed as
@@ -457,26 +452,27 @@ if(sum(is.na(wi$surveyyear)) || min(wi$surveyyear < 1832) || max(wi$surveyyear >
 nomi <- nomi %>% filter(!is.na(sp1))
 ## check this: there are ~10 cases where sp2,sp3, or sp4 not NA but sp1 is NA
 
-##  Michigan has 47 instances where the year is '2'
-## Simon also noted  12 where the year is '9999' but no longer seen
-## Simon note:  The 9999s don't clean up because we're not using the umw data here (unclear)
+if(FALSE) {  ## We computed these values, but then assigned all No MI data to one correction factor
+    nomi <- nomi %>% mutate(surveyyear = ifelse(survyr > 1851, '1851+',
+                                         ifelse(survyr > 1846, '1846-1851',
+                                         ifelse(survyr > 1834, '1834-1846',
+                                         ifelse(survyr >= 1832, '1832-1834', NA)))))
+    
+    distances <- rdist(nomi[is.na(nomi$surveyyear), c('x','y')],
+                       nomi[!is.na(nomi$surveyyear), c('x','y')])
+    closest <- apply(distances, 1, which.min)
+    
+    nomi$surveyyear[is.na(nomi$surveyyear)] <- nomi$surveyyear[!is.na(nomi$surveyyear)][closest]
 
-nomi <- nomi %>% mutate(surveyyear = ifelse(survyr > 1851, '1851+',
-                                 ifelse(survyr > 1846, '1846-1851',
-                                 ifelse(survyr > 1834, '1834-1846',
-                                 ifelse(survyr >= 1832, '1832-1834', NA)))))
+    if(sum(is.na(nomi$surveyyear)) || min(nomi$surveyyear < 1836) || max(nomi$surveyyear > 1888))
+        cat("Unexpected missing year or year outside 1836-1888 range")
+}
 
-distances <- rdist(nomi[is.na(nomi$surveyyear), c('x','y')],
-                   nomi[!is.na(nomi$surveyyear), c('x','y')])
-closest <- apply(distances, 1, which.min)
+nomi <- nomi %>% mutate(surveyyear = "allN")
 
-nomi$surveyyear[nomi$surveyyear)] <- nomi$surveyyear[!is.na(nomi$surveyyear)][closest]
-
-if(sum(is.na(nomi$surveyyear)) || min(nomi$surveyyear < 1836) || max(nomi$surveyyear > 1888))
-    cat("Unexpected missing year or year outside 1836-1888 range")
 
 # what about twp, rng etc?
-columns_to_keep <- c("point", "surveyyear",
+columns_to_keep <- c("point", "twp", "rng", "surveyyear",
                      "sp1", "sp2", "sp3", "sp4",
                      "az1", "az2", "az3", "az4",
                      "dist1", "dist2", "dist3", "dist4",
@@ -503,20 +499,6 @@ umw$DIAM2[is.na(umw$DIAM2)] <- 0
 
 
 
-diams <-  cbind(as.numeric(umw$DIAM1), 
-                as.numeric(umw$DIAM2), 
-                as.numeric(umw$DIAM3), 
-                as.numeric(umw$DIAM4))
-
-dists <-  cbind(as.numeric(umw$DIST1), 
-                as.numeric(umw$DIST2), 
-                as.numeric(umw$DIST3), 
-                as.numeric(umw$DIST4))
-
-azimuths <- cbind(as.character(umw$AZ1), 
-                  as.character(umw$AZ2),
-                  as.character(umw$AZ3),
-                  as.character(umw$AZ4))
 
 #  getAngle converts the four character azimuth (e.g. N43E) to a numeric, 360
 #  degree angle.  It also has to deal with a number of special cases.
@@ -539,125 +521,6 @@ umw <- umw %>%
     left_join(spec_codes, by = c('sp4' = 'level1')) %>% rename(L1_tree4 = species4, L3_tree4 = level3a)
 
 
-
-
-#  These are the columns for the final dataset.
-
-final.data <- data.frame(umw$POINT,
-                         umw$twp,
-                         umw$rng,
-                         ranked.data[,1:8],
-                         species.old, 
-                         species,
-                         ranked.data[,13:16],
-                         survey.year,
-                         stringsAsFactors = FALSE)
-
-colnames(final.data) <- c('Point', 'Township', 'Range',
-                          paste('diam',    1:4, sep =''),
-                          paste('dist',    1:4, sep = ''), 
-                          paste('level1_',  1:4, sep = ''),
-                          paste('level3a_', 1:4, sep = ''),
-                          paste('az',      1:4, sep = ''), 'year')
-
-#  Turn it into a SpatialPointsDataFrame and project into Great Lakes St.Lawrence Albers projection:
-coordinates(final.data) <- coordinates(umw)
-proj4string(final.data) <- proj4string(umw)
-final.data <- spTransform(final.data, CRS('+proj=longlat +init=EPSG:3175'))
-
-# now kill missing cells:
-final.data <- final.data[!final.data$level3a_1 %in% c('Water', 'Missing'),] 
-final.data <- final.data[!final.data$level3a_2 %in% c('Water', 'Missing'),]
-
-
-
-
-#  Write the data out as a shapefile.
-writeOGR(final.data, 
-         'data/output/uppermidwest_v1.shp', 
-         'uppermidwestv1', 'ESRI Shapefile',
-         overwrite_layer = TRUE, check_exists = TRUE)  
-                       
-                       
-#write the data as a with the data and the coords
-uppermidwest.coords = cbind(final.data@data, final.data@coords)
-colnames(uppermidwest.coords) <- c('Point', 'Township', 'Range',
-                          paste('diam',    1:4, sep =''),
-                          paste('dist',    1:4, sep = ''), 
-                          paste('level1_',  1:4, sep = ''),
-                          paste('level3a_', 1:4, sep = ''),
-                          paste('az',      1:4, sep = ''), 'year', 'x','y')
-
-write.csv(uppermidwest.coords, 'data/output/uppermidwest.coords_v1.csv', row.names = FALSE)
-
-
-                       
-# kh: need to get the correction factors from UMW:
-                       
-                       
-model.proj <- '+init=epsg:3175'
-#  We use two different projection systems here.  This is the test to create the
-#  base resolution.
-if (model.proj == '+init=epsg:4326') {
-  #  lat/long
-  base.rast <- raster(xmn = -98.6, xmx = -66.1, ncols = 391,
-                      ymn = 36.5,  ymx = 49.75, nrows = 160,
-                      crs = '+init=epsg:4326')
-  numbered.rast <- setValues(base.rast, 1:ncell(base.rast))
-}
-
-if (model.proj == '+init=epsg:3175') {
-  base.rast <- raster(xmn = -71000, xmx = 2297000, ncols = 296,
-                      ymn = 58000,  ymx = 1498000, nrows = 180,
-                      crs = '+init=epsg:3175')
-  numbered.rast <- setValues(base.rast, 1:ncell(base.rast))
-}
-
-if (model.proj == '+init=epsg:3175') {
-  # These are narrower boundaries than the base raster for reasons associated with
-  # the broader PalEON project.
-  xylimits <- c(-100000, 1050000, 600000, 1600000)
-}
-if (model.proj == '+init=epsg:4326') {
-  xylimits <- c(-98, -83, 42, 50)
-}
-
-
-
-used.data <- read.csv('data/output/uppermidwest.coords_v1.csv')
-
-                       coordinates(used.data ) <- ~lon + lat
-if (is.na(proj4string(used.data))) {
-   #Just in case there happens to be no projection information associated with the data.
-  proj4string(used.data) <- CRS('+proj=longlat +ellps=WGS84')
-}
-
-# converting to great lakes albers proj. and saving for jody
-used.data.alb <- data.frame(spTransform(used.data, CRSobj = CRS("+init=epsg:3175")))
-
-
-
-# need to rearrange data to match southern mi and in/il data:
-
-colnames(used.data.alb)<- c("Point",      "Township" ,  "Range",      "diam1" ,     "diam2"  ,    "diam3" ,     "diam4",     
-"dist1"     , "dist2",      "dist3"  ,    "dist4",      "species1",   "species2",   "species3",  
- "species4",   "az1"  ,      "az2"  ,      "az3"  ,      "az4",        "surveyyear",       "X",         
- "X.1"    ,    "optional",   "PointX"    ,    "PointY"   ,     "optional.1")
-
-used.data.alb$state <- ifelse(substr(used.data@data$Township, 1, 2) == 'wi', 'Wisconsin',
-                          ifelse(substr(used.data@data$Township, 1, 2) == 'mi', 'Michigan', 'Minnesota'))
-
-
-
-#########################################################################
-#  Clean the tree data:
-
-diams <- used.data.alb[,c("diam1", "diam2", "diam3", "diam4")]
-angles <- used.data.alb[,c("az1", "az2", "az3", "az4")]
-dists <- floor(used.data.alb[,c("dist1", "dist2", "dist3", "dist4")])
-species <- apply(used.data.alb[,c("species1", "species2", "species3", "species4")], 2, as.character)
-species[is.na(species)] <- 'No tree'
-
 #  Points within a township are either sections or quartersections.  This
 #  is the list of points that are sections.  All others are quarter-sections.
 sections <- c(2, 5, 8, 11, 14, 18, 21, 24, 27, 30,
@@ -669,53 +532,12 @@ sections <- c(2, 5, 8, 11, 14, 18, 21, 24, 27, 30,
 #  These are the points on the outside of each township.
 external <- c(109:120, 97:108, 87, 89, 91, 93, 95, 122:126)
 
-#  These correction values are derived empirically and are described in the supplementary material.
-#  One issue right now is the lack of an empirical theta value.
 
-#corr.vals <- read.csv('data/charlie_corrections_full_midwest_mi_all.csv')
-
-correction <- data.frame(kappa = rep(NA, length(used.data.alb)),
-                         theta = rep(NA, length(used.data.alb)),
-                         zeta  = rep(NA, length(used.data.alb)),
-                         phi   = rep(NA, length(used.data.alb)))
-
-plot.trees <- rowSums(!(species == 'Water' | species == 'NonTree'), na.rm = TRUE)
-
-point.no <- as.numeric(as.character(used.data.alb$Point))
-
-#  So there are a set of classes here, we can match them all up:
-
-internal <- ifelse(!point.no %in% external, 'internal', 'external')
-trees    <- ifelse(plot.trees == 2, 'P', '2NQ')
-cornersection  <- ifelse(point.no %in% sections, 'section', 'quartersection')
-#corner <- ifelse(point.no %in% sections, 'section' & point.no %in% "external" , "Extsec","Intsec")
-state    <- ifelse(substr(used.data.alb$Township, 1, 2) == 'wi', 'Wisconsin',
-                   ifelse(substr(used.data.alb$Township, 1, 2) == 'mi', 'Michigan', 'Minnesota'))
-
-used.data.alb$corner <- internal
-used.data.alb$sectioncorner <- cornersection
-used.data.alb$point <- trees
-
-corr.year     <- as.character(used.data.alb$year)
-corr.year[state == 'Michigan' ] <- "allN"
-corr.year[state == 'Wisconsin' & corr.year %in% c('1832-1834', '1834-1846')] <- 1845
-corr.year[state == 'Wisconsin' & !(corr.year %in% c('1832-1834', '1834-1846'))] <- 1907
-corr.year[state == 'Minnesota' & (corr.year %in% (as.character(1847:1855)))] <- 1855
-corr.year[state == 'Minnesota' & !(corr.year %in% (as.character(1847:1855)))] <- 1907
-used.data.alb$surveyyear<- corr.year
-
-used.data.alb <- used.data.alb[,c( "PointX", "PointY", "Township","state", "diam1", "diam2", "diam3","diam4","dist1",
-                 "dist2", "dist3", "dist4" ,"species1", "species2", "species3", "species4", "az1", "az2", 
-                 "az3", "az4", "corner", "sectioncorner","surveyyear", "point")]
+umw <- umw %>% filter(corner = ifelse(point %in% external, 'external', 'internal'),
+                      sectioncorner = ifelse(point %in% sections, 'section', 'quartersection'))
 
 
-
-
-# write as csv:
-write.csv(used.data.alb, "data/outputs/Point_Data_From_Goringetal16_used_data_alb.csv", row.names = FALSE)
-
-                       
-
+mw <- rbind(umw, inil, somi)
 
 #--------------Reorder the tree number by distance to the point-----------------
 
@@ -723,7 +545,7 @@ write.csv(used.data.alb, "data/outputs/Point_Data_From_Goringetal16_used_data_al
 #  so that trees one and two are actually the closest two trees.
 
 ## find reordering vector for each row
-ords <- t(apply(as.matrix(full_data[ , paste0('dist', 1:4)]), 1, order, na.last = TRUE))
+ords <- t(apply(as.matrix(mw[ , paste0('dist', 1:4)]), 1, order, na.last = TRUE))
 
 reorder_col_blocks <- function(data, colname, ords) {
     ## applies reordering vector by row to a 4-column block
@@ -735,7 +557,7 @@ reorder_col_blocks <- function(data, colname, ords) {
     return(data)
 }
 
-full_data <- full_data %>%
+mw <- mw %>%
     reorder_col_blocks('dist', ords) %>% 
     reorder_col_blocks('L1_tree', ords) %>% 
     reorder_col_blocks('L3_tree', ords) %>% 
@@ -743,6 +565,12 @@ full_data <- full_data %>%
     reorder_col_blocks('degrees', ords) %>%
     reorder_col_blocks('diameter', ords)
 
+
+## remove 1-tree 0-distance points
+
+## keep 2-tree points regardless of distances and truncate density (at say 1000 for now)
+
+## keep 1-tree points and set density to something like 1 tree per unit circle of radius (150 links for now)
 
 ## set azimuth to 0 when distance is zero
 ## (This is being done for the moment because Simon originally
@@ -790,3 +618,10 @@ umw@data[(is.na(umw$SP1) & umw$DIAM1>0) | (is.na(umw$SP2) & umw$DIAM2>0),] <- re
 #  When the object is NA, or the species is not a tree (NonTree or Water), set
 #  the distance to NA.
 dists[is.na(species) | species %in% c('No tree', 'Water', 'Missing')] <- NA
+
+
+## check for 'Missing' as taxon code
+
+# now kill missing cells:
+final.data <- final.data[!final.data$level3a_1 %in% c('Water', 'Missing'),] 
+final.data <- final.data[!final.data$level3a_2 %in% c('Water', 'Missing'),]
