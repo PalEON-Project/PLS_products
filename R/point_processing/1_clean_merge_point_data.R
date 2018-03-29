@@ -113,7 +113,7 @@ inil$bearings4[inil$bearings4 == ''] <- NA
 # Assign dist == NA to all INIL points that have no tree, water or wet. In general, the dist and diam should already be == NA, so this is a check 
 
 summary(inil[inil$L3_tree1 %in% c('No tree', 'Water', 'Wet') | inil$L3_tree2 %in% c('No tree', 'Water', 'Wet'),])
-zero.trees <-(inil$L3_tree1 %in% c('No tree', 'Water', 'Wet') | inil$L3_tree2 %in% c('No tree', 'Water', 'Wet'))
+zero.trees <-(inil$L3_tree1 %in% c( 'Water', 'Wet') | inil$L3_tree2 %in% c( 'Water', 'Wet')) # KAH changed this because it was making all corners that have "no tree" listed as species in any tree, not jsut the first two trees
 
 inil[zero.trees, c("DIST1", "DIST2", "DIST3")] <- NA
 inil[zero.trees, c('diameter', 'diameter2', "diameter3")] <- NA
@@ -193,7 +193,9 @@ degrees <- cbind(as.numeric(inil$degrees),
 #  untranslated, this is a manageable number.
 
 
-#### KH fix get_angle_IN: NEeed to remove points where bearing dir or bearing == 88888 or 99999
+
+# KAH suggestions on get_angle_IN function: This function is based on get_Angle.R used for UMW data, but they differ in some special cases
+# in theory, we could combine these two, but the raw survey data has differnt methods of recording bearing data in INIl and UMW
 
 
 
@@ -203,18 +205,16 @@ get_angle_IN <- function(bearings, degrees, dists) {
   #  This is the vector that will store the values.
   angl <- degrees
   
-  #  This is a special case, generally where the tree is plot center.
-  angl[degrees == '0' & dists =='0'] <- 0
+  #  This is a special case, generally where the tree is plot center. Changed to be consistant with UMW get_angle
+  angl[degrees == '0'] <- 0
   
   #  This is a short function that takes cares of NAs in boolean functions, it's
   #  just a simple wrapper for the boolean function that sets the NA values in
   #  the vector to FALSE.
   fx.na <- function(x) { x[ is.na( x ) ] <- FALSE; x }
   
-  #  Given the text azimuths in the dataset, return the quadrant values.
-  #  This gives a boolean index of the quadrant
-  
-  # north == "NNA" or "NAN or "N
+  #  From the bearings, determine if the tree lies directly along the cardinal direction:
+  # we ignorre 99999 and 88888 because these are missing data flags, according to JP
   north <- fx.na(bearings == 'NNA'| bearings == 'NAN' | bearings =='N') #|bearings =='N99999'|bearings =='N88888')
   east <- fx.na(bearings == 'NAE' | bearings =="ENA" | bearings =='E') #|bearings =='99999E'|bearings =='88888E')
   south <- fx.na(bearings == 'SNA' | bearings =="NAS"| bearings == 'S') #|bearings =='S99999'|bearings =='S88888')
@@ -225,18 +225,20 @@ get_angle_IN <- function(bearings, degrees, dists) {
   #south <- fx.na( regexpr('S', bearings) > 0 | bearings == 'SOUTH')
   #west <-  fx.na( regexpr('W', bearings) > 0 | bearings == 'WEST')
   
-  ne <- fx.na( (north & east) | bearings == 'NE')
-  se <- fx.na( (south & east) | bearings == 'SE')
-  sw <- fx.na( (south & west) | bearings == 'SW')
-  nw <- fx.na( (north & west) | bearings == 'NW') 
+  # from the bearings, determine if the tree is in NE, SE, SW or NW quadrat (not directly along a cardinal direction):
+  ne <- fx.na(  bearings == 'NE')
+  se <- fx.na(  bearings == 'SE')
+  sw <- fx.na( bearings == 'SW')
+  nw <- fx.na(  bearings == 'NW') 
   
   #  The cell is in a quadrant, regardless of which.
   quad <- ne | se | sw | nw
   
   #  Special case of the trees with a unidirectional direction.
-  uni  <- (!quad) & !(north | south | east | west) 
+  uni  <- (!quad) & (north | south | east | west) 
   
-  angl[ uni & north ] <- 0
+  # set the unidirectional angles to a degrees 360 
+  angl[ uni & north ] <- 360 # KAH changed this from 0 to 360 to match convention with southwest michigan, where an angle == 0 is a missing/erroreous value
   angl[ uni & south ] <- 180
   angl[ uni & east  ] <- 90 
   angl[ uni & west  ] <- 270
@@ -244,13 +246,14 @@ get_angle_IN <- function(bearings, degrees, dists) {
  
   ##########
   
-  #  Another set of special cases:
+  #  convert all angles from a 90degree value within each quadrat to a 360 degree value:
  
   degrees <- apply(degrees, 2, as.numeric)
-  angl[ north ] <- degrees[ north ]
-  angl[ east ] <- 180 - degrees[ east ]
-  angl[ south ] <- 180 + degrees[ south ]
-  angl[ west ] <- 360 - degrees [ west ]
+  
+  
+  angl[ se ] <- 180 - degrees[ se ]
+  angl[ sw ] <- 180 + degrees[ sw ]
+  angl[ nw ] <- 360 - degrees [ nw ]
   
   return(angl)
   
@@ -261,7 +264,7 @@ get_angle_IN <- function(bearings, degrees, dists) {
 azimuths <- get_angle_IN(bearings, degrees, dists)
 
 # there are still 654 instances of azimuths == 88888 or 99999, here I assume these are NA rather than 0
-azimuths[which(azimuths > 360)] <- NA
+azimuths[which(abs(azimuths) > 360)] <- NA
 
 #####  Cleaning Trees: Need to convert surveyors abbreviations to Paleon taxa:
 
