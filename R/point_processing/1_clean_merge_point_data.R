@@ -257,8 +257,8 @@ somi <- somi %>% mutate(az1 = convert_to_NA(az1_360, 0),
 ## determine subdomain for use with correction factors
 ## should we find domain of closest point for those without 'E' or 'W'
 surveyyear <- rep(NA, nrow(somi))
-surveyyear[grep('E', somi$twnrng)] <- "SE"
-surveyyear[grep('W', somi$twnrng)] <- "SW"
+surveyyear[grep('E', somi$range)] <- "SE"
+surveyyear[grep('W', somi$range)] <- "SW"
 somi$surveyyear <- surveyyear
 
 somi <- somi %>% rename(corner = sec_corner)
