@@ -590,7 +590,9 @@ treed.center[is.na(treed.center)] <- FALSE
 
 azimuths[treed.center,1] <- 0 #assign azimuth to 0
 
-#  Another special case, two trees of distance 1. 
+##  Another special case, two trees of distance 1.
+## Simon sees this as concerning in UMW since 1 link is so small,
+## so check for this
 dists[rowSums(dists == 1, na.rm=T) > 1, ] <- rep(NA, 4)
 
 ## CJP note: I don't see any '' cases; as far as NA, I think we
@@ -625,3 +627,6 @@ dists[is.na(species) | species %in% c('No tree', 'Water', 'Missing')] <- NA
 # now kill missing cells:
 final.data <- final.data[!final.data$level3a_1 %in% c('Water', 'Missing'),] 
 final.data <- final.data[!final.data$level3a_2 %in% c('Water', 'Missing'),]
+
+## check for existing distance w/o species and treat as 'unknown tree'
+## If the cases have a non- zero or non-NA value for the distance, then I think we can assume that these are "Unknown tree", but if dist == 0, then we should ask Charlie/Simon
