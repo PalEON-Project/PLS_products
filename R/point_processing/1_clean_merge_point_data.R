@@ -630,3 +630,6 @@ final.data <- final.data[!final.data$level3a_2 %in% c('Water', 'Missing'),]
 
 ## check for existing distance w/o species and treat as 'unknown tree'
 ## If the cases have a non- zero or non-NA value for the distance, then I think we can assume that these are "Unknown tree", but if dist == 0, then we should ask Charlie/Simon
+
+## do diameter cutoff?
+## check if any trees are less than veil and if so ask Charlie what to do

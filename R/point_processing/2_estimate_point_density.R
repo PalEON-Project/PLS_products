@@ -64,7 +64,6 @@ morisita <- function(processed.data, correction.factor = NULL, veil=FALSE) {
       spec <- processed.data[,c('species1', 'species2', 'species3', 'species4')]
       corn <- processed.data[,'corner']
 
-
       if(veil){
         diam[diam < 8] <- NA #double check that this is corrected veil line, and do we want to use it?
       }
