@@ -7,15 +7,15 @@ code_dir=""
 pecan_base_logger_commit="3d6cbba"
 pecan_modules_allometry_commit="7064209"
 
-upper_midwest_file="umw_wiki_v1.0.zip"
-
+minnesota_zipfile="mn_pls_projected_v1.1.zip"
+minnesota_file="mn_pls_projected_v1.1.csv"
+wisconsin_zipfile = "wi_pls_projected_v1.1.zip"
+wisconsin_file = "wi_pls_projected_v1.1.csv"
+northern_michigan_zipfile="northernmi_pls_projected_v1.1.zip"
+northern_michigan_file="northernmi_pls_projected_v1.1.csv"
 southern_michigan_file="southernmi_projected_v1.2.csv"
-indiana_file="ndinpls_v1.7.csv"
-illinois_file="ndilpls_v1.8-2.csv"
-
-wisconsin_file="wisc/glo_corn.shp"
-minnesota_file="minn/minnesota.shp"
-michigan_file="mich/michigan_filled/michigan_filled.shp"
+indiana_file="ndinpls_v1.7-1.csv"
+illinois_file="ndilpls_v1.8-3.csv"
 
 taxa_conversion_file="level0_to_level3a_v0.4-7.csv"
 
