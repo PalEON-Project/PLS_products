@@ -18,6 +18,28 @@ library(rgdal)
 ind <- read_csv(file.path(raw_data_dir, indiana_file), guess_max = 100000)
 il <- read_csv(file.path(raw_data_dir, illinois_file), guess_max = 100000)
 
+# Remove the following corners from IL because they are on the IL-WI border and these IL corners are very close to adjacent WI corners.  
+# These IL corners are less than 165 m away from the WI corners and both sets of corners have similar taxa in that most are Oaks at Level 3a
+il[which(il$entry_id == "642067"),] <- NA
+il[which(il$entry_id == "642022"),] <- NA
+il[which(il$entry_id == "642315"),] <- NA
+il[which(il$entry_id == "642443"),] <- NA
+il[which(il$entry_id == "641958"),] <- NA
+il[which(il$entry_id == "642391"),] <- NA
+il[which(il$entry_id == "639084"),] <- NA
+il[which(il$entry_id == "639089"),] <- NA
+il[which(il$entry_id == "639087"),] <- NA
+il[which(il$entry_id == "639156"),] <- NA
+il[which(il$entry_id == "638543"),] <- NA
+il[which(il$entry_id == "639082"),] <- NA
+il[which(il$entry_id == "698794"),] <- NA
+il[which(il$entry_id == "696675"),] <- NA
+il[which(il$entry_id == "698842"),] <- NA
+il[which(il$entry_id == "699244"),] <- NA
+il[which(il$entry_id == "698820"),] <- NA
+il[which(il$entry_id == "696658"),] <- NA
+
+
 if(sum(is.na(ind$L1_tree1)) || sum(is.na(il$L1_tree1)))
     cat("Missing values in taxon for first tree in IN or IL.\n")
 
