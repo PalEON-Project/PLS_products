@@ -49,7 +49,7 @@ if(code_dir == "")
 
 ## source files with R functions
 
-code_files <- list.files(code_dir, full.names = TRUE)
+code_files <- list.files(code_dir, pattern = ".R$", full.names = TRUE)
 sapply(code_files, source)
 
 # TMP: for seeing all cols instead of tibble

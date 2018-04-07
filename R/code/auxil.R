@@ -3,27 +3,27 @@ convert_to_NA <- function(x, missingCodes = c(88888, 99999)) {
     return(x)
 }
 
-get_angle_inil <- function(bearings, degrees, dists) {
-    ##  This function converts the
-    ##  text azimuth strings to numeric, 360 degree values.
-    ##  This is the vector that will store the values.
+get_angle_inil <- function(bearings, degrees) {
+    ##  This function converts the bearing and degree information
+    ##  into 360-degree values
+
+    degrees <- as.matrix(degrees)  ## need matrices for indexing later
     angle <- degrees
+
+    if(any(is.na(bearings)))
+        stop("get_angle_inil: Found NA values for bearings and code not set to handle this.")
     
-    ##  This sets NAs to FALSE
-    fx.na <- function(x) { x[ is.na( x ) ] <- FALSE; x }
+    ## Determine the quadrants
     
-    ##  Given the text azimuths in the dataset, return the quadrant values.
-    ##  This gives a boolean index of the quadrant
+    north <- bearings == 'N_NA'| bearings == 'NA_N' | bearings =='N'
+    east <- bearings == 'NA_E' | bearings =="E_NA" | bearings =='E'
+    south <- bearings == 'S_NA' | bearings =="NA_S"| bearings == 'S' 
+    west <- bearings == 'NA_W' | bearings =="W_NA" | bearings == 'W' 
     
-    north <- fx.na(bearings == 'N_NA'| bearings == 'NA_N' | bearings =='N') 
-    east <- fx.na(bearings == 'NA_E' | bearings =="E_NA" | bearings =='E') 
-    south <- fx.na(bearings == 'S_NA' | bearings =="NA_S"| bearings == 'S') 
-    west <- fx.na(bearings == 'NA_W' | bearings =="W_NA" | bearings == 'W') 
-    
-    ne <- fx.na(bearings == 'N_E')
-    se <- fx.na(bearings == 'S_E')
-    sw <- fx.na(bearings == 'S_W')
-    nw <- fx.na(bearings == 'N_W') 
+    ne <- bearings == 'N_E'
+    se <- bearings == 'S_E'
+    sw <- bearings == 'S_W'
+    nw <- bearings == 'N_W'
     
     ## set the unidirectional angles to a degrees 360 
     angle[ north ] <- 360 # KAH changed this from 0 to 360 to match convention with southwest michigan, where an angle == 0 is a missing/erroreous value
