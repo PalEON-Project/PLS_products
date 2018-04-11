@@ -304,71 +304,47 @@ somi <- somi[columns_to_keep]
 #                           'level0_to_level3a_v0.4-7.csv'
 #  az (1 through 4): Azimuth to the bearing trees.
 
-unzip(file.path(raw_data_dir, upper_midwest_file), exdir = raw_data_dir)
+if(!file.exists(file.path(raw_data_dir, minnesota_file))) 
+    unzip(file.path(raw_data_dir, minnesota_zipfile), exdir = raw_data_dir)
+if(!file.exists(file.path(raw_data_dir, wisconsin_file))) 
+    unzip(file.path(raw_data_dir, wisconsin_zipfile), exdir = raw_data_dir)
+if(!file.exists(file.path(raw_data_dir, northern_michigan_file))) 
+    unzip(file.path(raw_data_dir, northern_michigan_zipfile), exdir = raw_data_dir)
 
-## check on whether dist/diam are non-numeric
+wi <- read_csv(file.path(raw_data_dir, wisconsin_file), guess_max = 100000)
+mn <- read_csv(file.path(raw_data_dir, minnesota_file), guess_max = 100000)
+nomi <- read_csv(file.path(raw_data_dir, northern_michigan_file), guess_max = 100000)
 
-wisc <- readOGR(file.path(raw_data_dir, wisconsin_file), stringsAsFactors = FALSE)
-minn <- readOGR(file.path(raw_data_dir, minnesota_file), stringsAsFactors = FALSE)
-mich <- readOGR(file.path(raw_data_dir, michigan_file), stringsAsFactors = FALSE)
+names(wi) <- tolower(names(wi))
+names(mn) <- tolower(names(mn))
+names(nomi) <- tolower(names(nomi))
 
-#  The files are in unique projections, this standardizes the projections to
-#  a long-lat projection:
-## Do we do anything with this?
-if(FALSE) {
-wisc <- spTransform(wisc, CRS('+proj=longlat +ellps=WGS84'))
-minn <- spTransform(minn, CRS('+proj=longlat +ellps=WGS84'))
-mich <- spTransform(mich, CRS('+proj=longlat +ellps=WGS84'))
-}
+wi <- wi %>% rename(year = year_)
 
-clean_df <- function(input) {
-    input <- as.data.frame(input)
-    names(input) <- tolower(names(input))
-    return(as_tibble(input))
-}
-
-wi <- clean_df(wisc)
-mn <- clean_df(minn)
-nomi <- clean_df(mich)
+nomi <- nomi %>% rename(diam1 = dbh1, diam2 = dbh2, diam3 = dbh3, diam4 = dbh4,
+                        sp1 = spp1, sp2 = spp2, sp3 = spp3, sp4 = spp4,
+                        az1 = azimuth, az2 = azimuth2, az3 = azimuth3, az4 = azimuth4)
 
 if(any(!wi$rangdir %in% c(0, 2, 4)))
     stop("Unexpected 'rangdir' values found in Wisconsin")
 
-## recheck this next bit with WI CSV 
-
 ##  The wisconsin Range is set as a single value, the 'E' and 'W' codes are in
 ##  RANGDIR.  Looking at the data it also looks like there are a few ranges
-##  that are miscoded (Simon had the W + >5e5 cases but none seen now, while
-##  Simon did not have the W + < 4.8e5 cases that are seen now.
+##  that are miscoded with slight differences from cases Simon was checking. 
 wi <- wi %>% filter(rangdir != 0) %>%   ## Single point that seems to have no data associated with it, so remove it.
     mutate(rangdir = ifelse(rangdir == '2', 'W', 'E')) %>%
-    mutate(rangdir = ifelse(rangdir == 'W' & coords.x1 > 5e5, 'E', rangdir)) %>%
-    mutate(rangdir = ifelse(rangdir == 'E' & coords.x2 < 4.8e5, 'W', rangdir)) %>%
+    mutate(rangdir = ifelse(rangdir == 'W' & y_alb > 1050000 & x_alb > 4.6e5, 'E', rangdir)) %>%
+    mutate(rangdir = ifelse(rangdir == 'E' & y_alb > 1050000 & x_alb < 4.3e5, 'W', rangdir)) %>%
     mutate(rng = paste0(as.character(range), rangdir)) %>%
     select(-range, -rangdir)
 
-wi <- wi %>% mutate(twp = paste0('WI_', township)) %>% select(-township)
-mn <- mn %>% mutate(twp = paste0('MN_', twp))
-nomi <- nomi %>% mutate(twp = paste0('MI_', township))
 
 ##  Michigan's point numbers are wrong in the dataset.  Simon is not sure where the 
 ##  error arose from, but we need them to be able to assign section & quartersection
 ##  points.
-nomi <- nomi %>% mutate(pnt = as.numeric(substr(recnum_c, 9, 11)))
+nomi <- nomi %>% mutate(point = as.numeric(substr(recnum_c, 9, 11)))
 
 mn <- mn %>% rename(point = tic)
-nomi <- nomi %>% rename(point = pnt, sp1 = spp1, sp2 = spp2, sp3 = spp3, sp4 = spp4,
-                        diam1 = dbh1, diam2 = dbh2, diam3 = dbh3, diam4 = dbh4,
-                        az1 = azimuth, az2 = azimuth2, az3 = azimuth3, az4 = azimuth4)
-
-
-## check on character/numeric issue
-if(FALSE) {
-    minn$DIST1 <- as.numeric(levels(minn$DIST1)[minn$DIST1])
-    minn$DIST2 <- as.numeric(levels(minn$DIST2)[minn$DIST2])
-    minn$DIST3 <- as.numeric(levels(minn$DIST3)[minn$DIST3])
-    minn$DIST4 <- as.numeric(levels(minn$DIST4)[minn$DIST4])
-}
 
 
 ##  We have made a choice to say that all taxa labelled 'Beech' in Minnesota are likely
@@ -378,7 +354,7 @@ if(FALSE) {
 mn <- mn %>% mutate(sp1 = ifelse(sp1 == 'BE', 'IR', sp1),
                     sp2 = ifelse(sp2 == 'BE', 'IR', sp2),
                     sp3 = ifelse(sp3 == 'BE', 'IR', sp3),
-                    sp4 = ifelse(sp4 == 'BE', 'IR', sp4),
+                    sp4 = ifelse(sp4 == 'BE', 'IR', sp4))
 
 
 ##  We want the Minnesota data to reflect water in the same way that the Wisconsin data does.
@@ -389,61 +365,55 @@ mn <- mn %>% mutate(sp1 = ifelse(sp1 == 'BE', 'IR', sp1),
 ##  'L' - Lake
 ##  'R' - not sure what this is - not indicated in Simon's code
 waterTypes <- c('L', 'M', 'S', 'R', 'A')
-mn <- mn %>% mutate(sp1 = ifelse(vegtype %in% waterTypes & sp1 == '_', 'QQ', sp1),
-                    sp2 = ifelse(vegtype %in% waterTypes & sp1 == '_', 'QQ', sp1),
-                    sp3 = ifelse(vegtype %in% waterTypes & sp1 == '_', 'QQ', sp1),
-                    sp4 = ifelse(vegtype %in% waterTypes & sp1 == '_', 'QQ', sp1))
 
 if(sum(mn$vegtype %in% waterTypes & mn$sp1 == '_' & (mn$sp2 != '_' | mn$sp3 != '_' | mn$sp4 != '_')))
     cat("MN water corners have trees with species info.\n")
 
+mn <- mn %>% mutate(sp1 = ifelse(vegtype %in% waterTypes & sp1 == '_', 'QQ', sp1),
+                    sp2 = ifelse(vegtype %in% waterTypes & sp2 == '_', 'QQ', sp2),
+                    sp3 = ifelse(vegtype %in% waterTypes & sp3 == '_', 'QQ', sp3),
+                    sp4 = ifelse(vegtype %in% waterTypes & sp4 == '_', 'QQ', sp4))
+
+## a few of these cases have non-missing dist&diam; should check on these
+mn %>% mutate(sp1 = convert_to_NA(sp1, '_'),
+              sp2 = convert_to_NA(sp2, '_'),
+              sp3 = convert_to_NA(sp3, '_'),
+              sp4 = convert_to_NA(sp4, '_'))
 
 mn_survey <- read_csv(file.path(raw_data_dir, minnesota_survey_file), guess_max = 10000)
 mn_survey <- mn_survey %>% mutate(TOWN = paste0('T', formatC(TOWN, width=3, flag='0'), 'N'),
                                   RANG = paste0('R', formatC(RANG, width=2, flag='0'), RDIR)) %>%
     dplyr::select(TOWN, RANG, YEAR)
+names(mn_survey) <- tolower(names(mn_survey))
 
-mn <- mn %>% left_join(mn_survey, by = c('twp' = 'TOWN', 'rng' = 'RANG'))
-mn <- mn %>% rename(surveyyear = YEAR)
+mn <- mn %>% left_join(mn_survey, by = c('twp' = 'town', 'rng' = 'rang'))
 
 ## two points with twp/rng not in survey file
-distances <- rdist(mn[is.na(mn$surveyyear), c('x','y')],
-                   mn[!is.na(mn$surveyyear), c('x','y')])
+distances <- rdist(mn[is.na(mn$year), c('x_alb','y_alb')],
+                   mn[!is.na(mn$year), c('x_alb','y_alb')])
 closest <- apply(distances, 1, which.min)
+mn$year[is.na(mn$year)] <- mn$year[!is.na(mn$year)][closest]
 
-mn$surveyyear[is.na(mn$surveyyear)] <- mn$surveyyear[!is.na(mn$surveyyear)][closest]
-
-if(sum(is.na(mn$surveyyear)) || min(mn$surveyyear < 1847) || max(mn$surveyyear > 1907))
+if(sum(is.na(mn$year)) || min(mn$year < 1847) || max(mn$year > 1907))
     cat("Unexpected missing year or year outside 1847-1907 range")
 
-mn <- mn %>% mutate(surveyyear = ifelse(surveyyear <= 1855, "1855", "1907"))
-
-
+mn <- mn %>% mutate(surveyyear = ifelse(year <= 1855, "1855", "1907"))
 
 #  We need to bin the year information so that we can use it to calculate
 #  appropriate Cottam Correction factors.  The survey instructions for the PLS
-#  change at a number of points during the sirveys in Wisconsin, but are
+#  change at a number of points during the surveys in Wisconsin, but are
 #  considered to be fixed by the time.
-#  Some wisconsin samples don't have a year.  Look this up and figure out why.
-#  It causes a problem with the Cottam correction factor.
 
-## the inequalities here are not precise, but this is what we have from Simon
-## only current ambiguity is whether 1846 should be assigned to "1845"
-wi <- wi %>% mutate(surveyyear = ifelse(year_ > 1851, '1851+',
-                                 ifelse(year_ > 1846, '1846-1851',
-                                 ifelse(year_ > 1834, '1834-1846',
-                                 ifelse(year_ >= 1832, '1832-1834', NA)))))
-
-distances <- rdist(wi[is.na(wi$surveyyear), c('x','y')],
-                   wi[!is.na(wi$surveyyear), c('x','y')])
+distances <- rdist(wi[wi$year == 0, c('x_alb','y_alb')],
+                   wi[wi$year != 0, c('x_alb','y_alb')])
 closest <- apply(distances, 1, which.min)
+wi$year[wi$year == 0] <- wi$year[wi$year != 0][closest]
 
-wi$surveyyear[wi$surveyyear)] <- wi$surveyyear[!is.na(wi$surveyyear)][closest]
-
-if(sum(is.na(wi$surveyyear)) || min(wi$surveyyear < 1832) || max(wi$surveyyear > 1891))
+if(sum(is.na(wi$year)) || min(wi$year < 1832) || max(wi$year > 1891))
     cat("Unexpected missing year or year outside 1847-1907 range")
 
-wi <- wi %>% mutate(surveyyear = ifelse(surveyyear %in% c('1832-1834', '1834-1846'), "1845", "1907"))
+## this division per Charlie Cogbill email
+wi <- wi %>% mutate(surveyyear = ifelse(year <= 1845, "1845", "1907"))
 
 #  There are also some weird Michigan points:
 #  1.  Michigan has a set of points with NA as SPP1 but identifiable trees listed as
@@ -455,7 +425,11 @@ wi <- wi %>% mutate(surveyyear = ifelse(surveyyear %in% c('1832-1834', '1834-184
 ## CJP: case 1 is a subset of case 2, so just remove case 2
 
 nomi <- nomi %>% filter(!is.na(sp1))
-## check this: there are ~10 cases where sp2,sp3, or sp4 not NA but sp1 is NA
+## check this: there are 14 cases where sp2,sp3, or sp4 not NA but sp1 is NA (or where we have dist+diam for sp1)
+
+## CJP thought:
+## 1) fill in 'Unknown tree' for NA where dist & diam exists
+## 2) if have no tree info for all 4 trees exclude, but keep if have one tree
 
 if(FALSE) {  ## We computed these values, but then assigned all No MI data to one correction factor
     nomi <- nomi %>% mutate(surveyyear = ifelse(survyr > 1851, '1851+',
@@ -475,13 +449,16 @@ if(FALSE) {  ## We computed these values, but then assigned all No MI data to on
 
 nomi <- nomi %>% mutate(surveyyear = "allN")
 
+wi <- wi %>% mutate(twp = paste0('WI_', township)) %>% select(-township)
+mn <- mn %>% mutate(twp = paste0('MN_', twp))
+nomi <- nomi %>% mutate(twp = paste0('MI_', twp))
 
-# what about twp, rng etc?
 columns_to_keep <- c("point", "twp", "rng", "surveyyear",
                      "sp1", "sp2", "sp3", "sp4",
                      "az1", "az2", "az3", "az4",
                      "dist1", "dist2", "dist3", "dist4",
-                     "diam1", "diam2", "diam3", "diam4")
+                     "diam1", "diam2", "diam3", "diam4",
+                     'x_alb', 'y_alb')
 
 
 mn <- mn[columns_to_keep] 
@@ -490,26 +467,39 @@ wi <- wi[columns_to_keep]
 
 umw <- rbind(mn, wi, nomi)
 
-#  There are a set of 9999 values for distances which I assume are meant to be NAs.  Also, there are a set of points where
-#  the distance to the tree is 1 or 2 feet.  They cause really big density estimates!
-umw@data [ umw@data == '9999'] <- NA
-umw@data [ umw@data == '8888'] <- NA
-umw@data [ umw@data == '_'] <- NA       # Except those that have already been assigned to 'QQ'
-umw@data [ umw@data == '99999'] <- NA
-umw@data [ umw@data == '999999'] <- NA
-umw@data [ umw@data == '6666'] <- NA
-umw@data [ umw@data == '999'] <- NA
-umw$DIAM1[is.na(umw$DIAM1)] <- 0
-umw$DIAM2[is.na(umw$DIAM2)] <- 0
+umw <- umw %>% rename(x = x_alb, y = y_alb)
 
 
+## note that '_' values for spp codes seem to only occur in MN and these are translated to unknown tree in taxon conversion table, so all set
 
+missingCodes <- c(8888, 9999)
+azMissingCodes <- c('8888','9999','_')
+umw <- umw %>% mutate(dist1 = convert_to_NA(dist1, missingCodes),
+                      dist2 = convert_to_NA(dist2, missingCodes),
+                      dist3 = convert_to_NA(dist3, missingCodes),
+                      dist4 = convert_to_NA(dist4, missingCodes),
+                      diam1 = convert_to_NA(diam1, missingCodes),
+                      diam2 = convert_to_NA(diam2, missingCodes),
+                      diam3 = convert_to_NA(diam3, missingCodes),
+                      diam4 = convert_to_NA(diam4, missingCodes),
+                      az1 = convert_to_NA(az1, azMissingCodes),
+                      az2 = convert_to_NA(az2, azMissingCodes),
+                      az3 = convert_to_NA(az3, azMissingCodes),
+                      az4 = convert_to_NA(az4, azMissingCodes),
+                      sp1 = convert_to_NA(sp1, 0),
+                      sp2 = convert_to_NA(sp2, 0),
+                      sp3 = convert_to_NA(sp3, 0),
+                      sp4 = convert_to_NA(sp4, 0))
+
+   
 
 #  getAngle converts the four character azimuth (e.g. N43E) to a numeric, 360
 #  degree angle.  It also has to deal with a number of special cases.
 #  The code for getAngles is a bit scuzzy, but it leaves only 231 azimuths 
 #  untranslated, this is a manageable number.
 ## TODO: check this once get clarity from KAH on the get_angle function issues
+## TODO: how deal with cases of 8888,9999 embedded in az?
+## make sure code deals with S57.5W cases
 umw[ , paste0('az', 1:4)] <- get_angle(umw[ , paste0('az', 1:4)])
 
 ## azimuths <- apply(azimuths, 2, get_angle)
@@ -520,11 +510,12 @@ spec_codes <- read_csv(file.path(conversions_data_dir, taxa_conversion_file), gu
     select(level1, level3a) 
 
 umw <- umw %>% 
-    left_join(spec_codes, by = c('sp1' = 'level1')) %>% rename(L1_tree1 = species1, L3_tree1 = level3a) %>%
-    left_join(spec_codes, by = c('sp2' = 'level1')) %>% rename(L1_tree2 = species2, L3_tree2 = level3a) %>%
-    left_join(spec_codes, by = c('sp3' = 'level1')) %>% rename(L1_tree3 = species3, L3_tree3 = level3a) %>%
-    left_join(spec_codes, by = c('sp4' = 'level1')) %>% rename(L1_tree4 = species4, L3_tree4 = level3a)
+    left_join(spec_codes, by = c('sp1' = 'level1')) %>% rename(L1_tree1 = sp1, L3_tree1 = level3a) %>%
+    left_join(spec_codes, by = c('sp2' = 'level1')) %>% rename(L1_tree2 = sp2, L3_tree2 = level3a) %>%
+    left_join(spec_codes, by = c('sp3' = 'level1')) %>% rename(L1_tree3 = sp3, L3_tree3 = level3a) %>%
+    left_join(spec_codes, by = c('sp4' = 'level1')) %>% rename(L1_tree4 = sp4, L3_tree4 = level3a)
 
+# we still have a few missing conversions (probably just capitalizations); asked Jody to deal with via GH issue
 
 #  Points within a township are either sections or quartersections.  This
 #  is the list of points that are sections.  All others are quarter-sections.
@@ -539,8 +530,9 @@ external <- c(109:120, 97:108, 87, 89, 91, 93, 95, 122:126)
 
 
 umw <- umw %>% filter(corner = ifelse(point %in% external, 'external', 'internal'),
-                      sectioncorner = ifelse(point %in% sections, 'section', 'quartersection'))
+                      sectioncorner = ifelse(point %in% sections, 'section', 'quarter-section'))
 
+## check col names before do this
 
 mw <- rbind(umw, inil, somi)
 
