@@ -13,8 +13,6 @@ get_angle_inil <- function(bearings, degrees) {
     if(any(is.na(bearings)))
         stop("get_angle_inil: Found NA values for bearings and code not set to handle this.")
     
-    ## Determine the quadrants
-    
     north <- bearings == 'N_NA'| bearings == 'NA_N' | bearings =='N'
     east <- bearings == 'NA_E' | bearings =="E_NA" | bearings =='E'
     south <- bearings == 'S_NA' | bearings =="NA_S"| bearings == 'S' 
