@@ -9,6 +9,14 @@ library(dplyr)
 library(fields)
 
 
+final_columns <- c("x","y","twp","year",
+                     "L1_tree1", "L1_tree2", "L1_tree3", "L1_tree4",
+                     "L3_tree1", "L3_tree2", "L3_tree3", "L3_tree4",
+                     "az1", "az2", "az3", "az4",
+                     "dist1", "dist2", "dist3", "dist4",
+                     "diam1", "diam2", "diam3", "diam4",
+                     "corner", "sectioncorner","state")
+
 # ----------------------------------DATA CLEANING: IN + IL --------------------------------------------------
 
 ind <- read_csv(file.path(raw_data_dir, indiana_file), guess_max = 100000)
@@ -111,11 +119,13 @@ il <- il[columns_to_keep]
 
 inil <- rbind(ind, il)
 
+inil <- inil %>% rename(diam1 = diameter1, diam2 = diameter2, diam3 = diameter3, diam4 = diameter4)
+
 ## Change 88888/99999 to NA but not in in bearing columns as they are needed for angle calculations.
 ## 88888/99999 in taxa have been dealt with in L1->L3 conversion
 cols <- c("degrees1", "degrees2", "degrees3","degrees4",
           "dist1", "dist2", "dist3", "dist4",
-          "diameter1", "diameter2", "diameter3", "diameter4")
+          "diam1", "diam2", "diam3", "diam4")
 
 inil[ , cols] <- sapply(inil[ , cols], convert_to_NA, missingCodes = c(88888,99999))
 
@@ -124,7 +134,7 @@ inil[ , cols] <- sapply(inil[ , cols], convert_to_NA, missingCodes = c(88888,999
 
 notree <- inil %>% filter(L1_tree1 == 'No tree')
 if(sum(is.na(notree$dist1) & is.na(notree$dist2) & is.na(notree$dist3) & is.na(notree$dist4) &
-       is.na(notree$diameter1) & is.na(notree$diameter2) & is.na(notree$diameter3) & is.na(notree$diameter4))
+       is.na(notree$diam1) & is.na(notree$diam2) & is.na(notree$diam3) & is.na(notree$diam4))
        != nrow(notree))
     cat("Found non-NA distances or diameters for no tree points in IN or IL.\n")
 
@@ -199,9 +209,7 @@ inil <- inil %>% mutate(sectioncorner = ifelse(substring(cornertype, 4, 6) == 's
                                         'internal', 'external'), point = rep("P", nrow(inil)))
 ## do we need:  cornertype = paste0(cornertype, state)
 
-inil <- inil %>% select(-cornerid, -typecorner, -year)
-
-## get final set of columns
+inil <- inil[final_columns]
 
 
 # ----------------------------------DATA CLEANING: SOUTHERN MI --------------------------------------------------
@@ -267,18 +275,9 @@ somi <- somi %>% mutate(corner = ifelse(sec_corner == "Extsec", 'external', 'int
                     point = ifelse(num_trees >= 2, 'P', '2nQ'),
                     sectioncorner = ifelse(corner == 'section',  'section', 'quarter-section'))
 
-somi <- somi %>% rename(x = point_x, y = point_y,
-                        diameter1 = diam1, diameter2 = diam2, diameter3 = diam3, diameter4 = diam4)  
+somi <- somi %>% rename(x = point_x, y = point_y)
 
-columns_to_keep <- c("x","y","twp", "surveyyear", 
-                     "L1_tree1", "L1_tree2", "L1_tree3", "L1_tree4",
-                     "L3_tree1", "L3_tree2", "L3_tree3", "L3_tree4",
-                     "az1", "az2", "az3", "az4",
-                     "dist1", "dist2", "dist3", "dist4",
-                     "diameter1", "diameter2", "diameter3", "diameter4",
-                     "corner", "sectioncorner", "point", "state")
-
-somi <- somi[columns_to_keep]
+somi <- somi[final_columns]
                        
 # ----------------------------------DATA CLEANING: UMW -------------------------------------------------------
  # data cleaning modified from Simon's witness tree code (https://github.com/PalEON-Project/WitnessTrees/blob/master/R/process_raw/step.one.clean.bind_v1.4.R)
@@ -535,7 +534,7 @@ external <- c(109:120, 97:108, 87, 89, 91, 93, 95, 122:126)
 umw <- umw %>% filter(corner = ifelse(point %in% external, 'external', 'internal'),
                       sectioncorner = ifelse(point %in% sections, 'section', 'quarter-section'))
 
-## check col names before do this
+umw <- umw[final_columns]
 
 mw <- rbind(umw, inil, somi)
 
@@ -561,9 +560,8 @@ mw <- mw %>%
     reorder_col_blocks('dist', ords) %>% 
     reorder_col_blocks('L1_tree', ords) %>% 
     reorder_col_blocks('L3_tree', ords) %>% 
-    reorder_col_blocks('bearing', ords) %>% 
-    reorder_col_blocks('degrees', ords) %>%
-    reorder_col_blocks('diameter', ords)
+    reorder_col_blocks('diam', ords) %>% 
+    reorder_col_blocks('az', ords) 
 
 
 ## remove 1-tree 0-distance points
