@@ -502,7 +502,7 @@ umw <- umw %>% mutate(dist1 = convert_to_NA(dist1, missingCodes),
 ## TODO: check this once get clarity from KAH on the get_angle function issues
 ## TODO: how deal with cases of 8888,9999 embedded in az?
 ## make sure code deals with S57.5W cases
-umw[ , paste0('az', 1:4)] <- get_angle_umw(as.data.frame(umw[ , paste0('az', 1:4)]))
+umw[ , paste0('az', 1:4)] <- get_angle_umw(as.matrix(umw[ , paste0('az', 1:4)]))
 
 ## azimuths <- apply(azimuths, 2, get_angle)
 
