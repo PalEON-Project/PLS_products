@@ -17,7 +17,7 @@ southern_michigan_file="southernmi_projected_v1.3.csv"
 indiana_file="ndinpls_v1.7-1.csv"
 illinois_file="ndilpls_v1.8-4.csv"
 
-taxa_conversion_file="level0_to_level3a_v0.4-9.csv"
+taxa_conversion_file="level0_to_level3a_v0.4-8.csv"
 
 minnesota_survey_file="mn_surveys.csv"
 
