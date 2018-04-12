@@ -121,7 +121,7 @@ inil <- rbind(ind, il)
 
 inil <- inil %>% rename(diam1 = diameter1, diam2 = diameter2, diam3 = diameter3, diam4 = diameter4)
 
-## Change 88888/99999 to NA but not in in bearing columns as they are needed for angle calculations.
+## Change 88888/99999 to NA but not in in bearing columns because an NA plus a degrees of 0 means a cardinal direction while 88888/9999 is unknown
 ## 88888/99999 in taxa have been dealt with in L1->L3 conversion
 cols <- c("degrees1", "degrees2", "degrees3","degrees4",
           "dist1", "dist2", "dist3", "dist4",
@@ -158,11 +158,11 @@ inil <- inil %>% mutate(surveyyear = ifelse(year >= 1825, '1825+', '< 1825'))
 ## still not dealing correctly with 88888, 99999 values
 ## also what should we do with degrees > 90?
 ## fix get_angle_inil based on Github issue #14
-inil[ , paste0('az', 1:4)] <- get_angle_inil(inil[ , paste0('bearing', 1:4)],
-                           inil[ , paste0('degrees', 1:4)])
+inil[ , paste0('az', 1:4)] <- get_angle_inil(as.matrix(inil[ , paste0('bearing', 1:4)]),
+                           as.matrix(inil[ , paste0('degrees', 1:4)]))
 
-if(max(inil[ , paste0('az', 1:4)], na.rm = TRUE) > 360)
-    cat("Found azimuths greater than 360 in IN/IL")
+if(max(inil[ , paste0('az', 1:4)], na.rm = TRUE) > 360 | max(inil[ , paste0('az', 1:4)], na.rm = TRUE) < 0)
+    cat("Found azimuths outside of 0-360 in IN/IL")
 
 #----------Getting correction factors----------------------
 
@@ -193,18 +193,11 @@ intqtr <- c(140200, 240200, 340200, 440200, 540200, 640200,
             200440, 300440, 400440, 500440, 600440,
             200540, 300540, 400540, 500540, 600540,
             200640, 300640, 400640, 500640, 600640)
-#KH removed excess code about corner
 
-## reworked by CJP because the corrections factor file has 'corner' and 'sectioncorner' columns that seem to want'external' vs 'internal' and 'section' vs 'quarter-section'
-## waiting on Github issue #24
-
-# KH: b/c the cornerids gives us information about which corners are 1/4 section, section, interior and exterior, we can use this to assigne "corner" and "section corner" types
 inil <- inil %>% mutate(sectioncorner = ifelse(inil$cornerid %in% intsec | inil$cornerid %in% extsec, 
                                                'section', 'quarter-section'), 
-                        corner = ifelse(inil$cornerid %in% intsec | inil$cornerid %in% intqtr, # since Township typecorners are listed as external corner, this works
+                        corner = ifelse(inil$cornerid %in% intsec | inil$cornerid %in% intqtr, 
                                         'internal', 'external'), point = rep("P", nrow(inil)))
-
-## do we need:  cornertype = paste0(cornertype, state)
 
 inil <- inil[final_columns]
 
@@ -251,10 +244,10 @@ if(sum(is.na(somi$L3_tree1)) != sum(is.na(somi$L1_tree1)) ||
 ## Quadrants of 3 were 180+az1 and quadrants of 4 were 360-az1.
 ## NOTE: Missing azimuths are listed as "0" in az_360 (from communication with Charlie).
 
-somi <- somi %>% mutate(az1 = ifelse(az1_360 < 0 | az1_360 > 360, NA, az1_360),
-                        az2 = ifelse(az2_360 < 0 | az2_360 > 360, NA, az2_360),
-                        az3 = ifelse(az3_360 < 0 | az3_360 > 360, NA, az3_360),
-                        az4 = ifelse(az4_360 < 0 | az4_360 > 360, NA, az4_360)) %>%
+somi <- somi %>% mutate(az1 = ifelse(az1_360 <= 0 | az1_360 > 360, NA, az1_360),
+                        az2 = ifelse(az2_360 <= 0 | az2_360 > 360, NA, az2_360),
+                        az3 = ifelse(az3_360 <= 0 | az3_360 > 360, NA, az3_360),
+                        az4 = ifelse(az4_360 <= 0 | az4_360 > 360, NA, az4_360)) %>%
     select(-az1_360, -az2_360, -az3_360, -az4_360)
                     
 ## determine subdomain for use with correction factors
