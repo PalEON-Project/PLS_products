@@ -211,6 +211,9 @@ somi <- read_csv(file.path(raw_data_dir, southern_michigan_file), guess_max = 10
 ## These codes are not used in southern Michigan so don't need to do this filtering:
 ## somi <- somi %>% filter(!(species1 %in% c('No data', 'Water', 'Wet')))
 
+#remove the entries with sec_corner = "Check"
+somi <- somi %>% filter(!sec_corner %in% 'Check')
+
 ## make sure township names have the state in front of them:
 somi <- somi %>% mutate(twp = paste0('MI_', twnrng)) %>% mutate(state = 'MI')
 
