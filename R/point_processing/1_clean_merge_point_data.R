@@ -193,20 +193,17 @@ intqtr <- c(140200, 240200, 340200, 440200, 540200, 640200,
             200440, 300440, 400440, 500440, 600440,
             200540, 300540, 400540, 500540, 600540,
             200640, 300640, 400640, 500640, 600640)
-
-cornertype = ifelse(inil$cornerid %in% intsec, 'intsec',
-                                 ifelse(inil$cornerid %in% intqtr, 'intqtr',
-                                 ifelse(inil$cornerid %in% extsec, 'extsec',
-                                 ifelse(inil$cornerid %in% extqtr,  'extqtr',
-                                 ifelse(inil$typecorner == "(1/4) Section", "intqtr",
-                                 ifelse(inil$typecorner == "Section", "intsec", "extsec"))))))
+#KH removed excess code about corner
 
 ## reworked by CJP because the corrections factor file has 'corner' and 'sectioncorner' columns that seem to want'external' vs 'internal' and 'section' vs 'quarter-section'
 ## waiting on Github issue #24
-inil <- inil %>% mutate(sectioncorner = ifelse(substring(cornertype, 4, 6) == 'sec',
-                                               'section', 'quarter-section'),
-                        corner = ifelse(substring(cornertype, 1, 3) == 'int',
+
+# KH: b/c the cornerids gives us information about which corners are 1/4 section, section, interior and exterior, we can use this to assigne "corner" and "section corner" types
+inil <- inil %>% mutate(sectioncorner = ifelse(inil$cornerid %in% intsec | inil$cornerid %in% extsec, 
+                                               'section', 'quarter-section'), 
+                        corner = ifelse(inil$cornerid %in% intsec | inil$cornerid %in% intqtr, # since Township typecorners are listed as external corner, this works
                                         'internal', 'external'), point = rep("P", nrow(inil)))
+
 ## do we need:  cornertype = paste0(cornertype, state)
 
 inil <- inil[final_columns]
