@@ -15,12 +15,15 @@ final_columns <- c("x","y","twp","surveyyear",
                      "az1", "az2", "az3", "az4",
                      "dist1", "dist2", "dist3", "dist4",
                      "diam1", "diam2", "diam3", "diam4",
-                     "corner", "sectioncorner","state")
+                     "corner", "sectioncorner","state", "point_id")
 
 # ----------------------------------DATA CLEANING: IN + IL --------------------------------------------------
 
 ind <- read_csv(file.path(raw_data_dir, indiana_file), guess_max = 100000)
 il <- read_csv(file.path(raw_data_dir, illinois_file), guess_max = 100000)
+
+ind <- ind %>% mutate(point_id = seq_len(nrow(ind)))
+il <- il %>% mutate(point_id = seq_len(nrow(il)))
 
 ## Remove the following corners from IL because they are on the IL-WI border and these IL corners are very close to adjacent WI corners.  
 ## These IL corners are less than 165 m away from the WI corners and both sets of corners have similar taxa in that most are Oaks at Level 3a
@@ -111,7 +114,7 @@ columns_to_keep <- c("x","y","twp","year",
                      "degrees1", "degrees2", "degrees3","degrees4",
                      "dist1", "dist2", "dist3", "dist4",
                      "diameter1", "diameter2", "diameter3", "diameter4",
-                     "cornerid", "typecorner","state")
+                     "cornerid", "typecorner","state", "point_id")
 
 
 ind <- ind[columns_to_keep] 
@@ -200,6 +203,8 @@ inil <- inil[final_columns]
 # ----------------------------------DATA CLEANING: SOUTHERN MI --------------------------------------------------
 
 somi <- read_csv(file.path(raw_data_dir, southern_michigan_file), guess_max = 100000)
+
+somi <- somi %>% mutate(point_id = seq_len(nrow(somi)))
 
 ## These codes are not used in southern Michigan so don't need to do this filtering:
 ## somi <- somi %>% filter(!(species1 %in% c('No data', 'Water', 'Wet')))
@@ -301,6 +306,10 @@ wi <- read_csv(file.path(raw_data_dir, wisconsin_file), guess_max = 100000) %>% 
 mn <- read_csv(file.path(raw_data_dir, minnesota_file), guess_max = 100000) %>% mutate(state = 'MN')
 nomi <- read_csv(file.path(raw_data_dir, northern_michigan_file), guess_max = 100000) %>% mutate(state = 'MI')
 
+wi <- wi %>% mutate(point_id = seq_len(nrow(wi)))
+nomi <- nomi %>% mutate(point_id = seq_len(nrow(nomi)))
+mn <- mn %>% mutate(point_id = seq_len(nrow(mn)))
+
 names(wi) <- tolower(names(wi))
 names(mn) <- tolower(names(mn))
 names(nomi) <- tolower(names(nomi))
@@ -349,7 +358,7 @@ mn <- mn %>% mutate(sp1 = ifelse(sp1 == 'BE', 'IR', sp1),
 ##  'M' - Marsh
 ##  'S' - Swamp
 ##  'L' - Lake
-##  'R' - not sure what this is - not indicated in Simon's code
+##  'R' - not sure what this is - not indicated in Simon's code, but plotting suggests River
 waterTypes <- c('L', 'M', 'S', 'R', 'A')
 
 if(sum(mn$vegtype %in% waterTypes & mn$sp1 == '_' & (mn$sp2 != '_' | mn$sp3 != '_' | mn$sp4 != '_')))
@@ -368,7 +377,14 @@ mn <- mn %>% mutate(sp1 = convert_to_NA(sp1, '_'),
 
 ## points in other regions that are all water already excluded
 ## points in other regions with a single tree and 3 cases of water are generally/probably included so hande those later
-mn <- mn %>% filter(!(sp1 == 'QQ' & sp2 == 'QQ' & sp3 == 'QQ' & sp4 == 'QQ'))
+
+
+mn <- mn %>% filter(!(!is.na(sp1) & !is.na(sp2) & !is.na(sp3) & !is.na(sp4) &
+                      sp1 == 'QQ' & sp2 == 'QQ' & sp3 == 'QQ' & sp4 == 'QQ'))
+
+## these points occur mostly in northern Minnesota (Boundary Waters) as well as in
+## some east-west straight lines, suggesting not usable
+mn <- mn %>% filter(vegtype != '_')
 
 mn_survey <- read_csv(file.path(raw_data_dir, minnesota_survey_file), guess_max = 10000)
 mn_survey <- mn_survey %>% mutate(TOWN = paste0('T', formatC(TOWN, width=3, flag='0'), 'N'),
@@ -418,13 +434,14 @@ wi <- wi %>% filter(sp1 != 'QQ')
 #      early survey points and remove them entirely.
 ## CJP: case 1 is a subset of case 2, so just remove case 2
 
-## TODO: waiting on group discussion - see email
-
-nomi <- nomi %>% filter(!(is.na(sp1) & is.na(sp2) & is.na(sp3) & is.na(sp4)))
-
 ## many of these points note that they are in water or tree is post/corner
 ## some say "no trees" or 'no trees near" so we might want to keep but OTOH the 'tree' column indicates a taxon
 ## and OTOTOH the distance is very often 40 or 80
+
+## TODO: waiting on group discussion - see email;
+
+nomi <- nomi %>% filter(!(is.na(sp1) & is.na(sp2) & is.na(sp3) & is.na(sp4)))
+
 
 if(FALSE) {  ## We computed these values, but then assigned all No MI data to one correction factor
     nomi <- nomi %>% mutate(surveyyear = ifelse(survyr > 1851, '1851+',
@@ -453,7 +470,7 @@ columns_to_keep <- c("point", "twp", "rng", "surveyyear",
                      "az1", "az2", "az3", "az4",
                      "dist1", "dist2", "dist3", "dist4",
                      "diam1", "diam2", "diam3", "diam4",
-                     'x_alb', 'y_alb', 'state')
+                     'x_alb', 'y_alb', 'state', 'point_id')
 
 
 mn <- mn[columns_to_keep] 
@@ -464,8 +481,6 @@ umw <- rbind(mn, wi, nomi)
 
 umw <- umw %>% rename(x = x_alb, y = y_alb)
 
-
-## note that '_' values for spp codes seem to only occur in MN and these are translated to unknown tree in taxon conversion table, so all set
 
 missingCodes <- c(8888, 9999)
 azMissingCodes <- c('8888','9999','_')
@@ -537,13 +552,12 @@ mw <- rbind(umw, inil, somi)
 ## Missing trees occur in UMW and seem to be dead trees.
 
 ## Most cases of "Missing" are in three clumps SW of Green Bay and have no taxa for other
-## three trees and 0 dist and diam; throw these points out as note clear what is going on
-## perhaps a big disturbance?
-mw <- mw %>% filter(!(mw$L3_tree1 == "Missing" &
+## three trees and 0 dist and diam; throw these points out as they were not surveyed
+## (Menominee lands), though the middle clump does not seem to have the 'XC' code one would expect
+mw <- mw %>% filter(!(mw$L3_tree1 == "Missing" & !is.na(mw$L3_tree1) & 
                       is.na(mw$L3_tree2) & is.na(mw$L3_tree3) & is.na(mw$L3_tree4) & mw$dist1 == 0 &
                       mw$dist2 == 0 & mw$dist3 == 0 & mw$dist4 == 0))
 
-## XC seems to be Indian rsvn
 
 ## Treat remaining missing as scattered dead trees but do not set to NA because have
 ## dist/diam in general and don't want to induce 1-tree points
@@ -582,25 +596,26 @@ mw <- mw %>%
     reorder_col_blocks('az', ords) 
 
 num_trees <- rep(2, nrow(mw))
-num_trees[mw$L3_tree1 == "No tree"] <- 0
+## only 1 NA in L3_tree1; check back on where it came from
+num_trees[is.na(mw$L3_tree1) | mw$L3_tree1 == "No tree"] <- 0
 num_trees[mw$L3_tree1 != "No tree" & (mw$L3_tree2 == "No tree" | is.na(mw$L3_tree2))] <- 1
+
+## 1714 locations in MN with one tree and water for 2nd tree; presumably treat this as
+## one tree given other locations would be categorized as 1-tree
+## note these locations overlap pretty well with spatial distribution of other 1-tree points
+num_trees[mw$L3_tree1 != "No tree" & mw$L3_tree2 == "Water"] <- 1
+
+## ~600 points in northern MN with no info that are classified as 0-tree
+## the '_' vegtype in MN has 900 points many in northern MN and including some straight
+## lines, suggesting we may want to throw these out
 
 mw$num_trees <- num_trees
 
-## remove 1-tree 0-distance points as unclear what to use for density
-
-mw <- mw %>% filter(!(num_trees == 1 & dist1 == 0))
-
-# tricky cases 1-tree points with water - will we know except in MN?
-                                        # where are MN 0 trees?
+## remove 1-tree 0-distance (or unknown distance) points as unclear what to use for density
+## there are clusters of such points in LP of MI, southern IL and southern IN, and around Green Bay
+mw <- mw %>% filter(!(num_trees == 1 & (is.na(dist1) | dist1 == 0)))
 
 ## do sensitivity analyses w/ and w/o 1-tree points
-
-tmp = mw %>% filter((diam1 == 0 & L3_tree1 != "No tree") | (diam2 == 0 & !is.na(L3_tree2)))
-
-plot(mw$x[mw$num_trees==1],mw$y[mw$num_trees==1])
-points(mw$x[mw$num_trees==0],mw$y[mw$num_trees==0],col='red',pch=16,cex=.5)
-
 
 ## keep 2-tree points regardless of distances and truncate density (at say 1000 for now)
 
