@@ -73,6 +73,7 @@ morisita <- function(processed.data, correction.factor = NULL, veil=FALSE) {
       #m.diam <- diam/100 #diameters are in cm already
       m.diam <- (diam*2.54 ) / 100 # convert diameter from in to meters
 
+    # don't see why we need this:
       dist <- floor(apply(dist, 2, function(x)as.numeric(as.character(x))))
       azim <- floor(apply(azim, 2, function(x)as.numeric(as.character(x))))
 
@@ -82,8 +83,6 @@ morisita <- function(processed.data, correction.factor = NULL, veil=FALSE) {
       #  If a point has recorded azimuths we state that they must be in two different
       #  quadrats:
 
-      two.quads <- apply(azim[,1:2], 1, function(x) sum(!is.na(unique(floor(x/90)))))
-
       #  There are 10,155 points for which the first two trees were sampled in the
       #  same quadrat.  In general these are randomly distributed, but interestingly
       #  there's a big clump of them in Wisconsin.  Even so, there are lots of other
@@ -92,25 +91,25 @@ morisita <- function(processed.data, correction.factor = NULL, veil=FALSE) {
       #  
       #  sum((two.quads == 1 & !(is.na(azim[,1]) | is.na(azim[,2]))))
 
+    ##  assume missing azimuths are ok and only omit cases where know for sure two trees
+    ## are in same quadrant
+    same_quad <- apply(azim[,1:2], 1, function(x) {
+        length(unique(x)) == 1 & !is.na(unique(x)) })
 
-      #  we need to change:
-
-      two.quads[((two.quads < 2 & (is.na(azim[,1]) | is.na(azim[,2]))) &
-                   !(is.na(dist[,1]) | is.na(dist[,2])))] <- 2
+    usable <- rep(TRUE, nrow(azim))
+    usable[same_quad] <- FALSE
 
       #  Exclusions include:
       #  Plots with a tree as plot center:
-      two.quads[dist[,1] == 0] <- 0
-
       #  Plots where one of the trees has no measured diameter:
-      two.quads[is.na(diam[,1]) | is.na(diam[,2])] <- 0
-
       #  Plots where a distance to tree is missing:
-      two.quads[is.na(dist[,1]) | is.na(dist[,2])] <- 0
-      #  This is the same as k in Charlie's spreadsheet:
 
-      q <- two.quads
+    usable[dist[,1] == 0] <- FALSE
+    usable[is.na(dist[,1]) | is.na(dist[,2])] <- FALSE
+    usable[is.na(diam[,1]) | is.na(diam[,2])] <- FALSE
+     
 
+ 
       #  Tree dist is measured in links in the dataset, I am converting to
       #  meters and adding one half a dimater (in cm), on Charlie's advice.
 
@@ -137,11 +136,12 @@ morisita <- function(processed.data, correction.factor = NULL, veil=FALSE) {
       #  here, n is equal to 1.
       #  units are in stems / m^2
 
-      #charilies morisita.est have separate corrections for each type of corner
+##charilies morisita.est have separate corrections for each type of corner
+      q <- 2
       morisita.est <- ((q - 1) / (pi * 1)) * (2 / rsum) *
         correction.factor$kappa  * correction.factor$theta* correction.factor$zeta * correction.factor$phi
 
-      morisita.est[q < 2] <- NA
+      morisita.est[!usable] <- NA
 
       #  Now they're in stems / hectare
       morisita.est <- morisita.est * 10000
@@ -152,7 +152,7 @@ morisita <- function(processed.data, correction.factor = NULL, veil=FALSE) {
       met.rad <- (diam / 2)/100
       basal.area <- morisita.est * rowSums(pi * met.rad^2, na.rm=TRUE)
 
-      basal.area[ q < 2 ] <- NA
+      basal.area[!usable] <- NA
 
 
 

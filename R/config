@@ -22,7 +22,7 @@ taxa_conversion_file="level0_to_level3a_v0.4-8.csv"
 minnesota_survey_file="mn_surveys.csv"
 
 indiana_conversion_domain="Indiana v1.7-1"
-illinois_conversion_domain="Illinois v1.8-4"
+illinois_conversion_domain="Illinois_v1.8-4"
 southern_michigan_conversion_domain="Southern MI v1.3"
 upper_midwest_conversion_domain="Upper Midwest"
 

@@ -7,14 +7,14 @@ get_angle_inil <- function(bearings, degrees) {
     ##  This function converts the bearing and degree information
     ##  into 360-degree azimuth values
 
-    angle <- degrees
+    angle <- matrix(NA, nrow(degrees), ncol(degrees))
 
     if(any(is.na(bearings)))
         stop("get_angle_inil: Found NA values for bearings and code not set to handle this.")
 
     card_north <- c('N_NA', 'NA_N', 'N')
-    card_south <- c('E_NA', 'NA_E', 'E')
-    card_east <- c('S_NA', 'NA_S', 'S')
+    card_east <- c('E_NA', 'NA_E', 'E')
+    card_south <- c('S_NA', 'NA_S', 'S')
     card_west <- c('W_NA', 'NA_W', 'W')
     north <- bearings %in% card_north & degrees == 0
     east <- bearings %in% card_east & degrees == 0
@@ -35,8 +35,12 @@ get_angle_inil <- function(bearings, degrees) {
     sw <- bearings == 'S_W'
     nw <- bearings == 'N_W'
 
+    ## we trust the quadrant info implied by the bearing info and don't shift angles to new quadrants
+    degrees[degrees < 0 | degrees > 90] <- 45
+    
     ##  convert all angles from a 90-degree value within each quadrat to a 360 degree value.
     ## 'ne' quadrant is angles of 0-90 starting at north, so doesn't need changing.
+    angle[ ne ] <- degrees[ ne ]
     ## 'se' quadrant is angles of 0-90 starting at south  
     angle[ se ] <- 180 - degrees[ se ]
     ## 'sw' quadrant is angles of 0-90 starting at south
@@ -47,12 +51,9 @@ get_angle_inil <- function(bearings, degrees) {
     ## should handle cases with 88888 and 99999 values that indicate unknown azimuth
     angle[ !north & !south & !west & !east & !ne & !nw & !se & !sw ] <- NA
 
-    ## only a few of these but they would put the azimuth in a different quadrant
-    ## TODO: if we decide to trust the bearing but not degrees, just assign 45,135,225,315 
-    angle[degrees >= 90] <- NA
-
+    ## a few hundred points with N_W and angle of 0; need these to be 0 so don't create a fifth quadrant with floor(angle/90) later
+    angle[ angle == 360 ] <- 0
    return(angle)
-  
 }
 
 get_angle_umw <- function(azimuth) {
@@ -62,7 +63,12 @@ get_angle_umw <- function(azimuth) {
    angle <- matrix(as.numeric(NA), nrow(azimuth), ncol(azimuth))
   
   #  This is a special case, generally where the tree is plot center.
-  angle[azimuth == '0'] <- 0
+    angle[azimuth == '0'] <- 0
+
+    # these will be assigned angle of 45
+    azimuth <- gsub("XX", "  ", azimuth)
+    azimuth <- gsub("--", "  ", azimuth)
+    
   
   #  This is a short function that takes cares of NAs in boolean functions, it's
   #  just a simple wrapper for the boolean function that sets the NA values in
@@ -72,8 +78,8 @@ get_angle_umw <- function(azimuth) {
   #  Given the text azimuths in the dataset, return the quadrant values.
   #  This gives a boolean index of the quadrant
 
-  north <- fx.na(azimuth %in% c('N', 'NORT'))
-  south <- fx.na(azimuth %in% c('S', 'SOUTH'))
+  north <- fx.na(azimuth %in% c('N', 'NORT', 'N0RT'))
+  south <- fx.na(azimuth %in% c('S', 'SOUT', 'S0UT'))
   east <- fx.na(azimuth %in% c('E', 'EAST'))
   west <- fx.na(azimuth %in% c('W', 'WEST'))
     
@@ -81,14 +87,19 @@ get_angle_umw <- function(azimuth) {
   angle[ south ] <- 180
   angle[ east  ] <- 90 
   angle[ west  ] <- 270
-    
-  n <- fx.na( regexpr('N', azimuth) > 0 & azmith != 'NORT')
-  e  <- fx.na( regexpr('E', azimuth) > 0 & azimuth != 'EAST')
-  s <- fx.na( regexpr('S', azimuth) > 0 & azimuth != 'SOUT')
-  w <-  fx.na( regexpr('W', azimuth) > 0 & azimuth != 'WEST')
 
+  card <- c('NORT','EAST','SOUT','WEST','N0RT','S0UT')
+  n <- fx.na( regexpr('N', azimuth) > 0 & !azimuth %in% card)
+  e  <- fx.na( regexpr('E', azimuth) > 0 & !azimuth %in% card)
+  s <- fx.na( regexpr('S', azimuth) > 0 & !azimuth %in% card)
+  w <-  fx.na( regexpr('W', azimuth) > 0 & !azimuth %in% card)
+
+    ne <- n & e
+    se <- s & e
+    sw <- s & w
+    nw <- n & w
   #  The cell is in a quadrant, regardless of which.
-  quad <- ( (n&e) | (s&e) | (s&w) | (n&w) )
+  quad <- ne | se | sw | nw
   
  
   #  The problem is that some notes have either N04E, N 4E or N4E, or NE!
@@ -96,18 +107,26 @@ get_angle_umw <- function(azimuth) {
   strlen[is.na(azimuth)] <- NA
   
   angle[quad & strlen == 2] <- 45
-  angle[quad & strlen == 3] <- as.numeric(substr(azimuth[ quad & strlen == 3 ], 2, 2))
-  angle[quad & strlen == 4 & !substr(azimuth, 2, 3) == '  '] <- 
-    as.numeric(substr(azimuth[quad & strlen == 4 & !substr(azimuth, 2, 3) == '  '], 2, 3))
+    angle[quad & strlen == 3] <- as.numeric(substr(azimuth[ quad & strlen == 3 ], 2, 2))
+
+    ## a few O that are presumably 0
+    azimuth <- gsub("O", "0", azimuth, fixed = TRUE)
+
+    ## numeric cases; non-numeric such as S6EW will default to NA
+    chars <- substr(azimuth, 2, 3)
+    wh <- intersect(which(quad & strlen == 4 & chars != '  '), grep("[0-9 ]{2}", chars, perl = TRUE))
+    angle[wh] <- as.numeric(chars[wh])
   
   # Special case of double spaces in the azimuth.
-    angle[quad & strlen == 4 & substr(azimuth, 2, 3) == '  '] <- 45
+    angle[quad & strlen == 4 & chars == '  '] <- 45
 
-    ## TEMP, while we get feedback from Charlie/Simon
-    angle[angle >= 90] <- NA
+    # all of these cases appear safe to simply assume in quadrant
+    angle[quad & strlen >= 5] <- 45
+    
 
-    ## cases such as S--W, S69.3W, 1991, N9999W will default to NA
-    ## TODO: check back to see if we want to treat these as known quadrants
+    ## we trust the quadrant info implied by the bearing info and don't shift angles to new quadrants
+    angle[quad & (angle < 0 | angle > 90)] <- 45
+
   angle[ se ] <- 180 - angle[ se ]
   angle[ sw ] <- 180 + angle[ sw ]
   angle[ nw ] <- 360 - angle [ nw ]

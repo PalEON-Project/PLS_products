@@ -9,7 +9,7 @@ library(dplyr)
 library(fields)
 
 
-final_columns <- c("x","y","twp","year",
+final_columns <- c("x","y","twp","surveyyear",
                      "L1_tree1", "L1_tree2", "L1_tree3", "L1_tree4",
                      "L3_tree1", "L3_tree2", "L3_tree3", "L3_tree4",
                      "az1", "az2", "az3", "az4",
@@ -129,8 +129,6 @@ cols <- c("degrees1", "degrees2", "degrees3","degrees4",
 
 inil[ , cols] <- sapply(inil[ , cols], convert_to_NA, missingCodes = c(88888,99999))
 
-## However, note that with 88888, 99999 in bearings, these are not being assigned angles correctly in get_angle_inil
-
 
 notree <- inil %>% filter(L1_tree1 == 'No tree')
 if(sum(is.na(notree$dist1) & is.na(notree$dist2) & is.na(notree$dist3) & is.na(notree$dist4) &
@@ -138,7 +136,7 @@ if(sum(is.na(notree$dist1) & is.na(notree$dist2) & is.na(notree$dist3) & is.na(n
        != nrow(notree))
     cat("Found non-NA distances or diameters for no tree points in IN or IL.\n")
 
-## create a survey year variable that coresponds to survey year correction factors
+## create a survey year variable that corresponds to survey year correction factors
 
 ## We have some corners in IN & IL that are missing years. Based on exploratory analysis of their locations
 ## it is safe to assume these points were surveyed at a similar time as the points around them.
@@ -155,14 +153,11 @@ rm(distances)
 # create a survey year variable that coresponds to survey year correction factors
 inil <- inil %>% mutate(surveyyear = ifelse(year >= 1825, '1825+', '< 1825'))
 
-## still not dealing correctly with 88888, 99999 values
-## also what should we do with degrees > 90?
-## fix get_angle_inil based on Github issue #14
 inil[ , paste0('az', 1:4)] <- get_angle_inil(as.matrix(inil[ , paste0('bearing', 1:4)]),
                            as.matrix(inil[ , paste0('degrees', 1:4)]))
 
-if(max(inil[ , paste0('az', 1:4)], na.rm = TRUE) > 360 | max(inil[ , paste0('az', 1:4)], na.rm = TRUE) < 0)
-    cat("Found azimuths outside of 0-360 in IN/IL")
+if(max(inil[ , paste0('az', 1:4)], na.rm = TRUE) >= 360 | max(inil[ , paste0('az', 1:4)], na.rm = TRUE) < 0)
+    cat("Found azimuths outside of 0-359 in IN/IL")
 
 #----------Getting correction factors----------------------
 
@@ -243,6 +238,7 @@ if(sum(is.na(somi$L3_tree1)) != sum(is.na(somi$L1_tree1)) ||
 ## If the quadrant number was 2, az1_360 is 180-az1.
 ## Quadrants of 3 were 180+az1 and quadrants of 4 were 360-az1.
 ## NOTE: Missing azimuths are listed as "0" in az_360 (from communication with Charlie).
+## as of 4/17/18, waiting on corrections from Charlie/Jody
 
 somi <- somi %>% mutate(az1 = ifelse(az1_360 <= 0 | az1_360 > 360, NA, az1_360),
                         az2 = ifelse(az2_360 <= 0 | az2_360 > 360, NA, az2_360),
@@ -254,16 +250,14 @@ somi <- somi %>% mutate(az1 = ifelse(az1_360 <= 0 | az1_360 > 360, NA, az1_360),
 if(nrow(somi) != length(grep('[EW]', somi$range)))
     cat("Can't assign surveyyear for some southern Michigan sites.\n")
 surveyyear <- rep('SE', nrow(somi))
-surveyyear[grep('W', somi$range)] <- "SE"
+surveyyear[grep('W', somi$range)] <- "SW"
 somi$surveyyear <- surveyyear
-
-num_notrees <- (somi$L3_tree1 == 'No tree') + (somi$L3_tree2 == 'No tree')
 
 num_trees <- apply(somi[ , paste0('L3_tree', 1:4)], 1, function(x) sum(!is.na(x)))
 
 somi <- somi %>% mutate(corner = ifelse(sec_corner == "Extsec", 'external', 'internal'),
                     point = ifelse(num_trees >= 2, 'P', '2nQ'),
-                    sectioncorner = ifelse(corner == 'section',  'section', 'quarter-section'))
+                    sectioncorner = ifelse(cornertype == 'section',  'section', 'quarter-section'))
 
 somi <- somi %>% rename(x = point_x, y = point_y)
 
@@ -303,9 +297,9 @@ if(!file.exists(file.path(raw_data_dir, wisconsin_file)))
 if(!file.exists(file.path(raw_data_dir, northern_michigan_file))) 
     unzip(file.path(raw_data_dir, northern_michigan_zipfile), exdir = raw_data_dir)
 
-wi <- read_csv(file.path(raw_data_dir, wisconsin_file), guess_max = 100000)
-mn <- read_csv(file.path(raw_data_dir, minnesota_file), guess_max = 100000)
-nomi <- read_csv(file.path(raw_data_dir, northern_michigan_file), guess_max = 100000)
+wi <- read_csv(file.path(raw_data_dir, wisconsin_file), guess_max = 100000) %>% mutate(state = 'WI')
+mn <- read_csv(file.path(raw_data_dir, minnesota_file), guess_max = 100000) %>% mutate(state = 'MN')
+nomi <- read_csv(file.path(raw_data_dir, northern_michigan_file), guess_max = 100000) %>% mutate(state = 'MI')
 
 names(wi) <- tolower(names(wi))
 names(mn) <- tolower(names(mn))
@@ -367,10 +361,14 @@ mn <- mn %>% mutate(sp1 = ifelse(vegtype %in% waterTypes & sp1 == '_', 'QQ', sp1
                     sp4 = ifelse(vegtype %in% waterTypes & sp4 == '_', 'QQ', sp4))
 
 ## a few of these cases have non-missing dist&diam; should check on these
-mn %>% mutate(sp1 = convert_to_NA(sp1, '_'),
+mn <- mn %>% mutate(sp1 = convert_to_NA(sp1, '_'),
               sp2 = convert_to_NA(sp2, '_'),
               sp3 = convert_to_NA(sp3, '_'),
               sp4 = convert_to_NA(sp4, '_'))
+
+## points in other regions that are all water already excluded
+## points in other regions with a single tree and 3 cases of water are generally/probably included so hande those later
+mn <- mn %>% filter(!(sp1 == 'QQ' & sp2 == 'QQ' & sp3 == 'QQ' & sp4 == 'QQ'))
 
 mn_survey <- read_csv(file.path(raw_data_dir, minnesota_survey_file), guess_max = 10000)
 mn_survey <- mn_survey %>% mutate(TOWN = paste0('T', formatC(TOWN, width=3, flag='0'), 'N'),
@@ -407,6 +405,10 @@ if(sum(is.na(wi$year)) || min(wi$year < 1832) || max(wi$year > 1891))
 ## this division per Charlie Cogbill email
 wi <- wi %>% mutate(surveyyear = ifelse(year <= 1845, "1845", "1907"))
 
+## 4088 cases; in essentially all of them, no info on trees 2-4, so assume these are fully water
+wi <- wi %>% filter(sp1 != 'QQ')
+
+
 #  There are also some weird Michigan points:
 #  1.  Michigan has a set of points with NA as SPP1 but identifiable trees listed as
 #      'tree'.  1549 of these are quartersection points, 45 are section points.  This
@@ -416,12 +418,13 @@ wi <- wi %>% mutate(surveyyear = ifelse(year <= 1845, "1845", "1907"))
 #      early survey points and remove them entirely.
 ## CJP: case 1 is a subset of case 2, so just remove case 2
 
-nomi <- nomi %>% filter(!is.na(sp1))
-## check this: there are 14 cases where sp2,sp3, or sp4 not NA but sp1 is NA (or where we have dist+diam for sp1)
+## TODO: waiting on group discussion - see email
 
-## CJP thought:
-## 1) fill in 'Unknown tree' for NA where dist & diam exists
-## 2) if have no tree info for all 4 trees exclude, but keep if have one tree
+nomi <- nomi %>% filter(!(is.na(sp1) & is.na(sp2) & is.na(sp3) & is.na(sp4)))
+
+## many of these points note that they are in water or tree is post/corner
+## some say "no trees" or 'no trees near" so we might want to keep but OTOH the 'tree' column indicates a taxon
+## and OTOTOH the distance is very often 40 or 80
 
 if(FALSE) {  ## We computed these values, but then assigned all No MI data to one correction factor
     nomi <- nomi %>% mutate(surveyyear = ifelse(survyr > 1851, '1851+',
@@ -450,7 +453,7 @@ columns_to_keep <- c("point", "twp", "rng", "surveyyear",
                      "az1", "az2", "az3", "az4",
                      "dist1", "dist2", "dist3", "dist4",
                      "diam1", "diam2", "diam3", "diam4",
-                     'x_alb', 'y_alb')
+                     'x_alb', 'y_alb', 'state')
 
 
 mn <- mn[columns_to_keep] 
@@ -485,17 +488,10 @@ umw <- umw %>% mutate(dist1 = convert_to_NA(dist1, missingCodes),
 
    
 
-#  getAngle converts the four character azimuth (e.g. N43E) to a numeric, 360
-#  degree angle.  It also has to deal with a number of special cases.
-#  The code for getAngles is a bit scuzzy, but it leaves only 231 azimuths 
-#  untranslated, this is a manageable number.
-## TODO: check this once get clarity from KAH on the get_angle function issues
-## TODO: how deal with cases of 8888,9999 embedded in az?
-## make sure code deals with S57.5W cases
+##  get_angle_um converts the four character azimuth (e.g. N43E) to a numeric, 360
+##  degree angle.  It also has to deal with a number of special cases.
+##  1186 cases left as NA after this processing - cases like 'N85', 'W45E'
 umw[ , paste0('az', 1:4)] <- get_angle_umw(as.matrix(umw[ , paste0('az', 1:4)]))
-
-## azimuths <- apply(azimuths, 2, get_angle)
-
 
 spec_codes <- read_csv(file.path(conversions_data_dir, taxa_conversion_file), guess_max = 1000) %>% 
     filter(domain == upper_midwest_conversion_domain) %>%
@@ -507,7 +503,11 @@ umw <- umw %>%
     left_join(spec_codes, by = c('sp3' = 'level1')) %>% rename(L1_tree3 = sp3, L3_tree3 = level3a) %>%
     left_join(spec_codes, by = c('sp4' = 'level1')) %>% rename(L1_tree4 = sp4, L3_tree4 = level3a)
 
-# we still have a few missing conversions (probably just capitalizations); asked Jody to deal with via GH issue
+if(sum(is.na(umw$L3_tree1)) != sum(is.na(umw$L1_tree1)) ||
+   sum(is.na(umw$L3_tree2)) != sum(is.na(umw$L1_tree2)) ||
+   sum(is.na(umw$L3_tree3)) != sum(is.na(umw$L1_tree3)) ||
+   sum(is.na(umw$L3_tree4)) != sum(is.na(umw$L1_tree4)))
+    cat("Apparently some L1 taxa are missing from the UMW L1 to L3 conversion table.\n")
 
 #  Points within a township are either sections or quartersections.  This
 #  is the list of points that are sections.  All others are quarter-sections.
@@ -521,17 +521,45 @@ sections <- c(2, 5, 8, 11, 14, 18, 21, 24, 27, 30,
 external <- c(109:120, 97:108, 87, 89, 91, 93, 95, 122:126)
 
 
-umw <- umw %>% filter(corner = ifelse(point %in% external, 'external', 'internal'),
+umw <- umw %>% mutate(corner = ifelse(point %in% external, 'external', 'internal'),
                       sectioncorner = ifelse(point %in% sections, 'section', 'quarter-section'))
 
 umw <- umw[final_columns]
 
 mw <- rbind(umw, inil, somi)
 
+
 #--------------Reorder the tree number by distance to the point-----------------
 
 #  At this point we need to make sure that the species are ordered by distance
 #  so that trees one and two are actually the closest two trees.
+
+## Missing trees occur in UMW and seem to be dead trees.
+
+## Most cases of "Missing" are in three clumps SW of Green Bay and have no taxa for other
+## three trees and 0 dist and diam; throw these points out as note clear what is going on
+## perhaps a big disturbance?
+mw <- mw %>% filter(!(mw$L3_tree1 == "Missing" &
+                      is.na(mw$L3_tree2) & is.na(mw$L3_tree3) & is.na(mw$L3_tree4) & mw$dist1 == 0 &
+                      mw$dist2 == 0 & mw$dist3 == 0 & mw$dist4 == 0))
+
+## XC seems to be Indian rsvn
+
+## Treat remaining missing as scattered dead trees but do not set to NA because have
+## dist/diam in general and don't want to induce 1-tree points
+mw <- mw %>% mutate(L3_tree1 = ifelse(L3_tree1 == "Missing", "Unknown tree", L3_tree1),
+                    L3_tree2 = ifelse(L3_tree2 == "Missing", "Unknown tree", L3_tree2),
+                    L3_tree3 = ifelse(L3_tree3 == "Missing", "Unknown tree", L3_tree3),
+                    L3_tree4 = ifelse(L3_tree4 == "Missing", "Unknown tree", L3_tree4))
+
+
+## set dists to NA when there is not a tree there (NA, water, no tree) so
+## zeroes are not interpreted as 0 distance
+nontree_codes <- c("Water", "No tree")
+mw <- mw %>% mutate(dist1 = ifelse(is.na(L3_tree1) | L3_tree1 %in% nontree_codes, NA, dist1),
+                    dist2 = ifelse(is.na(L3_tree2) | L3_tree2 %in% nontree_codes, NA, dist2),
+                    dist3 = ifelse(is.na(L3_tree3) | L3_tree3 %in% nontree_codes, NA, dist3),
+                    dist4 = ifelse(is.na(L3_tree4) | L3_tree4 %in% nontree_codes, NA, dist4))
 
 ## find reordering vector for each row
 ords <- t(apply(as.matrix(mw[ , paste0('dist', 1:4)]), 1, order, na.last = TRUE))
@@ -553,8 +581,26 @@ mw <- mw %>%
     reorder_col_blocks('diam', ords) %>% 
     reorder_col_blocks('az', ords) 
 
+num_trees <- rep(2, nrow(mw))
+num_trees[mw$L3_tree1 == "No tree"] <- 0
+num_trees[mw$L3_tree1 != "No tree" & (mw$L3_tree2 == "No tree" | is.na(mw$L3_tree2))] <- 1
 
-## remove 1-tree 0-distance points
+mw$num_trees <- num_trees
+
+## remove 1-tree 0-distance points as unclear what to use for density
+
+mw <- mw %>% filter(!(num_trees == 1 & dist1 == 0))
+
+# tricky cases 1-tree points with water - will we know except in MN?
+                                        # where are MN 0 trees?
+
+## do sensitivity analyses w/ and w/o 1-tree points
+
+tmp = mw %>% filter((diam1 == 0 & L3_tree1 != "No tree") | (diam2 == 0 & !is.na(L3_tree2)))
+
+plot(mw$x[mw$num_trees==1],mw$y[mw$num_trees==1])
+points(mw$x[mw$num_trees==0],mw$y[mw$num_trees==0],col='red',pch=16,cex=.5)
+
 
 ## keep 2-tree points regardless of distances and truncate density (at say 1000 for now)
 
@@ -604,13 +650,6 @@ species[is.na(species)] <- 'No tree'
 umw@data[which(as.numeric(umw$DIAM1) >100),] <- rep(NA, ncol(umw))  #  removes 19 trees with reported diameters over 250cm.
 umw@data[which(as.numeric(umw$DIAM2) >100),] <- rep(NA, ncol(umw))  #  removes an additional 14 trees.
 umw@data[(is.na(umw$SP1) & umw$DIAM1>0) | (is.na(umw$SP2) & umw$DIAM2>0),] <- rep(NA, ncol(umw))  #  removes four records with no identified trees, but identified diameters
-
-#  When the object is NA, or the species is not a tree (NonTree or Water), set
-#  the distance to NA.
-dists[is.na(species) | species %in% c('No tree', 'Water', 'Missing')] <- NA
-
-
-## check for 'Missing' as taxon code
 
 # now kill missing cells:
 final.data <- final.data[!final.data$level3a_1 %in% c('Water', 'Missing'),] 
