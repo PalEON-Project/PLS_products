@@ -648,9 +648,9 @@ mw <- mw %>% filter(!(num_trees == 2 & (is.na(dist1) | is.na(dist2))))
 
 if(any(mw[ , paste0('az', 1:4)] == 360))
     stop("Found some azimuths = 360")
-## do sensitivity analyses w/ and w/o 1-tree points
 
-## about 50 trees > 100 in diameter
+## about 50 trees > 100 in diameter: 42 points
+mw <- mw %>% filter(!( (!is.na(diam1) & diam1 > 100) | (!is.na(diam2) & diam2 > 100) ))
 
 ## note allometries mostly wouldn't go above 80 cm = 32 inches
 
@@ -659,9 +659,13 @@ if(any(mw[ , paste0('az', 1:4)] == 360))
 ## keep 2-tree points regardless of distances and truncate density (at say 1000 for now)
 ## use 2-tree points with small or NA diameter trees for density calculation,
 ## but treat trees with missing diam or diam < 8 as missing in terms of biomass calcs
-## i.e., use only trees >= 8 for biomass calcs, so will end up with some
-## points with one tree for biomass and some that get omitted from biomass calc in grid cell
-## because neither tree of sufficient size
+## when both trees at a point are missing, that is simple: omit the point since
+## the surveyor did not provide the info we need - two trees >= 8 are presumably there
+## but we don't know anything about them
+## when one tree at a point is missing, it is tricky because the missing tree could be
+## of any taxon but we don't want to impute a zero for everything other than the one tree
+## as that is biased low overall since we know the missing tree is some taxon
+## I think we may need to omit these points too
 
 ## keep 1-tree points and set density to something like 1 tree per unit circle of radius (150 links for now)
 ## ~3.5 trees/ha
@@ -690,13 +694,6 @@ q2=floor(mw2$az2/90)
 ## as will simply upperbound these densities
 
 
-# There is some cleaning to do.  A bit frustrating.  We can't confirm the diameters of
-#  a number of points, although we hope to at some point in the future:
-#  No stem density removals, none of the plots look like they have 'weird' points.
-#  Basal area removals:
-umw@data[which(as.numeric(umw$DIAM1) >100),] <- rep(NA, ncol(umw))  #  removes 19 trees with reported diameters over 250cm.
-umw@data[which(as.numeric(umw$DIAM2) >100),] <- rep(NA, ncol(umw))  #  removes an additional 14 trees.
-umw@data[(is.na(umw$SP1) & umw$DIAM1>0) | (is.na(umw$SP2) & umw$DIAM2>0),] <- rep(NA, ncol(umw))  #  removes four records with no identified trees, but identified diameters
-
-
-
+## Sensitivity analyses:
+## w/ and w/o 1-tree points
+## perhaps do analysis where use the <8 inch trees to biomass estimates?
