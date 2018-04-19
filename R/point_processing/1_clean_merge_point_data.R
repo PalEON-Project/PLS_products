@@ -575,16 +575,19 @@ mw <- mw %>% mutate(dist1 = ifelse(is.na(L3_tree1) | L3_tree1 %in% nontree_codes
                     dist3 = ifelse(is.na(L3_tree3) | L3_tree3 %in% nontree_codes, NA, dist3),
                     dist4 = ifelse(is.na(L3_tree4) | L3_tree4 %in% nontree_codes, NA, dist4))
 
-## set small trees (below 8 inch veil line) to diameter of NA
-## and corresponding dists to NA so we find the bigger trees as closest two
+## set small trees (below 8 inch veil line) dists to Inf so we find the bigger trees as closest two
+if(F){
 mw <- mw %>% mutate(diam1 = ifelse(diam1 < diameter_cutoff_inches, NA, diam1), 
                     diam2 = ifelse(diam2 < diameter_cutoff_inches, NA, diam2),
                     diam3 = ifelse(diam3 < diameter_cutoff_inches, NA, diam3),
                     diam4 = ifelse(diam4 < diameter_cutoff_inches, NA, diam4))
-mw <- mw %>% mutate(dist1 = ifelse(is.na(diam1), NA, dist1), 
-                    dist2 = ifelse(is.na(diam2), NA, dist2),
-                    dist3 = ifelse(is.na(diam3), NA, dist3),
-                    dist4 = ifelse(is.na(diam4), NA, dist4))
+
+
+mw <- mw %>% mutate(dist1 = ifelse(diam1 < diameter_cutoff_inches, Inf, dist1), 
+                    dist2 = ifelse(diam2 < diameter_cutoff_inches, Inf, dist2),
+                    dist3 = ifelse(diam3 < diameter_cutoff_inches, Inf, dist3),
+                    dist4 = ifelse(diam4 < diameter_cutoff_inches, Inf, dist4))
+}
 ## TODO: probably set L3 to NA if diam is NA
 
 ## find reordering vector for each row
@@ -609,8 +612,12 @@ mw <- mw %>%
 
 #### HERE #####
 
-## TODO: count NA in diam or dist as not a tree
-## first look and see how many points would get conertd to 0-tree or 1-tree because of NA in dist or diam
+## Cases:
+
+## 2 trees but a missing distance - discard as can't calc density
+## 2 trees but missing or too small diameter
+
+
 
 num_trees <- rep(2, nrow(mw))
 ## only 1 NA in L3_tree1; check back on where it came from
@@ -630,58 +637,58 @@ mw$num_trees <- num_trees
 
 ## remove 1-tree 0-distance (or unknown distance) points as unclear what to use for density
 ## there are clusters of such points in LP of MI, southern IL and southern IN, and around Green Bay
+## 3413 points
 mw <- mw %>% filter(!(num_trees == 1 & (is.na(dist1) | dist1 == 0)))
 
+## can't calculate density for points with missing distances: 1683 points
+mw <- mw %>% filter(!(num_trees == 2 & (is.na(dist1) | is.na(dist2))))
+## can't calculate biomass for points with missing diameters: 3338 points
+## not doing this for the moment as these trees might be omitted when we also omit trees < 8 inches
+## mw <- mw %>% filter(!(num_trees == 2 & (is.na(diam1) | is.na(diam2) | diam1 == 0 | diam2 == 0)))
+
+if(any(mw[ , paste0('az', 1:4)] == 360))
+    stop("Found some azimuths = 360")
 ## do sensitivity analyses w/ and w/o 1-tree points
 
+## about 50 trees > 100 in diameter
+
+## note allometries mostly wouldn't go above 80 cm = 32 inches
+
+## Plans for tricky cases:
+
 ## keep 2-tree points regardless of distances and truncate density (at say 1000 for now)
-## keep 2-tree with missing diameter or diameter < 8 inches 
+## use 2-tree points with small or NA diameter trees for density calculation,
+## but treat trees with missing diam or diam < 8 as missing in terms of biomass calcs
+## i.e., use only trees >= 8 for biomass calcs, so will end up with some
+## points with one tree for biomass and some that get omitted from biomass calc in grid cell
+## because neither tree of sufficient size
 
 ## keep 1-tree points and set density to something like 1 tree per unit circle of radius (150 links for now)
-## keep 1-tree points with missing diameter or diameter < 8 inches because we know density is low and biomass estimate will be 0, which we want to keep
+## ~3.5 trees/ha
+## treat trees with missing diam or small diameter as biomass of zero since we know biomass is low
 
-stop()
-
-if(any(is.na(mw$L3_tree1[mw$num_trees == 1]))
-   stop("Missing taxon for some 1-tree points.")
-
-
-## set azimuth to 0 when distance is zero
-## (This is being done for the moment because Simon originally
-## needed a non-NA value in these cases; not clear if this is still needed
+if(F) {  # temporary exploratory code
 
 mw1 = mw[mw$num_trees == 1,]
 mw2 = mw[mw$num_trees == 2,]
 
-table(mw2$diam1)
-######
-#  Some annoying things that need to be done:
-#  First, there are some points where the first tree has a distance of zero
-#  since it is the plot center.  
-#  In these cases, the first azimuth is sometimes listed in a strange way, either
-#  it's an NA (obviously) or it's a strange value.  In any case, we need to
-#  ensure the azimuth is something recognized, I set it to 0.  It doesn't really
-#  matter though.
+## small tree points
+small <- mw2 %>% filter(mw2$diam1 < 8 | mw2$diam2 < 8)
 
-treed.center <- (dists[,1] == 0 & !is.na(azimuths[,1]) & diams[,1] > 0)
-treed.center[is.na(treed.center)] <- FALSE
+if(any(is.na(mw$L3_tree1[mw$num_trees == 1])))
+   stop("Missing taxon for some 1-tree points.")
 
-azimuths[treed.center,1] <- 0 #assign azimuth to 0
+mw2$az1[mw2$az1 == 360] = 0
+mw2$az2[mw2$az2 == 360] = 0
+q1=floor(mw2$az1/90)
+q2=floor(mw2$az2/90)
+}
 
+# about 10k points with points known to be in same azimuth; about 11k with missing az1, 8500 missing az2
 
-## CJP note: I don't see any '' cases; as far as NA, I think we
-## want to leave as NA for now rather than treat as No tree
-#  We need to indicate water and remove it.  There are 43495 cells with 'water'
-#  indicated, and another 784 cells with 'missing' data.
-#  when we limit these to the first two columns of the species table we get
-#  a total of 25416 samples removed.
+##  - deal with azimuth for zero-distance trees - probably fine to have either numeric or NA values
+## as will simply upperbound these densities
 
-#  There are a set of dead taxa (DA, DB & cetera) that we exclude.  Only AM is
-#  unknown at this point.  This excludes 213 trees.
-species[species %in% ''] <- 'No tree'
-
-#  Now we assign species that don't fit to the 'No tree' category.
-species[is.na(species)] <- 'No tree'
 
 # There is some cleaning to do.  A bit frustrating.  We can't confirm the diameters of
 #  a number of points, although we hope to at some point in the future:
@@ -691,15 +698,5 @@ umw@data[which(as.numeric(umw$DIAM1) >100),] <- rep(NA, ncol(umw))  #  removes 1
 umw@data[which(as.numeric(umw$DIAM2) >100),] <- rep(NA, ncol(umw))  #  removes an additional 14 trees.
 umw@data[(is.na(umw$SP1) & umw$DIAM1>0) | (is.na(umw$SP2) & umw$DIAM2>0),] <- rep(NA, ncol(umw))  #  removes four records with no identified trees, but identified diameters
 
-# now kill missing cells:
-final.data <- final.data[!final.data$level3a_1 %in% c('Water', 'Missing'),] 
-final.data <- final.data[!final.data$level3a_2 %in% c('Water', 'Missing'),]
 
-## check for existing distance w/o species and treat as 'unknown tree'
-## If the cases have a non- zero or non-NA value for the distance, then I think we can assume that these are "Unknown tree", but if dist == 0, then we should ask Charlie/Simon
 
-## do diameter cutoff?
-## check if any trees are less than veil and if so ask Charlie what to do
-
-## TODO: things we probably move to after combining all regions:
-##  - deal with azimuth for zero-distance trees
