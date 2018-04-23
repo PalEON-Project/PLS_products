@@ -127,10 +127,66 @@ get_angle_umw <- function(azimuth) {
     ## we trust the quadrant info implied by the bearing info and don't shift angles to new quadrants
     angle[quad & (angle < 0 | angle > 90)] <- 45
 
-  angle[ se ] <- 180 - angle[ se ]
-  angle[ sw ] <- 180 + angle[ sw ]
-  angle[ nw ] <- 360 - angle [ nw ]
+    angle[ne] <- angle[ne]
+  angle[se] <- 180 - angle[se]
+  angle[sw] <- 180 + angle[sw]
+  angle[nw] <- 360 - angle[nw]
   
   return(angle)
   
+}
+
+calc_stem_density <- function(data, corr_factors) {
+
+    corr <- data %>% select(state, surveyyear, corner, sectioncorner) %>%
+        left_join(corr_factors, by = c('state' = 'state', 'surveyyear' = 'year',
+                                       'corner' = 'corner',
+                                       'sectioncorner' = 'sectioncorner')) %>%
+        select(kappa, theta, zeta, phi)
+    mw <- mw %>% mutate(full_corr = apply(as.matrix(corr), prod))
+    
+    same_quad <- apply(cbind(data$az1, data$az2, 1,
+                             function(x) {
+                                 length(unique(x)) == 1 & !is.na(unique(x))
+                             })
+
+    usable <- rep(TRUE, nrow(data))
+    usable[same_quad] <- FALSE
+
+    density <- NA
+
+    ## fix upper radius searched and take 1 tree per that area as density
+    max_dist_meters <- max_distance_surveyed * meters_per_chain
+    density[data$num_trees == 1] <- (1 / (pi * max_dist_meters^2)) * meters_sq_per_ha
+    
+    density[data$num_trees == 0] <- 0
+
+    to_calc <- data$num_trees == 2 & data$dist1 > 0
+    sub <- data[to_calc, ]
+
+    diam <- sub$diam1
+    diam[is.na(diam)] <- 10
+    ## distance in meters: distance plus one-half diameter of tree
+    distm1 <- sub$dist1 * chains_to_meters + 0.5 * diam / (cm_per_inch * 100)
+    diam <- sub$diam2
+    diam[is.na(diam)] <- 10
+    ## distance in meters: distance plus one-half diameter of tree
+    distm2 <- sub$dist2 * chains_to_meters + 0.5 * diam / (cm_per_inch * 100)
+
+    ##  From the formula,
+    ##  lambda = kappa * theta * (q - 1)/(pi * n) * (q / sum_(1:q)(r^2))
+    ##  here, n is equal to 1.
+    ##  units are in stems / m^2
+    q <- 2
+
+    morisita <- ((q - 1) / pi) * (q / (distm1^2 + distm2^2)) * sub$full_corr 
+    morisita <- morisita * meters_sq_per_ha
+
+    density[to_calc] <- morisita
+
+    density[!usable] <- NA
+
+    density[density > max_density] <- max_density
+
+    return(density)
 }

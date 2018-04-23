@@ -258,8 +258,10 @@ surveyyear <- rep('SE', nrow(somi))
 surveyyear[grep('W', somi$range)] <- "SW"
 somi$surveyyear <- surveyyear
 
+## remove this if not used in next line
 num_trees <- apply(somi[ , paste0('L3_tree', 1:4)], 1, function(x) sum(!is.na(x)))
 
+## TODO: I don't believe we use 'point', since for one-tree points we are imputing a placeholder (low) density
 somi <- somi %>% mutate(corner = ifelse(sec_corner == "Extsec", 'external', 'internal'),
                     point = ifelse(num_trees >= 2, 'P', '2nQ'),
                     sectioncorner = ifelse(cornertype == 'section',  'section', 'quarter-section'))
@@ -555,8 +557,8 @@ mw <- rbind(umw, inil, somi)
 ## three trees and 0 dist and diam; throw these points out as they were not surveyed
 ## (Menominee lands), though the middle clump does not seem to have the 'XC' code one would expect
 mw <- mw %>% filter(!(mw$L3_tree1 == "Missing" & !is.na(mw$L3_tree1) & 
-                      is.na(mw$L3_tree2) & is.na(mw$L3_tree3) & is.na(mw$L3_tree4) & mw$dist1 == 0 &
-                      mw$dist2 == 0 & mw$dist3 == 0 & mw$dist4 == 0))
+                      is.na(mw$L3_tree2) & is.na(mw$L3_tree3) & is.na(mw$L3_tree4) &
+                      mw$dist1 == 0 & mw$dist2 == 0 & mw$dist3 == 0 & mw$dist4 == 0))
 
 
 ## Treat remaining missing as scattered dead trees but do not set to NA because have
@@ -610,90 +612,5 @@ mw <- mw %>%
     reorder_col_blocks('diam', ords) %>% 
     reorder_col_blocks('az', ords) 
 
-#### HERE #####
+save(mw, file = 'cleaned_point.Rda')
 
-## Cases:
-
-## 2 trees but a missing distance - discard as can't calc density
-## 2 trees but missing or too small diameter
-
-
-
-num_trees <- rep(2, nrow(mw))
-## only 1 NA in L3_tree1; check back on where it came from
-num_trees[is.na(mw$L3_tree1) | mw$L3_tree1 == "No tree"] <- 0
-num_trees[!is.na(mw$L3_tree1) & mw$L3_tree1 != "No tree" & (mw$L3_tree2 == "No tree" | is.na(mw$L3_tree2))] <- 1
-
-## 1714 locations in MN with one tree and water for 2nd tree; presumably treat this as
-## one tree given other locations would be categorized as 1-tree
-## note these locations overlap pretty well with spatial distribution of other 1-tree points
-num_trees[mw$L3_tree1 != "No tree" & mw$L3_tree2 == "Water"] <- 1
-
-## ~600 points in northern MN with no info that are classified as 0-tree
-## the '_' vegtype in MN has 900 points many in northern MN and including some straight
-## lines, suggesting we may want to throw these out
-
-mw$num_trees <- num_trees
-
-## remove 1-tree 0-distance (or unknown distance) points as unclear what to use for density
-## there are clusters of such points in LP of MI, southern IL and southern IN, and around Green Bay
-## 3413 points
-mw <- mw %>% filter(!(num_trees == 1 & (is.na(dist1) | dist1 == 0)))
-
-## can't calculate density for points with missing distances: 1683 points
-mw <- mw %>% filter(!(num_trees == 2 & (is.na(dist1) | is.na(dist2))))
-## can't calculate biomass for points with missing diameters: 3338 points
-## not doing this for the moment as these trees might be omitted when we also omit trees < 8 inches
-## mw <- mw %>% filter(!(num_trees == 2 & (is.na(diam1) | is.na(diam2) | diam1 == 0 | diam2 == 0)))
-
-if(any(mw[ , paste0('az', 1:4)] == 360))
-    stop("Found some azimuths = 360")
-
-## about 50 trees > 100 in diameter: 42 points
-mw <- mw %>% filter(!( (!is.na(diam1) & diam1 > 100) | (!is.na(diam2) & diam2 > 100) ))
-
-## note allometries mostly wouldn't go above 80 cm = 32 inches
-
-## Plans for tricky cases:
-
-## keep 2-tree points regardless of distances and truncate density (at say 1000 for now)
-## use 2-tree points with small or NA diameter trees for density calculation,
-## but treat trees with missing diam or diam < 8 as missing in terms of biomass calcs
-## when both trees at a point are missing, that is simple: omit the point since
-## the surveyor did not provide the info we need - two trees >= 8 are presumably there
-## but we don't know anything about them
-## when one tree at a point is missing, it is tricky because the missing tree could be
-## of any taxon but we don't want to impute a zero for everything other than the one tree
-## as that is biased low overall since we know the missing tree is some taxon
-## I think we may need to omit these points too
-
-## keep 1-tree points and set density to something like 1 tree per unit circle of radius (150 links for now)
-## ~3.5 trees/ha
-## treat trees with missing diam or small diameter as biomass of zero since we know biomass is low
-
-if(F) {  # temporary exploratory code
-
-mw1 = mw[mw$num_trees == 1,]
-mw2 = mw[mw$num_trees == 2,]
-
-## small tree points
-small <- mw2 %>% filter(mw2$diam1 < 8 | mw2$diam2 < 8)
-
-if(any(is.na(mw$L3_tree1[mw$num_trees == 1])))
-   stop("Missing taxon for some 1-tree points.")
-
-mw2$az1[mw2$az1 == 360] = 0
-mw2$az2[mw2$az2 == 360] = 0
-q1=floor(mw2$az1/90)
-q2=floor(mw2$az2/90)
-}
-
-# about 10k points with points known to be in same azimuth; about 11k with missing az1, 8500 missing az2
-
-##  - deal with azimuth for zero-distance trees - probably fine to have either numeric or NA values
-## as will simply upperbound these densities
-
-
-## Sensitivity analyses:
-## w/ and w/o 1-tree points
-## perhaps do analysis where use the <8 inch trees to biomass estimates?
