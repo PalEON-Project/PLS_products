@@ -1,6 +1,10 @@
 ## to be based on KAH 01b_calculate_full_density.r (and 02_calculate_density.R?)
 ## calculate point-level density estimates
 
+library(readr)
+library(dplyr)
+
+
 load('cleaned_point.Rda')
 
 ## determine number of trees per point
@@ -89,7 +93,7 @@ q2=floor(mw2$az2/90)
 
 
 ## Sensitivity analyses:
-## w/ and w/o 1-tree points
+## w/ and w/o 1-tree points - some increase w/o 1-tree points but seems not generally more than 15-20% per cell
 ## perhaps do analysis where use the <8 inch trees to biomass estimates?
 
 
@@ -98,142 +102,20 @@ corr_factors <- read_csv(file.path(conversions_data_dir, correction_factors_file
 
 ## fix state names to match tree data
 names_df <- data.frame(state = c('IN','IL','Michigan','Minnesota','Wisconsin'),
-                       new_state = c('IN','IL','MI','MN','WI'))
-corr_factors <- corr_factors %>% left_join(names.df, by = c('state' = 'state')) %>%
-    select(-state) %>% rename(state = newstate)
+                       new_state = c('IN','IL','MI','MN','WI'), stringsAsFactors = FALSE)
+corr_factors <- corr_factors %>% left_join(names_df, by = c('state' = 'state')) %>%
+    dplyr::select(-state) %>% rename(state = new_state)
+
+## TODO: remove when pull in updated corrections file
+corr_factors <- corr_factors %>% mutate(sectioncorner = ifelse(sectioncorner == 'quartersection', 'quarter-section', sectioncorner))
 
 ## TODO: confirm with Charlie that 2nQ factors are never used
 mw <- mw %>% mutate(density = calc_stem_density(mw, corr_factors))
 
-## HERE
-
-# match the correction factors to the combined dataset
-match.vec <- apply(corr.vals[,c("state", "year", "corner", "sectioncorner")], 1, paste, collapse = '')
-to.match <- apply(data.frame(final.data$state, final.data$surveyyear, final.data$corner, final.data$sectioncorner, stringsAsFactors = FALSE), 1, paste, collapse = '')
-
-correction.factor <- corr.vals[match(to.match, match.vec),]
+save(mw, file = 'point_with_density.Rda')
 
 
-# also get species dataframe!
-species <- final.data[,13:16]
-
-
-#------------------------Estimate Tree Density-----------------------------------
-## Morisita estimates for  densities and basal area with charlies correction factors
-
-# morisita density estimator from Simon Goring's Witness tree code here: WitnessTrees/R/paper/R/misc.functionsv1.4.R
-
-morisita <- function(processed.data, correction.factor = NULL, veil=FALSE) {
-      #  Function to calculate stem density using the morista function.  The input 
-      #  is 'processed.data', which should be the file 'used.data'.  'correction 
-      #  factor' is the modified Cottam Correction factor determined in 
-      #  'load.estimate.correction.R' using a generalized linear model (with a Gamma
-      #  distribution).
-
-
-      azim <- processed.data[,c('az1', 'az2', 'az3', 'az4')]
-      diam <- processed.data[,c('diam1', 'diam2', 'diam3', 'diam4')]
-      dist <- processed.data[,c('dist1', 'dist2', 'dist3', 'dist4')]
-      spec <- processed.data[,c('species1', 'species2', 'species3', 'species4')]
-      corn <- processed.data[,'corner']
-
-      if(veil){
-        diam[diam < 8] <- NA #double check that this is corrected veil line, and do we want to use it?
-      }
-
-      diam[diam == 0 & !spec == 'No tree'] <- NA
-
-      #m.diam <- diam/100 #diameters are in cm already
-      m.diam <- (diam*2.54 ) / 100 # convert diameter from in to meters
-
-    # don't see why we need this:
-      dist <- floor(apply(dist, 2, function(x)as.numeric(as.character(x))))
-      azim <- floor(apply(azim, 2, function(x)as.numeric(as.character(x))))
-
-      #  This tells us how many quadrats are used.  I'd prefer to use all points
-      #  where samples are drawn from two quadrats, but in some cases it seems that
-      #  there are NAs in the data.
-      #  If a point has recorded azimuths we state that they must be in two different
-      #  quadrats:
-
-      #  There are 10,155 points for which the first two trees were sampled in the
-      #  same quadrat.  In general these are randomly distributed, but interestingly
-      #  there's a big clump of them in Wisconsin.  Even so, there are lots of other
-      #  points around.  We can accept that these points are categorically wrong.
-      #  
-      #  
-      #  sum((two.quads == 1 & !(is.na(azim[,1]) | is.na(azim[,2]))))
-
-    ##  assume missing azimuths are ok and only omit cases where know for sure two trees
-    ## are in same quadrant
-    same_quad <- apply(azim[,1:2], 1, function(x) {
-        length(unique(x)) == 1 & !is.na(unique(x)) })
-
-    usable <- rep(TRUE, nrow(azim))
-    usable[same_quad] <- FALSE
-
-      #  Exclusions include:
-      #  Plots with a tree as plot center:
-      #  Plots where one of the trees has no measured diameter:
-      #  Plots where a distance to tree is missing:
-
-    usable[dist[,1] == 0] <- FALSE
-    usable[is.na(dist[,1]) | is.na(dist[,2])] <- FALSE
-    usable[is.na(diam[,1]) | is.na(diam[,2])] <- FALSE
-     
-
- 
-      #  Tree dist is measured in links in the dataset, I am converting to
-      #  meters and adding one half a dimater (in cm), on Charlie's advice.
-
-
-
-         m.dist <- dist * 0.201168 + 0.5 * m.diam # convert distances from chains (links) to meters
-         #m.dist <- dist + 0.5 * m.diam 
-      #  rsum is the sum of the squared radii, in cases where there are two trees in
-      #  the same quadrant I'm going to drop the site, as I will with any corner 
-      #  with only one tree since the morista density estimator can't calculate
-      #  density with less than two trees, and requires two quadrats.
-
-      #  I'm going to let the NAs stand in this instance.
-      rsum <- rowSums((m.dist[,1:2])^2, na.rm=T)
-      #rmax <- max(m.dist[,1:2], na.rm=T)
-      #rmax<- apply(m.dist[,1:2], 1, max, na.rm= T)
-
-      #  A set of conditions to be met for the rsum to be valid:
-      rsum[rowSums(is.na(m.dist[,1:2])) == 2 |  q < 2 | rsum == 0 | rowSums(m.dist[,1:2], na.rm=T) < 0.6035] <- NA
-      #rmax[rowSums(is.na(m.dist[,1:2])) == 2 |  q < 2 | rmax == 0 | rowSums(m.dist[,1:2], na.rm=T) < 0.6035] <- NA
-
-      #  From the formula,
-      #  lambda = kappa * theta * (q - 1)/(pi * n) * (q / sum_(1:q)(r^2))
-      #  here, n is equal to 1.
-      #  units are in stems / m^2
-
-##charilies morisita.est have separate corrections for each type of corner
-      q <- 2
-      morisita.est <- ((q - 1) / (pi * 1)) * (2 / rsum) *
-        correction.factor$kappa  * correction.factor$theta* correction.factor$zeta * correction.factor$phi
-
-      morisita.est[!usable] <- NA
-
-      #  Now they're in stems / hectare
-      morisita.est <- morisita.est * 10000
-
-      #  Basal area is the average diameter times the stem density.
-      #  The stem density is measured in trees / ha.
-      #met.rad <- (diam / 2)*2.54 / 100
-      met.rad <- (diam / 2)/100
-      basal.area <- morisita.est * rowSums(pi * met.rad^2, na.rm=TRUE)
-
-      basal.area[!usable] <- NA
-
-
-
-     # radius <- max(m.dist, na.rm = TRUE)
-      #plot.area <- pi*rmax/2 # calculate average plot area
-      return(list(morisita.est, basal.area))
-
-}
+if(FALSE) {  # Simon/Kelly older code
 
 # calculates basal area and stem density using morisita function:
 estimates <- morisita(final.data, correction.factor, veil = TRUE)
@@ -333,7 +215,7 @@ spec.table <- data.frame(PointX = final.data$PointX,
                          dists = c(final.data$dist1, final.data$dist2),
                          state = final.data$state,
                          corner = final.data$corner, 
-                         township = final.data$Township)#,
+                         township = final.data$Township,
                          stringsAsFactors = FALSE)
 
 
@@ -407,3 +289,4 @@ spec.table  <- spec.table[!is.na(spec.table$density), ]
 
 write.csv(spec.table, file=paste0('outputs/biomass_no_na_pointwise.ests_inilmi','_v',version, '.csv'), row.names = FALSE)
 
+}

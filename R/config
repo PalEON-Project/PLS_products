@@ -26,18 +26,23 @@ illinois_conversion_domain="Illinois_v1.8-4"
 southern_michigan_conversion_domain="Southern MI v1.3"
 upper_midwest_conversion_domain="Upper Midwest"
 
+pls_to_pecan_conversion_file="level3a_to_pecan_v0.2.csv"
 
 correction_factors_file = "charlie_corrections_full_midwest_v1.0.csv"
 
 diameter_cutoff_inches=8
-cm_per_inch=0.39370
-meters_per_chains=0.201168
+cm_per_inch=2.54
+cm_per_m=100
+meters_per_chain=0.201168
 max_distance_surveyed=150  # links
 meters_sq_per_ha=10000
+kg_per_Mg=1000
 
 max_density=10000  # stems/ha
 
 n_allom_samples=10  # make this bigger
 allom_component=6
+
+shared_params_in_cell=1  # for speed, do single allometry call for all points ina cell
 
 n_folds=10

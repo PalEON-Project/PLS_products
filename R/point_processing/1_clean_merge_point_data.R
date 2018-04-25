@@ -193,7 +193,7 @@ intqtr <- c(140200, 240200, 340200, 440200, 540200, 640200,
             200640, 300640, 400640, 500640, 600640)
 
 inil <- inil %>% mutate(sectioncorner = ifelse(inil$cornerid %in% intsec | inil$cornerid %in% extsec, 
-                                               'section', 'quarter-section'), 
+                                               'section', 'quartersection'), 
                         corner = ifelse(inil$cornerid %in% intsec | inil$cornerid %in% intqtr, 
                                         'internal', 'external'), point = rep("P", nrow(inil)))
 
@@ -264,7 +264,7 @@ num_trees <- apply(somi[ , paste0('L3_tree', 1:4)], 1, function(x) sum(!is.na(x)
 ## TODO: I don't believe we use 'point', since for one-tree points we are imputing a placeholder (low) density
 somi <- somi %>% mutate(corner = ifelse(sec_corner == "Extsec", 'external', 'internal'),
                     point = ifelse(num_trees >= 2, 'P', '2nQ'),
-                    sectioncorner = ifelse(cornertype == 'section',  'section', 'quarter-section'))
+                    sectioncorner = ifelse(cornertype == 'section',  'section', 'quartersection'))
 
 somi <- somi %>% rename(x = point_x, y = point_y)
 
@@ -539,7 +539,7 @@ external <- c(109:120, 97:108, 87, 89, 91, 93, 95, 122:126)
 
 
 umw <- umw %>% mutate(corner = ifelse(point %in% external, 'external', 'internal'),
-                      sectioncorner = ifelse(point %in% sections, 'section', 'quarter-section'))
+                      sectioncorner = ifelse(point %in% sections, 'section', 'quartersection'))
 
 umw <- umw[final_columns]
 

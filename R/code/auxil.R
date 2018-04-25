@@ -1,6 +1,21 @@
+library(raster)
+base_raster <- raster(xmn = -71000, xmx = 2297000, ncols = 296,
+                      ymn = 58000,  ymx = 1498000, nrows = 180,
+                      crs = '+init=epsg:3175')
+base_raster <- setValues(base_raster, 1:ncell(base_raster))
+
 convert_to_NA <- function(x, missingCodes = c(88888, 99999)) {
     x[x %in% missingCodes] <- NA
     return(x)
+}
+
+add_cells_to_dataset <- function(data) {
+    library(dplyr)
+    points <- data %>% dplyr::select(x,y)
+    coordinates(points) <- ~x+y
+    proj4string(points) <- CRS('+init=epsg:3175')
+    data <- data %>% mutate(cell = raster::extract(base_raster, points))
+    return(data)
 }
 
 get_angle_inil <- function(bearings, degrees) {
@@ -138,22 +153,22 @@ get_angle_umw <- function(azimuth) {
 
 calc_stem_density <- function(data, corr_factors) {
 
-    corr <- data %>% select(state, surveyyear, corner, sectioncorner) %>%
+    ## TODO: check with Charlie/Simon that we are not using '2nQ'
+    corr_factors <- corr_factors %>% filter(point == 'P')
+    
+    corr <- data %>% dplyr::select(state, surveyyear, corner, sectioncorner) %>%
         left_join(corr_factors, by = c('state' = 'state', 'surveyyear' = 'year',
                                        'corner' = 'corner',
                                        'sectioncorner' = 'sectioncorner')) %>%
-        select(kappa, theta, zeta, phi)
-    mw <- mw %>% mutate(full_corr = apply(as.matrix(corr), prod))
-    
-    same_quad <- apply(cbind(data$az1, data$az2, 1,
-                             function(x) {
-                                 length(unique(x)) == 1 & !is.na(unique(x))
-                             })
+        dplyr::select(kappa, theta, zeta, phi)
+    data <- data %>% mutate(full_corr = apply(as.matrix(corr), 1, prod))
 
-    usable <- rep(TRUE, nrow(data))
-    usable[same_quad] <- FALSE
+    ## only determine in same quad if have definitive info to that effect, not if azimuth is missing
+    quad1 <- floor(data$az1/90)
+    quad2 <- floor(data$az2/90)
+    same_quad <- !is.na(quad1) & !is.na(quad2) & quad1 == quad2
 
-    density <- NA
+    density <- rep(as.numeric(NA), nrow(data))
 
     ## fix upper radius searched and take 1 tree per that area as density
     max_dist_meters <- max_distance_surveyed * meters_per_chain
@@ -167,11 +182,11 @@ calc_stem_density <- function(data, corr_factors) {
     diam <- sub$diam1
     diam[is.na(diam)] <- 10
     ## distance in meters: distance plus one-half diameter of tree
-    distm1 <- sub$dist1 * chains_to_meters + 0.5 * diam / (cm_per_inch * 100)
+    distm1 <- sub$dist1 * meters_per_chain + 0.5 * diam * cm_per_inch / cm_per_m
     diam <- sub$diam2
     diam[is.na(diam)] <- 10
     ## distance in meters: distance plus one-half diameter of tree
-    distm2 <- sub$dist2 * chains_to_meters + 0.5 * diam / (cm_per_inch * 100)
+    distm2 <- sub$dist2 * meters_per_chain + 0.5 * diam * cm_per_inch / cm_per_m
 
     ##  From the formula,
     ##  lambda = kappa * theta * (q - 1)/(pi * n) * (q / sum_(1:q)(r^2))
@@ -184,7 +199,7 @@ calc_stem_density <- function(data, corr_factors) {
 
     density[to_calc] <- morisita
 
-    density[!usable] <- NA
+    density[same_quad] <- NA
 
     density[density > max_density] <- max_density
 
