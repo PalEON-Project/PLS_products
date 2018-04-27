@@ -2,6 +2,8 @@
 ## will work on combining the all the data before estimating correction factors, to make the correction factor generation more intuitive
 ## merge point data from UMW, IL, IN, SO MI
 
+## TODO: add assertions at various places
+
 ## based on KAH 01a_clean_merge_IN_IL.r and Simon's [Jody/Kelly, what is file name from which this code was obtained]
 
 library(readr)
@@ -441,6 +443,19 @@ wi <- wi %>% filter(sp1 != 'QQ')
 ## and OTOTOH the distance is very often 40 or 80
 
 ## TODO: waiting on group discussion - see email;
+stop()
+
+if(F) {
+    miss <- nomi %>% filter((is.na(sp1) & is.na(sp2) & is.na(sp3) & is.na(sp4)))
+    par(mfrow=c(1,2))
+    pplot(nomi$x_alb, nomi$y_alb, main ='red are points with all taxa missing')
+    points(miss$x_alb, miss$y_alb, pch=16,cex=.4,col='red')
+    tmp1 = nomi[nomi$x_alb <670000 & nomi$x_alb>600000 & nomi$y_alb <1100000 & nomi$y_alb > 1060000,]
+    tmp2 = miss[miss$x_alb <670000 & miss$x_alb>600000 & miss$y_alb <1100000 & miss$y_alb > 1060000,]
+    plot(tmp1$x_alb,tmp1$y_alb, main = 'zoom-in to red block')
+    legend('bottomleft',pch=c(1,16), col=c('black','red'),legend = c('all points','all taxa missing'))
+    points(tmp2$x_alb,tmp2$y_alb,pch=16,col='red',cex=.4)
+}
 
 nomi <- nomi %>% filter(!(is.na(sp1) & is.na(sp2) & is.na(sp3) & is.na(sp4)))
 
