@@ -183,5 +183,5 @@ mw <- mw %>% mutate(biomass = ifelse(num_trees == 0, 0,
                               ifelse(num_trees == 1, biomass1, mn)))
 mw <- mw %>% mutate(biomass = ifelse(is.nan(biomass), NA, biomass))
 
-
-save(mw, file = 'point_with_biomass.Rda')
+if(shared_params_in_cell)
+    save(mw, file = 'point_with_biomass_shared.Rda') else save(mw, file = 'point_with_biomass.Rda')
