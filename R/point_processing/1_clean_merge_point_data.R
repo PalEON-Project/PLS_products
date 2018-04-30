@@ -341,7 +341,8 @@ wi <- wi %>% filter(rangdir != 0) %>%   ## Single point that seems to have no da
 ##  Michigan's point numbers are wrong in the dataset.  Simon is not sure where the 
 ##  error arose from, but we need them to be able to assign section & quartersection
 ##  points.
-nomi <- nomi %>% mutate(point = as.numeric(substr(recnum_c, 9, 11)))
+nomi <- nomi %>% mutate(newrecnum = pmax(recnum,recnum_c))
+nomi <- nomi %>% mutate(point = as.numeric(substr(newrecnum, 9, 11)))
 
 mn <- mn %>% rename(point = tic)
 
