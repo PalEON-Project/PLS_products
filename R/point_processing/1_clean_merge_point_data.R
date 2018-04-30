@@ -551,7 +551,7 @@ sections <- c(2, 5, 8, 11, 14, 18, 21, 24, 27, 30,
               109, 111, 113, 115, 117, 119, 122, 123, 124, 125, 126)
 
 #  These are the points on the outside of each township.
-external <- c(109:120, 97:108, 87, 89, 91, 93, 95, 122:126)
+external <- c(109:120, 97:108, 86:96, 122:126)
 
 
 umw <- umw %>% mutate(corner = ifelse(point %in% external, 'external', 'internal'),
