@@ -101,7 +101,7 @@ q2=floor(mw2$az2/90)
 corr_factors <- read_csv(file.path(conversions_data_dir, correction_factors_file))
 
 ## fix state names to match tree data
-names_df <- data.frame(state = c('IN','IL','Michigan','Minnesota','Wisconsin'),
+names_df <- data.frame(state = c('Indiana','Illinois','Michigan','Minnesota','Wisconsin'),
                        new_state = c('IN','IL','MI','MN','WI'), stringsAsFactors = FALSE)
 corr_factors <- corr_factors %>% left_join(names_df, by = c('state' = 'state')) %>%
     dplyr::select(-state) %>% rename(state = new_state)
@@ -109,7 +109,7 @@ corr_factors <- corr_factors %>% left_join(names_df, by = c('state' = 'state')) 
 ## TODO: remove when pull in updated corrections file
 corr_factors <- corr_factors %>% mutate(sectioncorner = ifelse(sectioncorner == 'quartersection', 'quarter-section', sectioncorner))
 
-## TODO: fix 2nQ vs P
+## TODO: fix 2nQ vs Pair
 mw <- mw %>% mutate(density = calc_stem_density(mw, corr_factors))
 
 save(mw, file = 'point_with_density.Rda')
