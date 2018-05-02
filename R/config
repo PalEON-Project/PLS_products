@@ -28,7 +28,7 @@ upper_midwest_conversion_domain="Upper Midwest"
 
 pls_to_pecan_conversion_file="level3a_to_pecan_v0.2.csv"
 
-correction_factors_file = "charlie_corrections_full_midwest_v1.0.csv"
+correction_factors_file = "cogbill_density_corrections_full_midwest_v1.0.csv"
 
 diameter_cutoff_inches=8
 cm_per_inch=2.54
