@@ -17,15 +17,15 @@ final_columns <- c("x","y","twp","surveyyear",
                      "az1", "az2", "az3", "az4",
                      "dist1", "dist2", "dist3", "dist4",
                      "diam1", "diam2", "diam3", "diam4",
-                     "corner", "sectioncorner","state", "point_id")
+                     "corner", "sectioncorner","state", "point_id", "vegtype")
 
 # ----------------------------------DATA CLEANING: IN + IL --------------------------------------------------
 
 ind <- read_csv(file.path(raw_data_dir, indiana_file), guess_max = 100000)
 il <- read_csv(file.path(raw_data_dir, illinois_file), guess_max = 100000)
 
-ind <- ind %>% mutate(point_id = seq_len(nrow(ind)))
-il <- il %>% mutate(point_id = seq_len(nrow(il)))
+ind <- ind %>% mutate(point_id = seq_len(nrow(ind)), vegtype = NA)
+il <- il %>% mutate(point_id = seq_len(nrow(il)), vegtype = NA)
 
 ## Remove the following corners from IL because they are on the IL-WI border and these IL corners are very close to adjacent WI corners.  
 ## These IL corners are less than 165 m away from the WI corners and both sets of corners have similar taxa in that most are Oaks at Level 3a
@@ -116,8 +116,7 @@ columns_to_keep <- c("x","y","twp","year",
                      "degrees1", "degrees2", "degrees3","degrees4",
                      "dist1", "dist2", "dist3", "dist4",
                      "diameter1", "diameter2", "diameter3", "diameter4",
-                     "cornerid", "typecorner","state", "point_id")
-
+                     "cornerid", "typecorner","state", "point_id", "vegtype")
 
 ind <- ind[columns_to_keep] 
 il <- il[columns_to_keep]
@@ -155,8 +154,9 @@ if(sum(is.na(inil$year)) || min(inil$year < 1799) || max(inil$year > 1849))
     cat("Unexpected missing year or year outside 1799-1849 range.\n")
 rm(distances)
 
-# create a survey year variable that coresponds to survey year correction factors
-inil <- inil %>% mutate(surveyyear = ifelse(year >= 1825, '1825+', '< 1825'))
+## create a survey year variable that coresponds to survey year correction factors
+## for IL/IN, '1825+' vs. '< 1825' and state uniquely defines correction factor - don't need region info 
+inil <- inil %>% mutate(surveyyear = ifelse(year >= 1825, '>=1825', '<=1824'))
 
 inil[ , paste0('az', 1:4)] <- get_angle_inil(as.matrix(inil[ , paste0('bearing', 1:4)]),
                            as.matrix(inil[ , paste0('degrees', 1:4)]))
@@ -197,16 +197,15 @@ intqtr <- c(140200, 240200, 340200, 440200, 540200, 640200,
 inil <- inil %>% mutate(sectioncorner = ifelse(inil$cornerid %in% intsec | inil$cornerid %in% extsec, 
                                                'section', 'quartersection'), 
                         corner = ifelse(inil$cornerid %in% intsec | inil$cornerid %in% intqtr, 
-                                        'internal', 'external'), point = rep("P", nrow(inil)))
+                                        'internal', 'external'))
 
 inil <- inil[final_columns]
-
 
 # ----------------------------------DATA CLEANING: SOUTHERN MI --------------------------------------------------
 
 somi <- read_csv(file.path(raw_data_dir, southern_michigan_file), guess_max = 100000)
 
-somi <- somi %>% mutate(point_id = seq_len(nrow(somi)))
+somi <- somi %>% mutate(point_id = seq_len(nrow(somi)), vegtype = NA, state = "SoMI")
 
 ## These codes are not used in southern Michigan so don't need to do this filtering:
 ## somi <- somi %>% filter(!(species1 %in% c('No data', 'Water', 'Wet')))
@@ -227,11 +226,28 @@ spec_codes <- read_csv(file.path(conversions_data_dir, taxa_conversion_file), gu
     filter(domain == southern_michigan_conversion_domain) %>%
     select(level1, level3a) 
 
-somi <- somi %>% 
+## actual so MI points
+somi_lower <- somi %>% filter(point_y < 900000) %>% 
     left_join(spec_codes, by = c('species1' = 'level1')) %>% rename(L1_tree1 = species1, L3_tree1 = level3a) %>%
     left_join(spec_codes, by = c('species2' = 'level1')) %>% rename(L1_tree2 = species2, L3_tree2 = level3a) %>%
     left_join(spec_codes, by = c('species3' = 'level1')) %>% rename(L1_tree3 = species3, L3_tree3 = level3a) %>%
     left_join(spec_codes, by = c('species4' = 'level1')) %>% rename(L1_tree4 = species4, L3_tree4 = level3a)
+
+spec_codes <- read_csv(file.path(conversions_data_dir, taxa_conversion_file), guess_max = 1000) %>% 
+    filter(domain == upper_midwest_conversion_domain) %>%
+    select(level1, level3a) 
+
+## Read in noMI supplement and combine with somi
+## make state be 'NoMI_extra'
+
+## Schoolcraft country and Isle Royale points
+somi_upper <- somi %>% filter(point_y >= 900000) %>% 
+    left_join(spec_codes, by = c('species1' = 'level1')) %>% rename(L1_tree1 = species1, L3_tree1 = level3a) %>%
+    left_join(spec_codes, by = c('species2' = 'level1')) %>% rename(L1_tree2 = species2, L3_tree2 = level3a) %>%
+    left_join(spec_codes, by = c('species3' = 'level1')) %>% rename(L1_tree3 = species3, L3_tree3 = level3a) %>%
+    left_join(spec_codes, by = c('species4' = 'level1')) %>% rename(L1_tree4 = species4, L3_tree4 = level3a)
+
+somi <- rbind(somi_lower, somi_upper)
 
 if(sum(is.na(somi$L3_tree1)) != sum(is.na(somi$L1_tree1)) ||
    sum(is.na(somi$L3_tree2)) != sum(is.na(somi$L1_tree2)) ||
@@ -256,22 +272,24 @@ somi <- somi %>% mutate(az1 = ifelse(az1_360 <= 0 | az1_360 > 360, NA, az1_360),
 ## determine subdomain for use with correction factors
 if(nrow(somi) != length(grep('[EW]', somi$range)))
     cat("Can't assign surveyyear for some southern Michigan sites.\n")
-surveyyear <- rep('SE', nrow(somi))
-surveyyear[grep('W', somi$range)] <- "SW"
-somi$surveyyear <- surveyyear
+## shorthand (and unique) for 'SE - E of central Meridian S of tension'
+surveyyear <- rep('<=1824', nrow(somi))  
+## shorthand (and unique) for 'SW - W of central Meridian S of tension'
+surveyyear[grep('W', somi$range)] <- '1825-1835'  
+## Schoolcraft and Isle Royale in UP: >=1840+ is shorthand (and unique) for 'UP, >=1840'
+surveyyear[somi$point_y > 900000] <- '>=1840'
 
-## remove this if not used in next line
-num_trees <- apply(somi[ , paste0('L3_tree', 1:4)], 1, function(x) sum(!is.na(x)))
+somi$surveyyear <- surveyyear  
 
-## TODO: I don't believe we use 'point', since for one-tree points we are imputing a placeholder (low) density
 somi <- somi %>% mutate(corner = ifelse(sec_corner == "Extsec", 'external', 'internal'),
-                    point = ifelse(num_trees >= 2, 'P', '2nQ'),
                     sectioncorner = ifelse(cornertype == 'section',  'section', 'quartersection'))
 
 somi <- somi %>% rename(x = point_x, y = point_y)
 
 somi <- somi[final_columns]
-                       
+
+
+
 # ----------------------------------DATA CLEANING: UMW -------------------------------------------------------
  # data cleaning modified from Simon's witness tree code (https://github.com/PalEON-Project/WitnessTrees/blob/master/R/process_raw/step.one.clean.bind_v1.4.R)
  # correction factors for UMW are also generated in the witness tree code
@@ -308,10 +326,10 @@ if(!file.exists(file.path(raw_data_dir, northern_michigan_file)))
 
 wi <- read_csv(file.path(raw_data_dir, wisconsin_file), guess_max = 100000) %>% mutate(state = 'WI')
 mn <- read_csv(file.path(raw_data_dir, minnesota_file), guess_max = 100000) %>% mutate(state = 'MN')
-nomi <- read_csv(file.path(raw_data_dir, northern_michigan_file), guess_max = 100000) %>% mutate(state = 'MI')
+nomi <- read_csv(file.path(raw_data_dir, northern_michigan_file), guess_max = 100000) %>% mutate(state = 'NoMI')
 
 wi <- wi %>% mutate(point_id = seq_len(nrow(wi)))
-nomi <- nomi %>% mutate(point_id = seq_len(nrow(nomi)))
+nomi <- nomi %>% mutate(point_id = seq_len(nrow(nomi)), vegtype = NA)
 mn <- mn %>% mutate(point_id = seq_len(nrow(mn)))
 
 names(wi) <- tolower(names(wi))
@@ -337,10 +355,11 @@ wi <- wi %>% filter(rangdir != 0) %>%   ## Single point that seems to have no da
     mutate(rng = paste0(as.character(range), rangdir)) %>%
     select(-range, -rangdir)
 
-
 ##  Michigan's point numbers are wrong in the dataset.  Simon is not sure where the 
 ##  error arose from, but we need them to be able to assign section & quartersection
 ##  points.
+## Per discussion in github issue #31, the data come from two sources, so just
+## need to use value from whichever is non-empty.
 nomi <- nomi %>% mutate(newrecnum = pmax(recnum,recnum_c))
 nomi <- nomi %>% mutate(point = as.numeric(substr(newrecnum, 9, 11)))
 
@@ -361,9 +380,9 @@ mn <- mn %>% mutate(sp1 = ifelse(sp1 == 'BE', 'IR', sp1),
 ##  Almendinger references the following land cover codes that are likely to have water:
 ##  'A' - Creek (unlikely to be exclusively water)
 ##  'M' - Marsh
-##  'S' - Swamp
+##  'S' - Swamp (Charlie notes this meant wetland and not necessarily forested)
 ##  'L' - Lake
-##  'R' - not sure what this is - not indicated in Simon's code, but plotting suggests River
+##  'R' - River
 waterTypes <- c('L', 'M', 'S', 'R', 'A')
 
 if(sum(mn$vegtype %in% waterTypes & mn$sp1 == '_' & (mn$sp2 != '_' | mn$sp3 != '_' | mn$sp4 != '_')))
@@ -380,16 +399,20 @@ mn <- mn %>% mutate(sp1 = convert_to_NA(sp1, '_'),
               sp3 = convert_to_NA(sp3, '_'),
               sp4 = convert_to_NA(sp4, '_'))
 
-## points in other regions that are all water already excluded
-## points in other regions with a single tree and 3 cases of water are generally/probably included so hande those later
+## exclude water points -- all water as well as points with 1 tree, per issue #35
+numQQ <- apply(mn[ , paste0('sp', 1:4)], 1, function(x) sum(x == 'QQ', na.rm = TRUE))
+mn <- mn %>% filter(numQQ <= 2) 
 
-
-mn <- mn %>% filter(!(!is.na(sp1) & !is.na(sp2) & !is.na(sp3) & !is.na(sp4) &
-                      sp1 == 'QQ' & sp2 == 'QQ' & sp3 == 'QQ' & sp4 == 'QQ'))
+## Next exclude no-tree points with unclear vegtype values
 
 ## these points occur mostly in northern Minnesota (Boundary Waters) as well as in
-## some east-west straight lines, suggesting not usable
-mn <- mn %>% filter(vegtype != '_')
+## Many of them are in east-west straight lines, suggesting not usable
+mn <- mn %>% filter(!(is.na(sp1) & is.na(sp2) & is.na(sp3) & is.na(sp4) & vegtype == '_'))
+
+## forest, grove, pine grove seem inconsistent with lack of trees, so exclude these points
+forestedTypes <- c('F', 'G', 'J')
+mn <- mn %>% filter(!(is.na(sp1) & is.na(sp2) & is.na(sp3) & is.na(sp4) & vegtype %in% forestedTypes))
+
 
 mn_survey <- read_csv(file.path(raw_data_dir, minnesota_survey_file), guess_max = 10000)
 mn_survey <- mn_survey %>% mutate(TOWN = paste0('T', formatC(TOWN, width=3, flag='0'), 'N'),
@@ -408,7 +431,8 @@ mn$year[is.na(mn$year)] <- mn$year[!is.na(mn$year)][closest]
 if(sum(is.na(mn$year)) || min(mn$year < 1847) || max(mn$year > 1907))
     cat("Unexpected missing year or year outside 1847-1907 range")
 
-mn <- mn %>% mutate(surveyyear = ifelse(year <= 1855, "1855", "1907"))
+## '<=1853' vs. '>=1854' plus state uniquely defines correction factors without need for region info
+mn <- mn %>% mutate(surveyyear = ifelse(year <= 1853, "<=1853", ">=1854"))
 
 #  We need to bin the year information so that we can use it to calculate
 #  appropriate Cottam Correction factors.  The survey instructions for the PLS
@@ -423,8 +447,8 @@ wi$year[wi$year == 0] <- wi$year[wi$year != 0][closest]
 if(sum(is.na(wi$year)) || min(wi$year < 1832) || max(wi$year > 1891))
     cat("Unexpected missing year or year outside 1847-1907 range")
 
-## this division per Charlie Cogbill email
-wi <- wi %>% mutate(surveyyear = ifelse(year <= 1845, "1845", "1907"))
+## '<=1845' vs. '>=1846' plus state uniquely defines correction factors without need for region info
+wi <- wi %>% mutate(surveyyear = ifelse(year <= 1845, "<=1845", ">=1846"))
 
 ## 4088 cases; in essentially all of them, no info on trees 2-4, so assume these are fully water
 wi <- wi %>% filter(sp1 != 'QQ')
@@ -444,7 +468,10 @@ wi <- wi %>% filter(sp1 != 'QQ')
 ## and OTOTOH the distance is very often 40 or 80
 
 ## TODO: waiting on group discussion - see email;
-stop()
+
+## per discussion amongst collaborators, decided to retain points that
+## have indication of "no trees present" in notes column
+
 
 if(F) {
     miss <- nomi %>% filter((is.na(sp1) & is.na(sp2) & is.na(sp3) & is.na(sp4)))
@@ -460,21 +487,10 @@ if(F) {
 
 nomi <- nomi %>% filter(!(is.na(sp1) & is.na(sp2) & is.na(sp3) & is.na(sp4)))
 
-
-if(FALSE) {  ## We computed these values, but then assigned all No MI data to one correction factor
-    nomi <- nomi %>% mutate(surveyyear = ifelse(survyr > 1851, '1851+',
-                                         ifelse(survyr > 1846, '1846-1851',
-                                         ifelse(survyr > 1834, '1834-1846',
-                                         ifelse(survyr >= 1832, '1832-1834', NA)))))
-    
-    distances <- rdist(nomi[is.na(nomi$surveyyear), c('x','y')],
-                       nomi[!is.na(nomi$surveyyear), c('x','y')])
-    closest <- apply(distances, 1, which.min)
-    
-    nomi$surveyyear[is.na(nomi$surveyyear)] <- nomi$surveyyear[!is.na(nomi$surveyyear)][closest]
-
-    if(sum(is.na(nomi$surveyyear)) || min(nomi$surveyyear < 1836) || max(nomi$surveyyear > 1888))
-        cat("Unexpected missing year or year outside 1836-1888 range")
+if(FALSE) { ## need to enable this once have code to split UP from northern LP
+    ## >=1840 is shorthand (and unique) for 'UP, >=1840'
+    ## >=1836 is shorthand (and unique) for 'north Lower, >=1836'
+    nomi <- nomi %>% mutate(surveyyear = ifelse(TRUE, '>=1840', '>=1836'))
 }
 
 nomi <- nomi %>% mutate(surveyyear = "allN")
@@ -488,8 +504,7 @@ columns_to_keep <- c("point", "twp", "rng", "surveyyear",
                      "az1", "az2", "az3", "az4",
                      "dist1", "dist2", "dist3", "dist4",
                      "diam1", "diam2", "diam3", "diam4",
-                     'x_alb', 'y_alb', 'state', 'point_id')
-
+                     'x_alb', 'y_alb', 'state', 'point_id', 'vegtype')
 
 mn <- mn[columns_to_keep] 
 nomi <- nomi[columns_to_keep]
@@ -561,7 +576,6 @@ umw <- umw[final_columns]
 
 mw <- rbind(umw, inil, somi)
 
-
 #--------------Reorder the tree number by distance to the point-----------------
 
 #  At this point we need to make sure that the species are ordered by distance
@@ -627,6 +641,16 @@ mw <- mw %>%
     reorder_col_blocks('L3_tree', ords) %>% 
     reorder_col_blocks('diam', ords) %>% 
     reorder_col_blocks('az', ords) 
+
+## determine Pair (points where only two trees surveyed) vs 2nQ (four trees surveyed)
+## used for correction factors (see issue #42)
+## it would be rare to only find two trees if looking for four,
+## and if we have zero or one tree, we don't use correction factors anyway
+tmp <- as.matrix(mw[ , paste0('L3_tree', 1:4)])
+tmp[tmp %in% c('No tree', 'Water')] <- NA
+ntree <- apply(tmp, 1,function(x) sum(!is.na(x)))
+mw <- mw %>% mutate(point = ifelse(ntree > 2, '2nQ', 'Pair'))
+
 
 save(mw, file = 'cleaned_point.Rda')
 

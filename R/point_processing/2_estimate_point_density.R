@@ -14,15 +14,6 @@ num_trees <- rep(2, nrow(mw))
 num_trees[is.na(mw$L3_tree1) | mw$L3_tree1 == "No tree"] <- 0
 num_trees[!is.na(mw$L3_tree1) & mw$L3_tree1 != "No tree" & (mw$L3_tree2 == "No tree" | is.na(mw$L3_tree2))] <- 1
 
-## 1714 locations in MN with one tree and water for 2nd tree; presumably treat this as
-## one tree given other locations would be categorized as 1-tree
-## note these locations overlap pretty well with spatial distribution of other 1-tree points
-num_trees[mw$L3_tree1 != "No tree" & mw$L3_tree2 == "Water"] <- 1
-
-## ~600 points in northern MN with no info that are classified as 0-tree
-## the '_' vegtype in MN has 900 points many in northern MN and including some straight
-## lines, suggesting we may want to throw these out
-
 mw <- mw %>% mutate(num_trees = num_trees)
 
 ## Apply various exclusion criteria
@@ -38,6 +29,15 @@ mw <- mw %>% filter(!(num_trees == 2 & (is.na(dist1) | is.na(dist2))))
 ## not doing this for the moment as these trees might be omitted when we also omit trees < 8 inches
 ## mw <- mw %>% filter(!(num_trees == 2 & (is.na(diam1) | is.na(diam2) | diam1 == 0 | diam2 == 0)))
 
+## Remove one-tree WI points with indications of water;
+## doing this here as it's simplest to make use of the num_trees field
+## assuming same vegtype codes as in MN, we should exclude L,M,R,S
+## however there are codes that are the numbers 2,3,4,5,7,8; not sure what these mean
+waterTypes <- c('L', 'M', 'S', 'R', 'A')
+mw <- mw %>% filter(!(state == 'WI' & num_trees == 1 & vegtype %in% waterTypes)) %>%
+    select(-vegtype)
+
+
 if(any(mw[ , paste0('az', 1:4)] == 360)) {
     warning("Found some azimuths = 360")
     mw <- mw %>% mutate(az1 = ifelse(az1 == 360, 0, az1),
@@ -48,6 +48,8 @@ if(any(mw[ , paste0('az', 1:4)] == 360)) {
 
 
 ## about 50 trees > 100 in diameter: 42 points
+## large clump of these in SE MI; it looks like some of these are transcription error
+## because of systematic issues with multiple fields in the data
 mw <- mw %>% filter(!( (!is.na(diam1) & diam1 > 100) | (!is.na(diam2) & diam2 > 100) ))
 
 ## note allometries mostly wouldn't go above 80 cm = 32 inches
@@ -106,10 +108,6 @@ names_df <- data.frame(state = c('Indiana','Illinois','Michigan','Minnesota','Wi
 corr_factors <- corr_factors %>% left_join(names_df, by = c('state' = 'state')) %>%
     dplyr::select(-state) %>% rename(state = new_state)
 
-## TODO: remove when pull in updated corrections file
-corr_factors <- corr_factors %>% mutate(sectioncorner = ifelse(sectioncorner == 'quartersection', 'quarter-section', sectioncorner))
-
-## TODO: fix 2nQ vs Pair
 mw <- mw %>% mutate(density = calc_stem_density(mw, corr_factors))
 
 save(mw, file = 'point_with_density.Rda')

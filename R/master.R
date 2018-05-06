@@ -15,11 +15,14 @@
 
 ## setup R packages (with version control) 
 
+if(FALSE) {  ## turn off during initial development
+    
 checkpoint::checkpoint("2018-01-18")
 
 library(devtools)
 install_github("PecanProject/pecan",subdir="base/logger", ref = pecan_base_logger_commit)
 install_github("PecanProject/pecan",subdir="modules/allometry", ref = pecan_modules_allometry_commit)
+}
 
 ## get configuration variables
 

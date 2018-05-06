@@ -153,13 +153,11 @@ get_angle_umw <- function(azimuth) {
 
 calc_stem_density <- function(data, corr_factors) {
 
-    ## TODO: check with Charlie/Simon that we are not using '2nQ'
-    corr_factors <- corr_factors %>% filter(point == 'P')
-    
     corr <- data %>% dplyr::select(state, surveyyear, corner, sectioncorner) %>%
         left_join(corr_factors, by = c('state' = 'state', 'surveyyear' = 'year',
                                        'corner' = 'corner',
-                                       'sectioncorner' = 'sectioncorner')) %>%
+                                       'sectioncorner' = 'sectioncorner',
+                                       'point' = 'point')) %>%
         dplyr::select(kappa, theta, zeta, phi)
     data <- data %>% mutate(full_corr = apply(as.matrix(corr), 1, prod))
 
