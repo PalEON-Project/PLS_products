@@ -151,14 +151,17 @@ get_angle_umw <- function(azimuth) {
   
 }
 
-calc_stem_density <- function(data, corr_factors) {
+calc_stem_density <- function(data, corr_factors, use_phi =  TRUE) {
 
     corr <- data %>% dplyr::select(state, surveyyear, corner, sectioncorner) %>%
         left_join(corr_factors, by = c('state' = 'state', 'surveyyear' = 'year',
                                        'corner' = 'corner',
                                        'sectioncorner' = 'sectioncorner',
-                                       'point' = 'point')) %>%
-        dplyr::select(kappa, theta, zeta, phi)
+                                       'point' = 'point'))
+    if(use_phi) {
+        corr <- corr %>% dplyr::select(kappa, theta, zeta, phi)
+    } else corr <- corr %>% dplyr::select(kappa, theta, zeta)
+
     data <- data %>% mutate(full_corr = apply(as.matrix(corr), 1, prod))
 
     ## only determine in same quad if have definitive info to that effect, not if azimuth is missing

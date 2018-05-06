@@ -108,7 +108,10 @@ names_df <- data.frame(state = c('Indiana','Illinois','Michigan','Minnesota','Wi
 corr_factors <- corr_factors %>% left_join(names_df, by = c('state' = 'state')) %>%
     dplyr::select(-state) %>% rename(state = new_state)
 
-mw <- mw %>% mutate(density = calc_stem_density(mw, corr_factors))
+## per issue #39, we will omit phi (veil line) correction when computing point biomass
+## as we include biomass of trees below the veil line
+mw <- mw %>% mutate(density = calc_stem_density(mw, corr_factors),
+                    density_for_biomass = calc_stem_density(mw, corr_factors, use_phi = FALSE))
 
 save(mw, file = 'point_with_density.Rda')
 

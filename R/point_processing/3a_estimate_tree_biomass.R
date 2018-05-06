@@ -173,9 +173,10 @@ if(!shared_params_in_cell) {
 mw <- mw %>% mutate(biomass1 = ifelse(L3_tree1 == "Unknown tree", NA, biomass1),
                     biomass2 = ifelse(L3_tree2 == "Unknown tree", NA, biomass2))
 
-
-mw <- mw %>% mutate(biomass1 = ifelse(!is.na(diam1) & diam1 < diameter_cutoff_inches, NA, biomass1),
-                    biomass2 = ifelse(!is.na(diam2) & diam2 < diameter_cutoff_inches, NA, biomass2))
+## based on issue #39 we are not omitting trees below the veil line
+if(FALSE) 
+    mw <- mw %>% mutate(biomass1 = ifelse(!is.na(diam1) & diam1 < diameter_cutoff_inches, NA, biomass1),
+                        biomass2 = ifelse(!is.na(diam2) & diam2 < diameter_cutoff_inches, NA, biomass2))
 
 mn <- mw %>% dplyr::select(biomass1, biomass2) %>% rowMeans(na.rm = TRUE)
 

@@ -204,17 +204,16 @@ inil <- inil[final_columns]
 # ----------------------------------DATA CLEANING: SOUTHERN MI --------------------------------------------------
 
 somi <- read_csv(file.path(raw_data_dir, southern_michigan_file), guess_max = 100000)
-
 somi <- somi %>% mutate(point_id = seq_len(nrow(somi)), vegtype = NA, state = "SoMI")
+
+if(F) {
+## Schoolcraft County and Isle Royale data provided separately but in same format as so MI data
+nomi_extra <- read_csv(file.path(raw_data_dir, northern_michigan_supp_file), guess_max = 100000)
+nomi_extra <- nomi_supp %>% mutate(point_id = seq_len(nrow(nomi_extra)), vegtype = NA, state = "NoMI_extra")
+}
 
 ## These codes are not used in southern Michigan so don't need to do this filtering:
 ## somi <- somi %>% filter(!(species1 %in% c('No data', 'Water', 'Wet')))
-
-#remove the entries with sec_corner = "Check"
-somi <- somi %>% filter(!sec_corner %in% 'Check')
-
-## make sure township names have the state in front of them:
-somi <- somi %>% mutate(twp = paste0('MI_', twnrng)) %>% mutate(state = 'MI')
 
 ## formerly we check for species1 and species2 being missing but having a positive diameter but
 ## there is only one case of missing species and existing diameter and that is 4th tree in
@@ -222,32 +221,33 @@ somi <- somi %>% mutate(twp = paste0('MI_', twnrng)) %>% mutate(state = 'MI')
 
 ##  converting level 1 species to level 3 species:
 
+## actual so MI points
 spec_codes <- read_csv(file.path(conversions_data_dir, taxa_conversion_file), guess_max = 1000) %>% 
     filter(domain == southern_michigan_conversion_domain) %>%
     select(level1, level3a) 
 
-## actual so MI points
-somi_lower <- somi %>% filter(point_y < 900000) %>% 
+somi_lower <- somi %>% 
     left_join(spec_codes, by = c('species1' = 'level1')) %>% rename(L1_tree1 = species1, L3_tree1 = level3a) %>%
     left_join(spec_codes, by = c('species2' = 'level1')) %>% rename(L1_tree2 = species2, L3_tree2 = level3a) %>%
     left_join(spec_codes, by = c('species3' = 'level1')) %>% rename(L1_tree3 = species3, L3_tree3 = level3a) %>%
     left_join(spec_codes, by = c('species4' = 'level1')) %>% rename(L1_tree4 = species4, L3_tree4 = level3a)
-
+if(F){ 
+## Schoolcraft county and Isle Royale points
 spec_codes <- read_csv(file.path(conversions_data_dir, taxa_conversion_file), guess_max = 1000) %>% 
     filter(domain == upper_midwest_conversion_domain) %>%
     select(level1, level3a) 
 
-## Read in noMI supplement and combine with somi
-## make state be 'NoMI_extra'
-
-## Schoolcraft country and Isle Royale points
-somi_upper <- somi %>% filter(point_y >= 900000) %>% 
+nomi_extra <- nomi_extra %>% 
     left_join(spec_codes, by = c('species1' = 'level1')) %>% rename(L1_tree1 = species1, L3_tree1 = level3a) %>%
     left_join(spec_codes, by = c('species2' = 'level1')) %>% rename(L1_tree2 = species2, L3_tree2 = level3a) %>%
     left_join(spec_codes, by = c('species3' = 'level1')) %>% rename(L1_tree3 = species3, L3_tree3 = level3a) %>%
     left_join(spec_codes, by = c('species4' = 'level1')) %>% rename(L1_tree4 = species4, L3_tree4 = level3a)
 
-somi <- rbind(somi_lower, somi_upper)
+somi <- rbind(somi_lower, nomi_extra)
+} else {
+    print("not yet reading Schoolcraft/IR")
+    somi <- somi_lower 
+}
 
 if(sum(is.na(somi$L3_tree1)) != sum(is.na(somi$L1_tree1)) ||
    sum(is.na(somi$L3_tree2)) != sum(is.na(somi$L1_tree2)) ||
@@ -255,6 +255,11 @@ if(sum(is.na(somi$L3_tree1)) != sum(is.na(somi$L1_tree1)) ||
    sum(is.na(somi$L3_tree4)) != sum(is.na(somi$L1_tree4)))
     cat("Apparently some L1 taxa are missing from the Michigan L1 to L3 conversion table.\n")
 
+#remove the entries with sec_corner = "Check"
+somi <- somi %>% filter(!sec_corner %in% 'Check')
+
+## make sure township names have the state in front of them:
+somi <- somi %>% mutate(twp = paste0('MI_', twnrng)) %>% mutate(state = 'MI')
 
 ## The az_360 columns were calculated using the quadrant and the az_x (x = 1:4), values.
 ## e.g., if the quadrant number was 1, the AZ as read from the mylar maps was used as is.
@@ -434,10 +439,6 @@ if(sum(is.na(mn$year)) || min(mn$year < 1847) || max(mn$year > 1907))
 ## '<=1853' vs. '>=1854' plus state uniquely defines correction factors without need for region info
 mn <- mn %>% mutate(surveyyear = ifelse(year <= 1853, "<=1853", ">=1854"))
 
-#  We need to bin the year information so that we can use it to calculate
-#  appropriate Cottam Correction factors.  The survey instructions for the PLS
-#  change at a number of points during the surveys in Wisconsin, but are
-#  considered to be fixed by the time.
 
 distances <- rdist(wi[wi$year == 0, c('x_alb','y_alb')],
                    wi[wi$year != 0, c('x_alb','y_alb')])
@@ -453,44 +454,32 @@ wi <- wi %>% mutate(surveyyear = ifelse(year <= 1845, "<=1845", ">=1846"))
 ## 4088 cases; in essentially all of them, no info on trees 2-4, so assume these are fully water
 wi <- wi %>% filter(sp1 != 'QQ')
 
-
-#  There are also some weird Michigan points:
-#  1.  Michigan has a set of points with NA as SPP1 but identifiable trees listed as
-#      'tree'.  1549 of these are quartersection points, 45 are section points.  This
-#      is clearly an artifact of the sampling method.  We remove these points.
-#  2.  There are also 2909 no tree points in Michigan.  Most of these points are quarter
-#      section points, and there is clear grographic bias.  We assume these points are
-#      early survey points and remove them entirely.
-## CJP: case 1 is a subset of case 2, so just remove case 2
-
-## many of these points note that they are in water or tree is post/corner
-## some say "no trees" or 'no trees near" so we might want to keep but OTOH the 'tree' column indicates a taxon
-## and OTOTOH the distance is very often 40 or 80
-
-## TODO: waiting on group discussion - see email;
-
-## per discussion amongst collaborators, decided to retain points that
-## have indication of "no trees present" in notes column
-
-
-if(F) {
-    miss <- nomi %>% filter((is.na(sp1) & is.na(sp2) & is.na(sp3) & is.na(sp4)))
-    par(mfrow=c(1,2))
-    pplot(nomi$x_alb, nomi$y_alb, main ='red are points with all taxa missing')
-    points(miss$x_alb, miss$y_alb, pch=16,cex=.4,col='red')
-    tmp1 = nomi[nomi$x_alb <670000 & nomi$x_alb>600000 & nomi$y_alb <1100000 & nomi$y_alb > 1060000,]
-    tmp2 = miss[miss$x_alb <670000 & miss$x_alb>600000 & miss$y_alb <1100000 & miss$y_alb > 1060000,]
-    plot(tmp1$x_alb,tmp1$y_alb, main = 'zoom-in to red block')
-    legend('bottomleft',pch=c(1,16), col=c('black','red'),legend = c('all points','all taxa missing'))
-    points(tmp2$x_alb,tmp2$y_alb,pch=16,col='red',cex=.4)
-}
-
+## based on parsing notes field, do include some points that seem to be no-tree points
+## (non-water and non-"tree is point/corner/post")
+miss <- nomi %>% filter(is.na(sp1) & is.na(sp2) & is.na(sp3) & is.na(sp4))
 nomi <- nomi %>% filter(!(is.na(sp1) & is.na(sp2) & is.na(sp3) & is.na(sp4)))
+
+## points without any taxa and no notes are ambiguous so remove
+miss <- miss %>% filter(!is.na(notes))
+## water points
+waterText <- c("(MARSH|POND|LAKE|WATER|RIVER|SWAMP|BROOK|STREAM|LK MICHIGAN)")
+miss <- miss %>% filter(!grepl(waterText, notes, ignore.case = TRUE))
+## points where tree is the corner so ambiguous what density would be
+## some of these might be trees at previous points, but can't determine which
+treeAsPostText <- c("(IS POST|IS CORNER|IS QUARTER|IS SECTION|AS CORNER|UPON CORNER|AS 1/4|IS 1/4|FOR 1/4|FOR CORNER|IS PSOT|ISPOST|AS POST|IS A QUARTER|IN CORNER|IS THE QUARTER CORNER|IS A QAURTER CORNER|IS A SECTION|A QUARTER CORNER|IS THE SECTION CORNER|FOR QUARTER|IS THE QAURTER CORNER)")
+miss <- miss %>% filter(!grepl(treeAsPostText, notes, ignore.case = TRUE))
+## indications that data lost or not noted
+missingDataText <- c("(THEN LOST|INFORMATION NOT GIVEN|NOT IN NOTES|NO INFORMATION|RANDOM NOTES|OMITTED|OMMITTED|CUT OFF|MICROFILM|TREE IS DEAD|TA, RP, PS, WP|PS, RP|TRAIL COURSE)")
+miss <- miss %>% filter(!grepl(missingDataText, notes, ignore.case = TRUE))
+
+## otherwise, notes generally say 'no witness trees', 'no trees convenient', 'no bearing trees', 'no other tree data', 'no trees'; assumed to indicate no-tree points
+nomi <- rbind(nomi, miss)
+
 
 if(FALSE) { ## need to enable this once have code to split UP from northern LP
     ## >=1840 is shorthand (and unique) for 'UP, >=1840'
     ## >=1836 is shorthand (and unique) for 'north Lower, >=1836'
-    nomi <- nomi %>% mutate(surveyyear = ifelse(TRUE, '>=1840', '>=1836'))
+    nomi <- nomi %>% mutate(surveyyear = ifelse(domain == 'UP', '>=1840', '>=1836'))
 }
 
 nomi <- nomi %>% mutate(surveyyear = "allN")
@@ -607,8 +596,10 @@ mw <- mw %>% mutate(dist1 = ifelse(is.na(L3_tree1) | L3_tree1 %in% nontree_codes
                     dist3 = ifelse(is.na(L3_tree3) | L3_tree3 %in% nontree_codes, NA, dist3),
                     dist4 = ifelse(is.na(L3_tree4) | L3_tree4 %in% nontree_codes, NA, dist4))
 
+## per issue #39 we are calculating density and biomass based on trees below veil line
+## with correction to get density for trees above the veil line
 ## set small trees (below 8 inch veil line) dists to Inf so we find the bigger trees as closest two
-if(F){
+if(FALSE){
 mw <- mw %>% mutate(diam1 = ifelse(diam1 < diameter_cutoff_inches, NA, diam1), 
                     diam2 = ifelse(diam2 < diameter_cutoff_inches, NA, diam2),
                     diam3 = ifelse(diam3 < diameter_cutoff_inches, NA, diam3),
