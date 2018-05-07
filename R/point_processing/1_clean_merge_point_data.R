@@ -276,9 +276,13 @@ somi$surveyyear <- surveyyear
 ## There is some transcription error that shifted values between fields causing
 ## apparent large trees in SE MI. Suggested approach from Charlie Cogbill
 ## is to omit trees in SE MI with az1=0 or with non-missing 2nd tree and az2=0
-## TODO: also omit based on az3 and az4?
+## Note that in some cases this filters out points where the first two trees (by distance)
+## have non-0 az values, but if we want to do based on two nearest, we would
+## want to see if we are confident about distance values.
 somi <- somi %>% filter(!(surveyyear == '<=1824' & az1 == 0 & !is.na(L1_tree1))) %>%
-    filter(!(surveyyear == '<=1824' & az2 == 0 & !is.na(L1_tree2)))
+    filter(!(surveyyear == '<=1824' & az2 == 0 & !is.na(L1_tree2))) %>%
+    filter(!(surveyyear == '<=1824' & az3 == 0 & !is.na(L1_tree3))) %>%
+    filter(!(surveyyear == '<=1824' & az4 == 0 & !is.na(L1_tree4)))
 
 ## The az_360 columns were calculated using the quadrant and the az_x (x = 1:4), values.
 ## e.g., if the quadrant number was 1, the AZ as read from the mylar maps was used as is.
