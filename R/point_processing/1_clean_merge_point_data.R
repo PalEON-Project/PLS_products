@@ -261,30 +261,31 @@ somi <- somi %>% filter(!sec_corner %in% 'Check')
 ## make sure township names have the state in front of them:
 somi <- somi %>% mutate(twp = paste0('MI_', twnrng)) %>% mutate(state = 'MI')
 
-## The az_360 columns were calculated using the quadrant and the az_x (x = 1:4), values.
-## e.g., if the quadrant number was 1, the AZ as read from the mylar maps was used as is.
-## If the quadrant number was 2, az1_360 is 180-az1.
-## Quadrants of 3 were 180+az1 and quadrants of 4 were 360-az1.
-## NOTE: Missing azimuths are listed as "0" in az_360 (from communication with Charlie).
-## as of 4/17/18, waiting on corrections from Charlie/Jody
-
-somi <- somi %>% mutate(az1 = ifelse(az1_360 <= 0 | az1_360 > 360, NA, az1_360),
-                        az2 = ifelse(az2_360 <= 0 | az2_360 > 360, NA, az2_360),
-                        az3 = ifelse(az3_360 <= 0 | az3_360 > 360, NA, az3_360),
-                        az4 = ifelse(az4_360 <= 0 | az4_360 > 360, NA, az4_360)) %>%
-    select(-az1_360, -az2_360, -az3_360, -az4_360)
-                    
 ## determine subdomain for use with correction factors
 if(nrow(somi) != length(grep('[EW]', somi$range)))
     cat("Can't assign surveyyear for some southern Michigan sites.\n")
 ## shorthand (and unique) for 'SE - E of central Meridian S of tension'
 surveyyear <- rep('<=1824', nrow(somi))  
 ## shorthand (and unique) for 'SW - W of central Meridian S of tension'
-surveyyear[grep('W', somi$range)] <- '1825-1835'  
+surveyyear[grep('W', somi$range)] <- '1825 -1835'  
 ## Schoolcraft and Isle Royale in UP: >=1840+ is shorthand (and unique) for 'UP, >=1840'
 surveyyear[somi$point_y > 900000] <- '>=1840'
 
-somi$surveyyear <- surveyyear  
+somi$surveyyear <- surveyyear
+
+## There is some transcription error that shifted values between fields causing
+## apparent large trees in SE MI. Suggested approach from Charlie Cogbill
+## is to omit trees in SE MI with az1=0 or with non-missing 2nd tree and az2=0
+## TODO: also omit based on az3 and az4?
+somi <- somi %>% filter(!(surveyyear == '<=1824' & az1 == 0 & !is.na(L1_tree1))) %>%
+    filter(!(surveyyear == '<=1824' & az2 == 0 & !is.na(L1_tree2)))
+
+## The az_360 columns were calculated using the quadrant and the az_x (x = 1:4), values.
+## e.g., if the quadrant number was 1, the AZ as read from the mylar maps was used as is.
+## If the quadrant number was 2, az1_360 is 180-az1.
+## Quadrants of 3 were 180+az1 and quadrants of 4 were 360-az1.
+somi <- somi %>% select(-az1, -az2, -az3, -az4) %>% 
+    rename(az1 = az1_360, az2 = az2_360, az3 = az3_360, az4 = az4_360)  
 
 somi <- somi %>% mutate(corner = ifelse(sec_corner == "Extsec", 'external', 'internal'),
                     sectioncorner = ifelse(cornertype == 'section',  'section', 'quartersection'))
