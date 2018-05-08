@@ -370,6 +370,8 @@ wi <- wi %>% filter(rangdir != 0) %>%   ## Single point that seems to have no da
 ##  points.
 ## Per discussion in github issue #31, the data come from two sources, so just
 ## need to use value from whichever is non-empty.
+nomi$recnum = format(mi$recnum, scientific=F)
+nomi$recnum_c = format(mi$recnum_c, scientific=F)
 nomi <- nomi %>% mutate(newrecnum = pmax(recnum,recnum_c))
 nomi <- nomi %>% mutate(point = as.numeric(substr(newrecnum, 9, 11)))
 
