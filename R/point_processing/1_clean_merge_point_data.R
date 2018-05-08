@@ -421,8 +421,8 @@ mn <- mn %>% filter(numQQ <= 2)
 ## Many of them are in east-west straight lines, suggesting not usable
 mn <- mn %>% filter(!(is.na(sp1) & is.na(sp2) & is.na(sp3) & is.na(sp4) & vegtype == '_'))
 
-## forest, grove, pine grove seem inconsistent with lack of trees, so exclude these points
-forestedTypes <- c('F', 'G', 'J')
+## forest, grove, bottom, pine grove seem inconsistent with lack of trees, so exclude these points
+forestedTypes <- c('F', 'G', 'H', 'J')
 mn <- mn %>% filter(!(is.na(sp1) & is.na(sp2) & is.na(sp3) & is.na(sp4) & vegtype %in% forestedTypes))
 
 
