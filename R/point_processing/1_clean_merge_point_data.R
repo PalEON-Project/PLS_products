@@ -206,11 +206,15 @@ inil <- inil[final_columns]
 somi <- read_csv(file.path(raw_data_dir, southern_michigan_file), guess_max = 100000)
 somi <- somi %>% mutate(point_id = seq_len(nrow(somi)), vegtype = NA, state = "SoMI")
 
-if(F) {
+## remove problematic points where transcription may have been inaccurate (see issue #40)
+
+fids <- read.csv(file.path(raw_data_dir, southern_michigan_removal_file))
+somi <- somi %>% filter(!FID %in% fids$FID)
+
+
 ## Schoolcraft County and Isle Royale data provided separately but in same format as so MI data
 nomi_extra <- read_csv(file.path(raw_data_dir, northern_michigan_supp_file), guess_max = 100000)
-nomi_extra <- nomi_supp %>% mutate(point_id = seq_len(nrow(nomi_extra)), vegtype = NA, state = "NoMI_extra")
-}
+nomi_extra <- nomi_extra %>% mutate(point_id = seq_len(nrow(nomi_extra)), vegtype = NA, state = "NoMI_extra")
 
 ## These codes are not used in southern Michigan so don't need to do this filtering:
 ## somi <- somi %>% filter(!(species1 %in% c('No data', 'Water', 'Wet')))
@@ -231,7 +235,7 @@ somi_lower <- somi %>%
     left_join(spec_codes, by = c('species2' = 'level1')) %>% rename(L1_tree2 = species2, L3_tree2 = level3a) %>%
     left_join(spec_codes, by = c('species3' = 'level1')) %>% rename(L1_tree3 = species3, L3_tree3 = level3a) %>%
     left_join(spec_codes, by = c('species4' = 'level1')) %>% rename(L1_tree4 = species4, L3_tree4 = level3a)
-if(F){ 
+
 ## Schoolcraft county and Isle Royale points
 spec_codes <- read_csv(file.path(conversions_data_dir, taxa_conversion_file), guess_max = 1000) %>% 
     filter(domain == upper_midwest_conversion_domain) %>%
@@ -244,10 +248,6 @@ nomi_extra <- nomi_extra %>%
     left_join(spec_codes, by = c('species4' = 'level1')) %>% rename(L1_tree4 = species4, L3_tree4 = level3a)
 
 somi <- rbind(somi_lower, nomi_extra)
-} else {
-    print("not yet reading Schoolcraft/IR")
-    somi <- somi_lower 
-}
 
 if(sum(is.na(somi$L3_tree1)) != sum(is.na(somi$L1_tree1)) ||
    sum(is.na(somi$L3_tree2)) != sum(is.na(somi$L1_tree2)) ||
@@ -370,13 +370,16 @@ wi <- wi %>% filter(rangdir != 0) %>%   ## Single point that seems to have no da
 ##  points.
 ## Per discussion in github issue #31, the data come from two sources, so just
 ## need to use value from whichever is non-empty.
-nomi$recnum = format(mi$recnum, scientific=F)
-nomi$recnum_c = format(mi$recnum_c, scientific=F)
+## TODO: resolve whether input dataset stores the needed 9-11 digits
+## this currently looks broken to CJP
+nomi$recnum = format(nomi$recnum, scientific=F)
+nomi$recnum_c = format(nomi$recnum_c, scientific=F)
 nomi <- nomi %>% mutate(newrecnum = pmax(recnum,recnum_c))
 nomi <- nomi %>% mutate(point = as.numeric(substr(newrecnum, 9, 11)))
 
 mn <- mn %>% rename(point = tic)
 
+cat("Note that no MI point info (used in corrections) is not currently working\n")
 
 ##  We have made a choice to say that all taxa labelled 'Beech' in Minnesota are likely
 ##  Bluebeech, or, in our dataset, Ironwood.
@@ -482,14 +485,15 @@ miss <- miss %>% filter(!grepl(missingDataText, notes, ignore.case = TRUE))
 ## otherwise, notes generally say 'no witness trees', 'no trees convenient', 'no bearing trees', 'no other tree data', 'no trees'; assumed to indicate no-tree points
 nomi <- rbind(nomi, miss)
 
-
-if(FALSE) { ## need to enable this once have code to split UP from northern LP
-    ## >=1840 is shorthand (and unique) for 'UP, >=1840'
-    ## >=1836 is shorthand (and unique) for 'north Lower, >=1836'
-    nomi <- nomi %>% mutate(surveyyear = ifelse(domain == 'UP', '>=1840', '>=1836'))
+## still need FID from Jody, but this should distinguish UP and LP
+## >=1840 is shorthand (and unique) for 'UP, >=1840'
+## >=1836 is shorthand (and unique) for 'north Lower, >=1836'
+if(F) {
+    nomi <- nomi %>% mutate(surveyyear = ifelse(FID %in% 0:49644, '>=1840', '>=1836'))
+} else {
+    cat("stopgap: assigning all noMI points to UP corrections\n")
+    nomi <- nomi %>% mutate(surveyyear = "allN")
 }
-
-nomi <- nomi %>% mutate(surveyyear = "allN")
 
 wi <- wi %>% mutate(twp = paste0('WI_', township)) %>% select(-township)
 mn <- mn %>% mutate(twp = paste0('MN_', twp))

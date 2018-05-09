@@ -47,12 +47,11 @@ if(any(mw[ , paste0('az', 1:4)] == 360)) {
 }
 
 
-## about 50 trees > 100 in diameter: 42 points
-## large clump of these in SE MI; it looks like some of these are transcription error
-## because of systematic issues with multiple fields in the data
-mw <- mw %>% filter(!( (!is.na(diam1) & diam1 > 100) | (!is.na(diam2) & diam2 > 100) ))
-
+## about 40 trees > 100 in diameter; omit these points as likely erroneous and would induce huge biomass
 ## note allometries mostly wouldn't go above 80 cm = 32 inches
+mw <- mw %>% filter(!( (!is.na(diam1) & diam1 >= max_diam_inch) | (!is.na(diam2) & diam2 > max_diam_inc) ))
+
+
 
 ## Plans for tricky cases:
 
