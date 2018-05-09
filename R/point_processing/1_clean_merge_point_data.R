@@ -207,7 +207,6 @@ somi <- read_csv(file.path(raw_data_dir, southern_michigan_file), guess_max = 10
 somi <- somi %>% mutate(point_id = seq_len(nrow(somi)), vegtype = NA, state = "SoMI")
 
 ## remove problematic points where transcription may have been inaccurate (see issue #40)
-
 fids <- read.csv(file.path(raw_data_dir, southern_michigan_removal_file))
 somi <- somi %>% filter(!FID %in% fids$FID)
 
@@ -253,7 +252,7 @@ if(sum(is.na(somi$L3_tree1)) != sum(is.na(somi$L1_tree1)) ||
    sum(is.na(somi$L3_tree2)) != sum(is.na(somi$L1_tree2)) ||
    sum(is.na(somi$L3_tree3)) != sum(is.na(somi$L1_tree3)) ||
    sum(is.na(somi$L3_tree4)) != sum(is.na(somi$L1_tree4)))
-    cat("Apparently some L1 taxa are missing from the Michigan L1 to L3 conversion table.\n")
+    cat("Apparently some L1 taxa are missing from the southern Michigan L1 to L3 conversion table.\n")
 
 #remove the entries with sec_corner = "Check"
 somi <- somi %>% filter(!sec_corner %in% 'Check')
@@ -370,16 +369,10 @@ wi <- wi %>% filter(rangdir != 0) %>%   ## Single point that seems to have no da
 ##  points.
 ## Per discussion in github issue #31, the data come from two sources, so just
 ## need to use value from whichever is non-empty.
-## TODO: resolve whether input dataset stores the needed 9-11 digits
-## this currently looks broken to CJP
-nomi$recnum = format(nomi$recnum, scientific=F)
-nomi$recnum_c = format(nomi$recnum_c, scientific=F)
-nomi <- nomi %>% mutate(newrecnum = pmax(recnum,recnum_c))
+nomi <- nomi %>% mutate(newrecnum = format(pmax(recnum,recnum_c), scientific = FALSE))  ## format prevents NAs when 9-11 digits are 0s
 nomi <- nomi %>% mutate(point = as.numeric(substr(newrecnum, 9, 11)))
 
 mn <- mn %>% rename(point = tic)
-
-cat("Note that no MI point info (used in corrections) is not currently working\n")
 
 ##  We have made a choice to say that all taxa labelled 'Beech' in Minnesota are likely
 ##  Bluebeech, or, in our dataset, Ironwood.
@@ -485,15 +478,9 @@ miss <- miss %>% filter(!grepl(missingDataText, notes, ignore.case = TRUE))
 ## otherwise, notes generally say 'no witness trees', 'no trees convenient', 'no bearing trees', 'no other tree data', 'no trees'; assumed to indicate no-tree points
 nomi <- rbind(nomi, miss)
 
-## still need FID from Jody, but this should distinguish UP and LP
 ## >=1840 is shorthand (and unique) for 'UP, >=1840'
 ## >=1836 is shorthand (and unique) for 'north Lower, >=1836'
-if(F) {
-    nomi <- nomi %>% mutate(surveyyear = ifelse(FID %in% 0:49644, '>=1840', '>=1836'))
-} else {
-    cat("stopgap: assigning all noMI points to UP corrections\n")
-    nomi <- nomi %>% mutate(surveyyear = "allN")
-}
+nomi <- nomi %>% mutate(surveyyear = ifelse(fid %in% 0:49644, '>=1840', '>=1836'))
 
 wi <- wi %>% mutate(twp = paste0('WI_', township)) %>% select(-township)
 mn <- mn %>% mutate(twp = paste0('MN_', twp))
@@ -568,6 +555,8 @@ sections <- c(2, 5, 8, 11, 14, 18, 21, 24, 27, 30,
 #  These are the points on the outside of each township.
 external <- c(109:120, 97:108, 86:96, 122:126)
 
+## illegitimate point values, preventing determination of correction factors
+umw <- umw %>% filter(point %in% 1:126)
 
 umw <- umw %>% mutate(corner = ifelse(point %in% external, 'external', 'internal'),
                       sectioncorner = ifelse(point %in% sections, 'section', 'quartersection'))
