@@ -258,7 +258,7 @@ if(sum(is.na(somi$L3_tree1)) != sum(is.na(somi$L1_tree1)) ||
 somi <- somi %>% filter(!sec_corner %in% 'Check')
 
 ## make sure township names have the state in front of them:
-somi <- somi %>% mutate(twp = paste0('MI_', twnrng)) %>% mutate(state = 'MI')
+somi <- somi %>% mutate(twp = paste0('MI_', twnrng)) 
 
 ## determine subdomain for use with correction factors
 if(nrow(somi) != length(grep('[EW]', somi$range)))
@@ -474,6 +474,9 @@ miss <- miss %>% filter(!grepl(treeAsPostText, notes, ignore.case = TRUE))
 ## indications that data lost or not noted
 missingDataText <- c("(THEN LOST|INFORMATION NOT GIVEN|NOT IN NOTES|NO INFORMATION|RANDOM NOTES|OMITTED|OMMITTED|CUT OFF|MICROFILM|TREE IS DEAD|TA, RP, PS, WP|PS, RP|TRAIL COURSE)")
 miss <- miss %>% filter(!grepl(missingDataText, notes, ignore.case = TRUE))
+## Charlie's checking indicates these are mostly cases where tree was the corner but surveyor didn't bother to note other trees; density here is ambiguous
+noOtherTreeText <- c("NO OTHER")
+miss <- miss %>% filter(!grepl(noOtherTreeText, notes, ignore.case = TRUE))
 
 ## otherwise, notes generally say 'no witness trees', 'no trees convenient', 'no bearing trees', 'no other tree data', 'no trees'; assumed to indicate no-tree points
 nomi <- rbind(nomi, miss)
