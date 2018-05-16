@@ -37,7 +37,8 @@ waterTypes <- c('L', 'M', 'S', 'R', 'A')
 mw <- mw %>% filter(!(state == 'WI' & num_trees == 1 & vegtype %in% waterTypes)) %>%
     select(-vegtype)
 
-
+## Most of these az=360 values are in so MI and given that Charlie cleaned the azimuths there,
+## these should be fine.
 if(any(mw[ , paste0('az', 1:4)] == 360)) {
     warning("Found some azimuths = 360")
     mw <- mw %>% mutate(az1 = ifelse(az1 == 360, 0, az1),
@@ -49,7 +50,7 @@ if(any(mw[ , paste0('az', 1:4)] == 360)) {
 
 ## about 40 trees > 100 in diameter; omit these points as likely erroneous and would induce huge biomass
 ## note allometries mostly wouldn't go above 80 cm = 32 inches
-mw <- mw %>% filter(!( (!is.na(diam1) & diam1 >= max_diam_inch) | (!is.na(diam2) & diam2 > max_diam_inc) ))
+mw <- mw %>% filter(!( (!is.na(diam1) & diam1 >= max_diam_inch) | (!is.na(diam2) & diam2 > max_diam_inch) ))
 
 
 
@@ -99,7 +100,8 @@ q2=floor(mw2$az2/90)
 
 
 ## Correction factors to account for surveyor sampling 'design'
-corr_factors <- read_csv(file.path(conversions_data_dir, correction_factors_file))
+corr_factors <- read_csv(file.path(conversions_data_dir, correction_factors_file),
+                         na = c("", "NA", "na"))
 
 ## fix state names to match tree data
 names_df <- data.frame(state = c('Indiana','Illinois','Michigan','Minnesota','Wisconsin'),
@@ -114,6 +116,5 @@ mw <- mw %>% mutate(density = calc_stem_density(mw, corr_factors),
 
 save(mw, file = 'point_with_density.Rda')
 
-## TODO: look for and perhaps  truncate anomalously high stem density
 
 

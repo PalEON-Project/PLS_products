@@ -1,3 +1,16 @@
+5/15/18:
+
+justification for log scale fitting for potential model is to avoid negative predictions
+given each cell is an average and we have the count, this suggests each observation is normal and we can account for heterosced with the count, so ignoring negative issue we could fit on original scale possibly
+
+for biomass, when there is a value it will often be high, except for one-tree points
+
+want to do evaluation probably in terms of MSE for actual biomass, but don't want outlying raw data to have too much weight. Weighting by count should help here. 
+
+5/15/18:
+
+based on fitting oak stem density pot model, it seems we need at least 500 df for pot. May need > 1000 for occ model.
+
 4/25/18:
 there are patches in far SE MI and just N of north lobe of Big Woods where all or most points have diam recorded as 0
 

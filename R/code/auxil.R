@@ -153,7 +153,8 @@ get_angle_umw <- function(azimuth) {
 
 calc_stem_density <- function(data, corr_factors, use_phi =  TRUE) {
 
-    corr <- data %>% dplyr::select(state, surveyyear, corner, sectioncorner) %>%
+    corr <- data %>% dplyr::select(state, surveyyear, corner, sectioncorner, point) %>%
+        mutate(state = ifelse(grepl("MI", state), "MI", state)) %>%   ## convert soMI, noMI, noMI_extra to MI
         left_join(corr_factors, by = c('state' = 'state', 'surveyyear' = 'year',
                                        'corner' = 'corner',
                                        'sectioncorner' = 'sectioncorner',

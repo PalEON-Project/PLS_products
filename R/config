@@ -45,7 +45,10 @@ max_density=10000  # stems/ha
 
 n_allom_samples=10  # make this bigger
 allom_component=6
+do_allom_uncertainty=0
 
 shared_params_in_cell=1  # for speed, do single allometry call for all points ina cell
 
 n_folds=10
+
+n_cores = 4

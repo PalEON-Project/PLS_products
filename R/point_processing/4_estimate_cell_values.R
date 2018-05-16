@@ -1,3 +1,6 @@
+## code for aggregation of raw data, without statistical modeling
+## to be used for exploration
+
 library(raster)
 library(dplyr)
 
