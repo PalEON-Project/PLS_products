@@ -41,7 +41,7 @@ meters_sq_per_ha=10000
 kg_per_Mg=1000
 max_diam_inch=100
 
-max_density=10000  # stems/ha
+max_density=10000  # stems/ha (one tree per square meter)
 
 n_allom_samples=10  # make this bigger
 allom_component=6

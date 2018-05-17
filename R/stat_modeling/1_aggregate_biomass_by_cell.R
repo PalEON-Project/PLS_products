@@ -2,6 +2,9 @@ library(raster)
 library(dplyr)
 library(ncdf4)
 
+if(shared_params_in_cell)
+    load('point_with_biomass_shared.Rda') else load('point_with_biomass.Rda')
+
 if(!'cell' %in% names(mw)) 
     mw <- mw %>% add_cells_to_dataset() 
 
@@ -22,7 +25,11 @@ pred_grid <- data.frame(x = c(x), y = c(y))
 pred_grid_paleon <- pred_grid[paleon, ]
 pred_grid_west <- pred_grid[west, ]
 
+
 ## total biomass
+
+k_pot <- 2500
+k_occ <- 1500  ## should probably be larger but takes a long time to fit; explore this further
 
 ## compute average biomass per tree; this uses two-tree points with one tree with missing diameter
 biomass_avg <- mw %>% dplyr::select(biomass1, biomass2) %>% as.matrix(.)  %>% apply(1, mean, na.rm = TRUE)
@@ -43,9 +50,63 @@ cell_occ <- mw %>% filter(!(is.na(biomass) | is.na(density_for_biomass)) & bioma
 
 cell_full <- cell_full %>% left_join(cell_occ, by = c("cell" = "cell")) %>% left_join(grid, by = c("cell" = "cell")) %>% mutate(count = ifelse(is.na(count), 0 , count))
 
+## explore bam vs gam further
 test <- fit(cell_full, newdata = pred_grid_west, k_occ = k_occ, k_pot = k_pot, use_bam = TRUE)
 
-## c-v
+## comparisons
+
+if(F) {
+par(mfrow=c(2,2))
+raw <- mw %>% filter(!(is.na(biomass) | is.na(density_for_biomass))) %>% group_by(cell) %>%
+    summarize(biom = mean(biomass*density_for_biomass / kg_per_Mg, na.rm = TRUE))
+raw <- raw %>% right_join(grid, by = c("cell" = "cell")) %>% mutate(biom_tr = ifelse(biom > 300, 300, biom))
+image.plot(sort(unique(raw$x)), sort(unique(raw$y)), matrix(raw$biom_tr, 296, 180)[,180:1],xlim=c(-70000,1100000))
+
+pmap2(cell_full$avg, adf(cell_full[,c('x','y')]), cex=.5,zlim=c(0,300))
+pmap2(exp(cell_full$geom_avg), adf(cell_full[,c('x','y')]), cex=0.5,zlim=c(0,300))
+
+
+
+scaling=8000
+gamma=1
+data=cell_full
+newdata = pred_grid_west
+newdata[ , c('x','y')] <- newdata[ , c('x','y')] / scaling
+    data[ , c('x','y')] <- data[ , c('x','y')] / scaling 
+     data$z <- cbind(data$count, data$total - data$count)
+
+        ## default method is "fREML" which doesn't seem to respond to 'gamma'
+        ## and is not the same method as used in gam()
+       system.time( occ <- bam(z ~ s(x, y, k = 1500), data = data, family = 'binomial',
+                   gamma = gamma, method = "GCV.Cp"))       
+pr_occ <- predict(occ, newdata = newdata, type = 'response')
+  data <- data %>% filter(count > 0)
+   
+        data$z <- data$avg
+    pot_aa <- gam(z ~ s(x,y, k = 2500), data = data, weights = count,
+               gamma = gamma, method = "GCV.Cp")
+        data$z <- log(data$avg)  
+    pot_a <- gam(z ~ s(x,y, k = 2500), data = data, weights = count,
+               gamma = gamma, method = "GCV.Cp")
+      data$z <- data$geom_avg
+    pot_g <- gam(z ~ s(x,y, k = 2500), data = data, weights = count,
+               gamma = gamma, method = "GCV.Cp")
+    pr_pot_aa <- (predict(pot_aa, newdata= newdata, type='response'))
+    pr_pot_a <- exp(predict(pot_a, newdata= newdata, type='response'))
+    pr_pot_g <- exp(predict(pot_g, newdata= newdata, type='response'))
+
+b_aa = pr_occ * pr_pot_aa
+b_a = pr_occ * pr_pot_a
+b_g = pr_occ * pr_pot_g
+
+par(mfrow=c(1,3))
+pmap2(b_aa, newdata[,c('x','y')], cex = .5,zlim=c(0,300))
+pmap2(b_a, newdata[,c('x','y')], cex = .5,zlim=c(0,300))
+pmap2(b_g, newdata[,c('x','y')], cex = .5,zlim=c(0,300))
+
+}
+
+## CV
 
 set.seed(1)
 cells <- sample(unique(cell_full$cell), replace = FALSE)
@@ -81,8 +142,8 @@ apply(pred_geom_fit, 2, function(x) wgt_sse(cell_full$total, cell_full$avg, x))
 
 ## biomass by taxon
 
-k_occ <- 3000
-k_pot <- 1000
+k_occ <- 1500
+k_pot <- 2500
 
 taxon = "Oak"
 
@@ -99,230 +160,57 @@ calc_biomass_taxon <- function(num_trees, biomass1, biomass2, density, L3_tree1,
     biomass[cond] <- biomass[cond] + biomass2[cond] * density[cond]  / (kg_per_Mg * 2)
 
     ## handle case of two trees same taxon but one biomass is missing; use single biomass as the per-tree estimate
-    cond <- num_trees == 2 & L3_tree1 == taxon & L3_tree2 == taxon & is.na(biomass1)
+    cond <- (num_trees == 2 & L3_tree1 == taxon & L3_tree2 == taxon & is.na(biomass1)) |
+        (num_trees == 2 & L3_tree1 == taxon & L3_tree2 == taxon & is.na(biomass2))
     biomass[cond] <- biomass2[cond] * density[cond]  / kg_per_Mg
-    cond <- num_trees == 2 & L3_tree1 == taxon & L3_tree2 == taxon & is.na(biomass2)
-    biomass[cond] <- biomass1[cond] * density[cond]  / kg_per_Mg
     
-    return(dens)
+    return(biomass)
 }
 
-## HERE
+tmp <- mw %>% mutate(biomass_focal = calc_biomass_taxon(num_trees, biomass1, biomass2, density_for_biomass, L3_tree1, L3_tree2, taxon))
 
-mw <- mw %>% summarize(biomass = ifelse(num_trees == 0, 0,
-                                        ifelse(num_trees == 1, biomass1,
-                                               apply(as.matrix(mw$biomass1, mw$biomass2), 1,
-                                                     mean, na.rm = TRUE)))
+cell_full <- tmp %>% filter(!(is.na(biomass_focal))) %>% group_by(cell) %>% summarize(total = n())
 
-cell_full <- mw %>% filter(!(is.na(biomass) | is.na(density_for_biomass))) %>% group_by(cell) %>% summarize(total = n())
-
-cell_occ <- mw %>% filter(!is.na(biomass) & !is.na(density_for_biomass) & biomass > 0) %>% 
+cell_occ <- tmp %>% filter(!is.na(biomass_focal) & biomass_focal > 0) %>% 
     group_by(cell) %>%
-    summarize(avg = mean(biomass*density_for_biomass/kg_per_Mg),
-              geom_avg = mean(log(biomass*density_for_biomass/kg_per_Mg)),
+    summarize(avg = mean(biomass_focal),
+              geom_avg = mean(log(biomass_focal)),
               count = n())
 
+cell_full <- cell_full %>% left_join(cell_occ, by = c("cell" = "cell")) %>% left_join(grid, by = c("cell" = "cell")) %>% mutate(count = ifelse(is.na(count), 0 , count))
 
-## OLD
-# KH adding the code that has been used in the past to aggregate biomass, density, etc up to the grid cell:
+test <- fit(cell_full, newdata = pred_grid_west, k_occ = k_occ, k_pot = k_pot, use_bam = TRUE)
 
-spec.table <- read.csv(paste0('outputs/biomass_no_na_pointwise.ests_inilmi','_v',version, '.csv'))
+## CV
 
-#-------------------------Paleon gridding----------------------------------------------
+set.seed(1)
+cells <- sample(unique(cell_full$cell), replace = FALSE)
+folds <- rep(1:n_folds, length.out = length(cells))
 
-# These are not the full tables since the include only the Paleon grid cells with points in the database.
-#dcast rearranges the spec.table data by x, y and cell
-count.table <- dcast(spec.table, x + y + cell ~ spec, sum, na.rm=TRUE, value.var = 'count')
+gamma_values <- c(.01, .03, .1, .3, .7, 1, 2, 3, 10, 30, 100)
 
-count.table.pt <- dcast(spec.table, Pointx + Pointy + cell ~ spec, sum, na.rm=TRUE, value.var = 'count')
+cell_full <- cell_full %>% inner_join(data.frame(cell = cells, fold = folds), by = c('cell'))
 
-unique.len <- function(x){length(unique(x))}
+pred_arith_fit <- pred_geom_fit <- se_arith_fit <- se_geom_fit <- matrix(0, nrow(cell_full), length(gamma_values))
+for(i in 1:n_folds) {
+    train <- cell_full %>% filter(fold != i)
+    test <- cell_full %>% filter(fold == i)
 
-#melt data by by x, y, cell as rows and spec as columns and provide the sum or the number of unique points
-biomass.trees  <- dcast(spec.table, x + y + cell ~ spec, sum, na.rm=TRUE, value.var = 'count')
-
-#biomass.trees represnts the number of trees in each category
-
-biomass.points <- dcast(spec.table, x + y + cell ~ spec, unique.len, value.var = 'point')
-#biomass.points represents the number of unique points
-# This is to get the points with trees:
-spec.adj <- spec.table
-spec.adj$tree <- spec.table$spec %in% "No tree"
-
-treed.points <- dcast(spec.adj, x + y + cell ~ tree, unique.len, value.var = 'point')
-treed.points <- treed.points[order(treed.points$cell),]
-colnames(treed.points) <- c('x', 'y', 'cell', 'tree', 'no tree')
-
-# Now get the total number of plots per cell:
-plots_per_cell <- dcast(spec.table, x + y + cell ~ ., unique.len, value.var = 'point')
-plots_per_cell <- plots_per_cell[order(plots_per_cell$cell),]
-
-points_per_cell_df <- data.frame(plots_per_cell,
-                                 treed = treed.points$tree,
-                                 untreed = treed.points$`no tree`)
-
-colnames(points_per_cell_df)[4:5] <- c("total_pls_points", "total_treed_points")
-
-
-# points by cell is the # of points 
-points.by.cell <- rowSums(biomass.points[, 4:ncol(biomass.points)], na.rm=TRUE)
-trees.by.cell  <- rowSums(biomass.trees[,!colnames(biomass.trees) %in% c('x', 'y', 'cell', 'No tree','Wet', 'Water')], na.rm=TRUE)
-
-#calculate the sum of total density, basal area, biomass & diameter by cell and species
-density.table <- dcast(spec.table, x + y  + cell ~ spec, sum, na.rm=TRUE, value.var = 'density')
-basal.table <- dcast(spec.table, x + y  + cell ~ spec, sum, na.rm=TRUE, value.var = 'basal')
-biomass.table <- dcast(spec.table, x + y  + cell ~ spec, sum, na.rm=TRUE, value.var = 'biom')
-diam.table <-  dcast(spec.table, x + y  + cell ~ spec, sum, na.rm=TRUE, value.var = 'diams')
-
-
-
-#calculate standard deviations of density, basal area, biomass, and diameters
-density.sd.table <- dcast(spec.table, x + y  + cell ~ spec, sd, na.rm=TRUE, value.var = 'density')
-basal.sd.table <- dcast(spec.table, x + y  + cell ~ spec, sd, na.rm=TRUE, value.var = 'basal')
-diam.sd.table <-  dcast(spec.table, x + y  + cell ~ spec, sd, na.rm=TRUE, value.var = 'diams')
-biom.sd.table <- dcast(spec.table, x + y + cell ~ spec, sum, na.rm=TRUE, value.var = 'biom')
-
-#  The function averages the estimates a single value for density, basal area, and biomass based on the points.by.cell
-normalize <- function(x, mult = 2, value = points.by.cell) {
-  x[,4:ncol(x)] <-  x[,4:ncol(x)] / value *mult; x}
-
-density.table <- normalize(density.table)
-basal.table <- normalize(basal.table)
-diam.table <- normalize(diam.table, mult = 2.54, trees.by.cell)
-biomass.table <- normalize(biomass.table)
-
-# output preliminary density table to look at:
-write.csv(density.table, "outputs/density.table_test.csv")
-
-# get a density total value
-density.table$total = rowSums(density.table[,4:ncol(density.table)], na.rm=TRUE)
-
-mass.table <- merge(biomass.table, points_per_cell_df[,c("x", "y", "cell", "total_pls_points", "total_treed_points")], by = c("x", "y", "cell"))
-
-#  We want rasterized versions of these tables with sums:
-rast.fun <- function(x){
-  
- to_grid <- data.frame(cell = x$cell, 
-                  total = rowSums(x[,4:ncol(x)], na.rm=TRUE))
-  
-  empty <- rep(NA, ncell(base.rast))
-  empty[to_grid$cell] <- to_grid$total
-  setValues(base.rast, empty)
-  }
-
-base.rast <- raster(xmn = -71000, xmx = 2297000, ncols=296,
-                    ymn = 58000,  ymx = 1498000, nrows = 180,
-                    crs = '+init=epsg:3175')
-
-#create total rasters for densi, basal area, diameters, biomass
-dens     <- rast.fun(density.table)
-count.up <- rast.fun(count.table)
-basal    <- rast.fun(basal.table)
-mdiam    <- rast.fun(diam.table); mdiam[mdiam==0] <- NA
-biomass <- rast.fun(biomass.table)
-
-writeRaster(biomass, "data/biomass.grd", overwrite=TRUE)
-writeRaster(dens, "data/dens.grd", overwrite=TRUE)
-
-
-#to get sd for these
-rowset <- cbind(1:(nrow(spec.table)/2), (nrow(spec.table)/2+1):nrow(spec.table))
-
-sd.table <- data.frame(cell = spec.table$cell[rowset[,1]],
-                       density = spec.table$density[rowset[,1]] * 2,
-                       basal   = spec.table$basal[rowset[,1]] + spec.table$basal[rowset[,2]],
-                       biomass = spec.table$biom[rowset[,1]] + spec.table$biom[rowset[,2]],
-                       diam = spec.table$diam[rowset[,1]] + spec.table$diam[rowset[,2]])
-
-dens.sd <- dcast(sd.table, cell ~ ., fun.aggregate=sd, na.rm=TRUE, value.var = 'density')
-basal.sd <- dcast(sd.table, cell ~ ., sd, na.rm=TRUE, value.var = 'basal')
-biomass.sd <- dcast(sd.table, cell ~ ., sd, na.rm=TRUE, value.var = 'biomass')
-diam.sd <- dcast(sd.table, cell ~., fun.aggregate = sd, na.rm = TRUE, value.var = 'diam')
-colnames(dens.sd) <-c("cell", "dens.sd")
-colnames(basal.sd) <-c("cell", "basal.sd")
-colnames(biomass.sd) <-c("cell", "biomass.sd")
-colnames(diam.sd) <-c("cell", "diam.sd")
-
-#combine sd's with the tables
-density.table <- merge(density.table, dens.sd, by = "cell")
-diam.table <- merge(diam.table, diam.sd, by = "cell")
-
-
-
-data.table <- data.frame(xyFromCell(dens, 1:ncell(dens)), 
-                         stem.dens = getValues(dens),
-                         basal.area = getValues(basal),
-                         biomass = getValues(biomass),
-                         diam = getValues(mdiam))
-
-data.table <- data.table[!is.na(data.table[,3]), ] # remove places missing cells
-write.csv(data.table, paste0('data/density.basal.biomass_alb','_v',1, '.csv'))
-
-
-#  Now we need to add zero cells to the dataframe:
-comp.table <- data.frame(xyFromCell(base.rast, 1:ncell(base.rast)), 
-                         cell = 1:ncell(base.rast),
-                         matrix(ncol = ncol(biomass.table)-3, nrow = ncell(base.rast)))
-
-colnames(comp.table)[4:ncol(biomass.table)] <- colnames(biomass.table)[4:ncol(comp.table)]
-
-reform <- function(x){
-  comp.table[x$cell,] <- x
-  comp.table
+    for(j in seq_along(gamma_values)) {
+        tmp <- fit(train, newdata = test, gamma = gamma_values[j], k_occ = k_occ, k_pot = k_pot, use_bam = TRUE)
+        pred_arith_fit[cell_full$fold == i, j] <- tmp$mean
+        se_arith_fit[cell_full$fold == i, j] <- tmp$sd
+        
+        tmp <- fit(train, newdata = test, do_log = FALSE, gamma = gamma_values[j], k_occ = k_occ, k_pot = k_pot, use_bam = TRUE)
+        pred_geom_fit[cell_full$fold == i, j] <- tmp$mean
+        se_geom_fit[cell_full$fold == i, j] <- tmp$sd
+    }
 }
 
-
-biomass.full <- reform(biomass.table)
-density.full <- reform(density.table)
-diameter.full <- reform(diam.table)
-composition.table <- reform(basal.table)
-
-
-#make composition table
-composition.table <- composition.table[,!names(composition.table) %in% c('Water', "Wet", "No tree", "plss_pts")]
-composition.table[,4:ncol(composition.table)] <- composition.table[,4:ncol(composition.table)]/rowSums(composition.table[,4:ncol(composition.table)], na.rm=TRUE)
-
-# composition table without paleon grid NA values:
-comp.inil <- composition.table[complete.cases(composition.table),]
-
-
-#extract biomass.full table by the extent to get a datatable
-
-
-biomass.df.test <- extract(biomass, extent(ind_il), cellnumbers=TRUE, xy=TRUE)
-#biomass.df.test has the cell numbers of the extent of indiana, so I will use these
-
-#get the biomass.full cells out of biomass.full
-biomass.df.test.cells <- data.frame(biomass.df.test[,1])
-colnames(biomass.df.test.cells) <- 'cell'
-biomass.indiana <- merge(biomass.full, biomass.df.test.cells, by ="cell")
-
-#to get biomass.pts and tree.pts, use merge(x, y, by, all=TRUE)
-cells.xy.ind <- biomass.indiana[,1:3] #xy and cells in indiana
-biomass.points.ind <- merge(cells.xy.ind, biomass.points, all=TRUE)
-count.trees.ind <- merge(cells.xy.ind, count.table, all=TRUE)
-
-
-add.v <- function(x, name, row.names){
-  
-  #  Quick file name formatter:
-  
-    p.ext <- '_alb'
-  
-  write.csv(x, paste0('data/outputs/', name,  '_v',version, '.csv'), row.names = row.names)
+wgt_sse <- function(n, y, yhat) {
+    sum(n * (y - yhat)^2)
 }
 
-add.v(count.table, 'plss_counts', row.names=FALSE)
-add.v(biomass.points, 'plss_points', row.names=FALSE)
-add.v(count.table, "plss_composition", row.names=FALSE)
-add.v(count.table, "plss_inil_composition", row.names=FALSE)
-biomass.table$plsspts_cell <- points.by.cell
-
-add.v(density.table, 'plss_density', row.names=FALSE)
-add.v(basal.table, 'plss_basal', row.names=FALSE)
-add.v(biomass.table, 'plss_biomass', row.names=FALSE)
-
-add.v(biomass.full,  'plss_spec_biomass', row.names=FALSE) #full species biomass for indiana
-add.v(density.full, 'plss_spec_density', row.names=FALSE)
-add.v(diameter.full, 'plss_spec_diam', row.names=FALSE)
-add.v(diam.table, 'plss_diam', row.names=FALSE)
+# geom fit looks a bit better and gamma=1 or slightly higher seems best
+apply(pred_arith_fit, 2, function(x) wgt_sse(cell_full$total, cell_full$avg, x))
+apply(pred_geom_fit, 2, function(x) wgt_sse(cell_full$total, cell_full$avg, x))

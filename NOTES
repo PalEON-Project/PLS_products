@@ -1,3 +1,8 @@
+5/16/18:
+geom_avg almost certainly won't work with a mix of large and small values of biomass at corners as it pulls the mean way down
+
+given that we need to weight by counts, fitting the straight avg may be the best option and truncate negative values of pot model at 0
+
 5/15/18:
 
 justification for log scale fitting for potential model is to avoid negative predictions

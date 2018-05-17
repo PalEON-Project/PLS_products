@@ -178,7 +178,8 @@ calc_stem_density <- function(data, corr_factors, use_phi =  TRUE) {
     
     density[data$num_trees == 0] <- 0
 
-    to_calc <- data$num_trees == 2 & data$dist1 > 0
+    ## We use points where first tree (but not also second tree) has distance of 0
+    to_calc <- data$num_trees == 2 & (!(data$dist1 == 0 & data$dist2 == 0))
     sub <- data[to_calc, ]
 
     diam <- sub$diam1

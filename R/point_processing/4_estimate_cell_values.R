@@ -29,11 +29,17 @@ if(FALSE) {
 
 ## biomass
 
-cell_biom <- mw %>% group_by(cell) %>% summarize(biom = mean(biomass*density / kg_per_Mg, na.rm = TRUE))
+biomass_avg <- mw %>% dplyr::select(biomass1, biomass2) %>% as.matrix(.)  %>% apply(1, mean, na.rm = TRUE)
+
+mw2 <- mw %>% mutate(biomass = ifelse(num_trees == 0, 0,
+                                        ifelse(num_trees == 1, biomass1, biomass_avg)))
+
+
+cell_biom <- mw2 %>% filter(!is.na(biomass) & !is.na(density_for_biomass))  %>% group_by(cell) %>% summarize(biom = mean(biomass*density_for_biomass / kg_per_Mg, na.rm = TRUE))
 cell_biom <- cell_biom %>% right_join(grid, by = c("cell" = "cell"))
 
 if(FALSE) {
-    cell_biom <- cell_biom %>% mutate(biom_tr = ifelse(biom > 400, 400, biom))
+    cell_biom <- cell_biom %>% mutate(biom_tr = ifelse(biom > 300, 300, biom))
     image.plot(sort(unique(cell_biom$x)), sort(unique(cell_biom$y)), matrix(cell_biom$biom_tr, 296, 180)[,180:1],xlim=c(-70000,1100000))
 
     image.plot(sort(unique(cell_biom$x)), sort(unique(cell_biom$y)), matrix(cell_biom$biom_tr, 296, 180)[,180:1],xlim=c(500000,700000), ylim=c(1000000, 1200000))

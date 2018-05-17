@@ -1,1 +1,1 @@
-## see code in biomass repository and code in fia_products work
+## see code in 1_aggregate_biomass_by_cell.R
