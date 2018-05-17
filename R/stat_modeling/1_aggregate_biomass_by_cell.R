@@ -179,7 +179,12 @@ cell_occ <- tmp %>% filter(!is.na(biomass_focal) & biomass_focal > 0) %>%
 
 cell_full <- cell_full %>% left_join(cell_occ, by = c("cell" = "cell")) %>% left_join(grid, by = c("cell" = "cell")) %>% mutate(count = ifelse(is.na(count), 0 , count))
 
-test <- fit(cell_full, newdata = pred_grid_west, k_occ = k_occ, k_pot = k_pot, use_bam = TRUE)
+test1 <- fit(cell_full, newdata = pred_grid_west, k_occ = k_occ, k_pot = k_pot, use_bam = TRUE,
+            type = 'arith')
+test2 <- fit(cell_full, newdata = pred_grid_west, k_occ = k_occ, k_pot = k_pot, use_bam = TRUE,
+            type = 'log_arith')
+
+save(test1, test2, file = 'oak.Rda')
 
 ## CV
 
