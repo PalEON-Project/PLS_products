@@ -208,3 +208,38 @@ calc_stem_density <- function(data, corr_factors, use_phi =  TRUE) {
 
     return(density)
 }
+
+calc_biomass_taxon <- function(num_trees, biomass1, biomass2, density, L3_tree1, L3_tree2, taxon) {
+    biomass <- rep(0, length(num_trees))
+    
+    cond <- num_trees == 1 & L3_tree1 == taxon
+    biomass[cond] <- biomass1[cond] * density[cond] / kg_per_Mg
+    ## assign half biomass to taxon if either tree is the taxon
+    cond <- num_trees == 2 & L3_tree1 == taxon 
+    biomass[cond] <- biomass1[cond] * density[cond]  / (kg_per_Mg * 2)  ## 2 to account for taxon represents half the density
+    ## if two trees of same taxon, the addition should handle this
+    cond <- num_trees == 2 & L3_tree2 == taxon 
+    biomass[cond] <- biomass[cond] + biomass2[cond] * density[cond]  / (kg_per_Mg * 2)
+
+    ## handle case of two trees same taxon but one biomass is missing; use single biomass as the per-tree estimate
+    cond <- (num_trees == 2 & L3_tree1 == taxon & L3_tree2 == taxon & is.na(biomass1)) |
+        (num_trees == 2 & L3_tree1 == taxon & L3_tree2 == taxon & is.na(biomass2))
+    biomass[cond] <- biomass2[cond] * density[cond]  / kg_per_Mg
+    
+    return(biomass)
+}
+
+wgt_mse <- function(n, y, yhat) {
+    sum(n * (y - yhat)^2, na.rm = TRUE) / sum(n > 0)
+}
+
+calc_cv_criterion <- function(pred_occ, pred_pot, n, y, obj_fun = wgt_mse) {
+   crit <- matrix(0, ncol(pred_occ), ncol(pred_pot))
+   for(i in seq_len(nrow(crit))) {
+       for(j in seq_len(ncol(crit))) {
+           tmp <- pred_occ[ , i] * pred_pot[ , j]
+           tmp[tmp > mx] <- mx
+           crit[i, j] <- obj_fun(n, y, tmp)
+    }}
+   return(crit)
+}

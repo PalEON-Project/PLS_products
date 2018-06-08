@@ -49,6 +49,8 @@ if(allom_dir == "")
     allom_dir <- file.path("..", "data", "allom")
 if(code_dir == "")
     code_dir <- file.path("code")
+if(output_dir == "")
+    output_dir <- file.path("..", "output")
 
 ## source files with R functions
 
