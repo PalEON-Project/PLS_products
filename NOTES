@@ -1,0 +1,69 @@
+5/29/18:
+for oak, k_occ has more effect than k_pot once k_pot >= 500-1000; k_occ seemingly should be ~1000, k_pot best is 3000 k_pot of 2500 or 3500 close
+(Maple): same but k_occ=1000,k_pot=3500 if using arith
+but with log_arith, it wants k_occ=2500, k_pot=3500
+(Basswood): arith a bit better; k_occ again has more effect; it wants k_occ of 2500, k_pot of 2500 (but very little difference for k_pot values)
+
+for total biomass, k_occ has little effect (k_occ=500 is best); k_pot maxes out at 3500 perhaps should be even larger; makes sense since occ=1 except along ecosystem boundary
+
+fitting on log(avg) does a bit better than direct fitting to avg for oak and rather better for total biomass
+
+larith values are lower than arith values on average
+
+5/16/18:
+geom_avg almost certainly won't work with a mix of large and small values of biomass at corners as it pulls the mean way down
+
+given that we need to weight by counts, fitting the straight avg may be the best option and truncate negative values of pot model at 0
+
+5/15/18:
+
+justification for log scale fitting for potential model is to avoid negative predictions
+given each cell is an average and we have the count, this suggests each observation is normal and we can account for heterosced with the count, so ignoring negative issue we could fit on original scale possibly
+
+for biomass, when there is a value it will often be high, except for one-tree points
+
+want to do evaluation probably in terms of MSE for actual biomass, but don't want outlying raw data to have too much weight. Weighting by count should help here. 
+
+5/15/18:
+
+based on fitting oak stem density pot model, it seems we need at least 500 df for pot. May need > 1000 for occ model.
+
+4/25/18:
+there are patches in far SE MI and just N of north lobe of Big Woods where all or most points have diam recorded as 0
+
+red blotch in middle of UP - seems legit - patch with some big trees and in some cases fairly dense; note that a few large trees can really pull up the values in a cell
+
+there is a fairly sharp boundary in tree size in going from MI_44 to MI_45 e.g. within cell 15186 - south of boundary is big trees and north is not (and L1 abbrevs change from lower case to upper case so perhaps a surveyor issue), but then MI_43 also seems big
+
+4/18/18:
+
+all cases we have of 2nd tree as water are in MN; in other places we don't have things recorded as whether each tree is water; in IN/IL if any trees then don't note as water
+
+3/23/18:
+
+see various issues in PLS_products repo
+
+3/17/18:
+1-tree/no-tree issue - see "no tree/no data issue" email 12/18/14 and "treed points" email 8/15/15
+
+could Charlie suggest an area within which we think there is one tree such that we can give low estimate of density there; should we just call it 0 density even for the taxon present?
+
+remove: 'Water' or 'No data'
+0 tree points: 'No tree' as L1_tree1
+1 tree points: NA as tree2 info where L1_tree1 is not 'No tree'
+
+note that a fair number of 1-tree points have 0 distance to first tree
+
+should water be treed as absent or as no tree; i.e. should our biomass be conditioal on no water or average over no water; I think probably throw out water as if near water, should likely be able to find trees and get an estimate
+
+should we be doing things like screening out line trees in the PLS_products?
+
+3/2/18: top row of indiana seems to overlap bottom row of michigan
+same for top of illinois and bottom of umw
+so mi and umw seem to line up well
+
+Jody said she would address this.
+
+3/2/18
+so mi 1.2 and umw 1.0 seem to line up well
+

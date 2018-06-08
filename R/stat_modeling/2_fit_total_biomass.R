@@ -1,0 +1,63 @@
+if(!exists('k_pot_total'))
+    stop("Must specify 'k_pot_total'")
+if(!exists('k_occ_total'))
+    stop("Must specify 'k_occ_total'")
+
+biomass_avg <- mw %>% dplyr::select(biomass1, biomass2) %>% as.matrix(.) %>%
+    apply(1, mean, na.rm = TRUE)
+
+## add total point-level biomass to dataset
+mw <- mw %>% mutate(biomass = ifelse(num_trees == 0, 0,
+                              ifelse(num_trees == 1, biomass1, biomass_avg)))
+
+## total points per cell
+cell_full <- mw %>% filter(!(is.na(biomass) | is.na(density_for_biomass))) %>%
+    group_by(cell) %>% summarize(points_total = n())
+
+## biomass stats averaged over occupied points
+cell_occ <- mw %>% filter(!(is.na(biomass) | is.na(density_for_biomass)) & biomass > 0) %>% 
+    group_by(cell) %>%
+    summarize(avg = mean(biomass*density_for_biomass/kg_per_Mg),
+              geom_avg = mean(log(biomass*density_for_biomass/kg_per_Mg)),
+              points_occ = n())
+
+## note: given we fit stat model for potential biomass on log scale, can't really scale
+## by count_occ unless we use geometric or arithmetic average, not log of arithmetic average
+## but in cross-validation log of arithmetic average seems to work better
+
+## should have 'total', 'occupied', and biomass stats (for occupied points)
+cell_full <- cell_full %>% left_join(cell_occ, by = c("cell" = "cell")) %>%
+    left_join(grid, by = c("cell" = "cell")) %>%
+    mutate(points_occ = ifelse(is.na(points_occ), 0, points_occ))
+
+if(do_cv) {
+
+    k_occ <- c(100,250,500,1000,1500,2000,2500)
+    k_pot = c(100,250,500,1000,1500,2000,2500,3000,3500)
+    
+    set.seed(1)
+    cells <- sample(unique(cell_full$cell), replace = FALSE)
+    folds <- rep(1:n_folds, length.out = length(cells))
+    
+    cell_full <- cell_full %>% inner_join(data.frame(cell = cells, fold = folds), by = c('cell'))
+
+    results <- fit_cv(cell_full, k_occ, k_pot, n_cores)
+
+    ## assess results
+    
+    y <- cell_full$avg*cell_full$count/cell_full$total  ## actual average biomass over all cells
+    y[is.na(y)] <- 0
+    y[y > mx] <- mx
+
+
+    critArith <- calc_cv_criterion(results$pred_occ, results$pred_pot_arith, cell_full$points_total,
+                                   cell_full$avg*cell_full$count/cell_full$total, 200)
+    critLogArith <- calc_cv_criterion(results$pred_occ, results$pred_pot_larith, cell_full$points_total,
+                                   cell_full$avg*cell_full$count/cell_full$total, 200)
+
+}
+
+## fit stats model
+biomass_total <- fit(cell_full, newdata = pred_grid_west, k_occ = k_occ_total, k_pot = k_pot_total,
+                     unc = TRUE, type_pot = 'log_arith', num_draws = 1000)
+

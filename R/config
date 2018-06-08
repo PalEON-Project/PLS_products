@@ -1,30 +1,76 @@
+## configuration file for running all analyses
+## enter all fixed constants and file names here
+## this is sourced by R, but in a format that could
+## be sourced in the shell if desired (use of '=' and without spaces)
+
+product_version=0.1
+
+## directory locations
 raw_data_dir=""
 conversions_data_dir=""
 allom_dir=""
 code_dir=""
+output_dir=""
 
-## PEcAn versions as of 2018-02-10
+## PEcAn package versions (as of 2018-02-10)
 pecan_base_logger_commit="3d6cbba"
 pecan_modules_allometry_commit="7064209"
 
-upper_midwest_file="umw_wiki.zip"
-## subdirectory names extracted from the above zip
-minnesota_dir="minn"
-wisconsin_dir="wisc"
-upper_michigan_dir="mich"
+## input files
 
-southern_michigan_file="southernmi_projected_v1.2.csv"
-indiana_file="ndinpls_v1.7.csv"
-illinois_file="ndilpls_v1.8-2.csv"
+## data files
+minnesota_zipfile="mn_pls_projected_v1.1.zip"
+minnesota_file="mn_pls_projected_v1.1.csv"
+wisconsin_zipfile="wi_pls_projected_v1.1.zip"
+wisconsin_file="wi_pls_projected_v1.1.csv"
+northern_michigan_zipfile="northernmi_pls_projected_v1.1.zip"
+northern_michigan_file="northernmi_pls_projected_v1.1.csv"
+northern_michigan_supp_file="northernmi_pls_projected_supplement_v1.0.csv"
+southern_michigan_file="southernmi_projected_v1.4.csv"
+southern_michigan_removal_file="southernmi_fid_removal.csv"
+indiana_file="ndinpls_v1.7-1.csv"
+illinois_file="ndilpls_v1.8-4.csv"
+minnesota_survey_file="mn_surveys.csv"
 
-taxa_conversion_file="level0_to_level3a_v0.4-7.csv"
+## conversion files
+taxa_conversion_file="level0_to_level3a_v0.4-9.csv"
+indiana_conversion_domain="Indiana v1.7-1"
+illinois_conversion_domain="Illinois_v1.8-4"
+southern_michigan_conversion_domain="Southern MI v1.3"
+upper_midwest_conversion_domain="Upper Midwest"
+pls_to_pecan_conversion_file="level3a_to_pecan_v0.2.csv"
+correction_factors_file="cogbill_density_corrections_full_midwest_v1.1.csv"
+level_3a_to_3s_conversion_file="level3a_to_level3s_v0.3.csv"
 
-correction_factors = "charlie_corrections_full_midwest_v1.0.csv"
+## unit conversions
+cm_per_inch=2.54
+cm_per_m=100
+meters_per_chain=0.201168
+meters_sq_per_ha=10000
+kg_per_Mg=1000
 
+## sanity/estimation bounds
 diameter_cutoff_inches=8
-cm_to_inch=0.39370
+max_diam_inch=100
+max_distance_surveyed=150  # links
+max_density=10000  # stems/ha (one tree per square meter)
 
+## allometric scaling and uncertainty parameters
 n_allom_samples=10  # make this bigger
 allom_component=6
+do_allom_uncertainty=0  # for now, don't include allometric uncertainty
 
+shared_params_in_cell=1  # for speed, do single allometry call for all points ina cell
+
+## cross-validation folds
+do_cv=1
 n_folds=10
+
+## parallelization
+n_cores=4
+
+## maximum degrees of freedom for spatial statistical smoothing
+k_occ_total=500
+k_pot_total=3500
+n_stat_samples=250
+
