@@ -48,7 +48,7 @@ mw <- mw %>% left_join(taxa_conversion, by = c("L3_tree1" = "level3a")) %>%
 ## 731 seemingly used (as in FIA) but could use 318;802;541;731
 
 ## updated more lumped conversions based on initial results commented about below
-## TODO: this should be done in level3a_to_fia
+## TODO: this should be done in level3a_to_pecan
 to_convert <- c('762','970')
 mw <- mw %>% mutate(pecan1 = ifelse(pecan1 %in% to_convert, '318,802,541,731', pecan1),
                     pecan2 = ifelse(pecan2 %in% to_convert, '318,802,541,731', pecan2))
@@ -112,7 +112,9 @@ if(!shared_params_in_cell) {
                                   n = n_allom_samples,
                                   interval = "prediction", 
                                   single.tree = FALSE)
-            mw[pnt, c('biomass1', 'biomass2')] <- colMeans(pred)  ## for moment use posterior mean
+            if(!do_allom_uncertainty) {
+                mw[pnt, c('biomass1', 'biomass2')] <- colMeans(pred)  
+            } else stop("allometric uncertainty sampling not yet fully coded")                
         } else {
             pred <- allom.predict(allom_dir,
                                   dbh = unlist(mw[pnt, c('diam1')]) * cm_per_inch,
@@ -122,7 +124,9 @@ if(!shared_params_in_cell) {
                                   n = n_allom_samples,
                                   interval = "prediction", 
                                   single.tree = FALSE)
-            mw[pnt, c('biomass1')] <- mean(pred)
+            if(!do_allom_uncertainty) {
+                mw[pnt, c('biomass1')] <- mean(pred)
+            } else stop("allometric uncertainty sampling not yet fully coded")                
         }
         if(pnt %% 10000 == 0) cat("Finished row ", pnt, "\n")
     }
@@ -142,7 +146,9 @@ if(!shared_params_in_cell) {
                                   n = n_allom_samples,
                                   interval = "prediction", 
                                   single.tree = FALSE)
-            mw[two_tree_points, c('biomass1', 'biomass2')] <- colMeans(pred)  ## for moment use posterior mean
+            if(!do_allom_uncertainty) {
+                mw[two_tree_points, c('biomass1', 'biomass2')] <- colMeans(pred)  
+            } else stop("allometric uncertainty sampling not yet fully coded")
         }
         if(length(one_tree_points)) {
             pred <- allom.predict(allom_dir,
@@ -153,7 +159,9 @@ if(!shared_params_in_cell) {
                                   n = n_allom_samples,
                                   interval = "prediction", 
                                   single.tree = FALSE)
-            mw[one_tree_points, 'biomass1'] <- colMeans(pred)  ## for moment use posterior mean
+            if(!do_allom_uncertainty) {
+                mw[one_tree_points, 'biomass1'] <- colMeans(pred)  ## for moment use posterior mean
+            } else stop("allometric uncertainty sampling not yet fully coded")                
         }
         if(cc %% 100 == 0) cat("Finished cell index ", cc, "\n")
     }

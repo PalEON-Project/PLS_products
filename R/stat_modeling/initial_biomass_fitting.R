@@ -1,6 +1,8 @@
 library(raster)
 library(dplyr)
 library(ncdf4)
+if(n_cores > 1)
+    library(doParallel)
 
 if(shared_params_in_cell)
     load('point_with_biomass_shared.Rda') else load('point_with_biomass.Rda')
@@ -186,7 +188,64 @@ test2 <- fit(cell_full, newdata = pred_grid_west, k_occ = k_occ, k_pot = k_pot, 
 
 save(test1, test2, file = 'oak.Rda')
 
+par(mfrow=c(1,2))
+pmap2(test1$mean, pred_grid_west[,c('x','y')], cex = .5,zlim=c(0,200))
+pmap2(test2$mean, pred_grid_west[,c('x','y')], cex = .5,zlim=c(0,200))
+
+
 ## CV
+
+k_occ <- c(100, 250, 500, 1000, 1500, 2000, 2500)
+k_pot <- k_occ
+
+set.seed(1)
+cells <- sample(unique(cell_full$cell), replace = FALSE)
+folds <- rep(1:n_folds, length.out = length(cells))
+
+cell_full <- cell_full %>% inner_join(data.frame(cell = cells, fold = folds), by = c('cell'))
+
+pred_occ <- matrix(0, nrow(cell_full), length(k_occ))
+pred_pot_arith <- pred_pot_larith <- matrix(0, nrow(cell_full), length(k_pot))
+
+dimnames(pred_occ)[[2]] <- k_occ
+dimnames(pred_pot_arith)[[2]] <- dimnames(pred_pot_larith)[[2]] <- k_pot
+
+if(n_cores > 1) {
+    library(doParallel)
+    registerDoParallel(cores = n_cores)
+    output <- foreach(i = seq_len(n_folds)) %dopar% {
+        train <- cell_full %>% filter(fold != i)
+        test <- cell_full %>% filter(fold == i)
+        
+        po <- fit_occ(train, newdata = test, gamma = 1, k = k_occ, use_bam = FALSE)
+        ppa <- fit_pot(train, newdata = test, gamma = 1, k = k_pot, type = 'arith', use_bam = FALSE)
+        ppl <- fit_pot(train, newdata = test, gamma = 1, k = k_pot, type = 'log_arith', use_bam = FALSE)
+        list(po, ppa, ppl)
+    }
+    for(i in seq_len(n_folds)) {
+        pred_occ[cell_full$fold == i, ] <- output[[i]][[1]]$pr_occ
+        pred_pot_arith[cell_full$fold == i, ] <- output[[i]][[2]]$pr_pot
+        pred_pot_larith[cell_full$fold == i, ] <- output[[i]][[3]]$pr_pot
+    }
+} else {
+    for(i in seq_len(n_folds)) {
+        train <- cell_full %>% filter(fold != i)
+        test <- cell_full %>% filter(fold == i)
+        
+        tmp <- fit_occ(train, newdata = test, gamma = 1, k = k_occ, use_bam = FALSE, n_cores = n_cores)
+        pred_occ[cell_full$fold == i, ] <- tmp$pr_occ
+        
+        tmp <- fit_pot(train, newdata = test, gamma = 1, k = k_pot, type = 'arith', use_bam = FALSE, n_cores = n_cores)
+        pred_pot_arith[cell_full$fold == i, ] <- tmp$pr_pot
+        
+        tmp <- fit_pot(train, newdata = test, gamma = 1, k = k_pot, type = 'log_arith', use_bam = FALSE, n_cores = n_cores)
+        pred_pot_larith[cell_full$fold == i, ] <- tmp$pr_pot
+        cat("n_fold: ", i, " ", date(), "\n")
+    }
+}
+
+
+## CV over gamma
 
 set.seed(1)
 cells <- sample(unique(cell_full$cell), replace = FALSE)

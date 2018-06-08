@@ -1,3 +1,15 @@
+5/29/18:
+for oak, k_occ has more effect than k_pot once k_pot >= 500-1000; k_occ seemingly should be ~1000, k_pot best is 3000 k_pot of 2500 or 3500 close
+(Maple): same but k_occ=1000,k_pot=3500 if using arith
+but with log_arith, it wants k_occ=2500, k_pot=3500
+(Basswood): arith a bit better; k_occ again has more effect; it wants k_occ of 2500, k_pot of 2500 (but very little difference for k_pot values)
+
+for total biomass, k_occ has little effect (k_occ=500 is best); k_pot maxes out at 3500 perhaps should be even larger; makes sense since occ=1 except along ecosystem boundary
+
+fitting on log(avg) does a bit better than direct fitting to avg for oak and rather better for total biomass
+
+larith values are lower than arith values on average
+
 5/16/18:
 geom_avg almost certainly won't work with a mix of large and small values of biomass at corners as it pulls the mean way down
 

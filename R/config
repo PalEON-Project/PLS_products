@@ -45,7 +45,7 @@ max_density=10000  # stems/ha (one tree per square meter)
 
 n_allom_samples=10  # make this bigger
 allom_component=6
-do_allom_uncertainty=0
+do_allom_uncertainty=0  # for now, don't include allometric uncertainty
 
 shared_params_in_cell=1  # for speed, do single allometry call for all points ina cell
 
