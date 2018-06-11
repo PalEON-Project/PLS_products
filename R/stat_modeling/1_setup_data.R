@@ -11,6 +11,7 @@ if(!'cell' %in% names(mw))
 
 taxa_conv <- read_csv(file.path(conversions_data_dir, level_3a_to_3s_conversion_file))
 
+## check that we shouldn't have any omit_western trees anymore
 taxa_conv <- taxa_conv %>% rename(omit_western = "omit western") %>% 
     mutate(level3s = ifelse(omit_western == "yes", "Other hardwood", level3s)) %>%
     select(level3a, level3s)

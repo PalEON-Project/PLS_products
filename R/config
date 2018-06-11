@@ -40,7 +40,7 @@ southern_michigan_conversion_domain="Southern MI v1.3"
 upper_midwest_conversion_domain="Upper Midwest"
 pls_to_pecan_conversion_file="level3a_to_pecan_v0.2.csv"
 correction_factors_file="cogbill_density_corrections_full_midwest_v1.1.csv"
-level_3a_to_3s_conversion_file="level3a_to_level3s_v0.3.csv"
+level_3a_to_3s_conversion_file="level3a_to_level3s_v0.4.csv"
 
 ## unit conversions
 cm_per_inch=2.54
@@ -72,5 +72,8 @@ n_cores=4
 ## maximum degrees of freedom for spatial statistical smoothing
 k_occ_total=500
 k_pot_total=3500
+k_occ_taxon=2500
+## using somewhat lower (i.e., 2000) helps in terms of taxa where fitting df requires lower value
+k_pot_taxon=2000
 n_stat_samples=250
 
