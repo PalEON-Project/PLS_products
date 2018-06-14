@@ -1,16 +1,15 @@
-## first step is to clean all the data for Southern MI, Uppermidwest, and Indiana + Illinois separately, get correction factors for all the data, then join together
-## will work on combining the all the data before estimating correction factors, to make the correction factor generation more intuitive
-## merge point data from UMW, IL, IN, SO MI
+## Clean all the data for Southern MI, Upper Midwest, and Indiana + Illinois separately,
+## get correction factors for all the data, then join together.
 
 ## TODO: add assertions at various places
 
-## based on KAH 01a_clean_merge_IN_IL.r and Simon's [Jody/Kelly, what is file name from which this code was obtained]
+## Run time for this file: approximately 1 minute
 
 library(readr)
 library(dplyr)
 library(fields)
 
-
+## common column names for merging data subsets
 final_columns <- c("x","y","twp","surveyyear",
                      "L1_tree1", "L1_tree2", "L1_tree3", "L1_tree4",
                      "L3_tree1", "L3_tree2", "L3_tree3", "L3_tree4",
@@ -19,7 +18,7 @@ final_columns <- c("x","y","twp","surveyyear",
                      "diam1", "diam2", "diam3", "diam4",
                      "corner", "sectioncorner","state", "point_id", "vegtype")
 
-# ----------------------------------DATA CLEANING: IN + IL --------------------------------------------------
+## -------------------------DATA CLEANING: IN + IL --------------------------------------------------
 
 ind <- read_csv(file.path(raw_data_dir, indiana_file), guess_max = 100000)
 il <- read_csv(file.path(raw_data_dir, illinois_file), guess_max = 100000)
@@ -164,8 +163,6 @@ inil[ , paste0('az', 1:4)] <- get_angle_inil(as.matrix(inil[ , paste0('bearing',
 if(max(inil[ , paste0('az', 1:4)], na.rm = TRUE) >= 360 | max(inil[ , paste0('az', 1:4)], na.rm = TRUE) < 0)
     cat("Found azimuths outside of 0-359 in IN/IL")
 
-#----------Getting correction factors----------------------
-
 ##  Indiana and Illinois data have same correction factors for the whole state
 ##  Correction factors vary depending on which type of corner you are at
                        
@@ -201,7 +198,7 @@ inil <- inil %>% mutate(sectioncorner = ifelse(inil$cornerid %in% intsec | inil$
 
 inil <- inil[final_columns]
 
-# ----------------------------------DATA CLEANING: SOUTHERN MI --------------------------------------------------
+## ----------------------------------DATA CLEANING: SOUTHERN MI --------------------------------------------------
 
 somi <- read_csv(file.path(raw_data_dir, southern_michigan_file), guess_max = 100000)
 somi <- somi %>% mutate(point_id = seq_len(nrow(somi)), vegtype = NA, state = "SoMI")
@@ -211,7 +208,7 @@ fids <- read.csv(file.path(raw_data_dir, southern_michigan_removal_file))
 somi <- somi %>% filter(!FID %in% fids$FID)
 
 
-## Schoolcraft County and Isle Royale data provided separately but in same format as so MI data
+## Schoolcraft County and Isle Royale data provided separately but in same format as southern MI data
 nomi_extra <- read_csv(file.path(raw_data_dir, northern_michigan_supp_file), guess_max = 100000)
 nomi_extra <- nomi_extra %>% mutate(point_id = seq_len(nrow(nomi_extra)), vegtype = NA, state = "NoMI_extra")
 
@@ -222,7 +219,7 @@ nomi_extra <- nomi_extra %>% mutate(point_id = seq_len(nrow(nomi_extra)), vegtyp
 ## there is only one case of missing species and existing diameter and that is 4th tree in
 ## case where it is not among the closest two. 
 
-##  converting level 1 species to level 3 species:
+##  converting level 1 species to level 3 species
 
 ## actual so MI points
 spec_codes <- read_csv(file.path(conversions_data_dir, taxa_conversion_file), guess_max = 1000) %>% 
@@ -246,6 +243,7 @@ nomi_extra <- nomi_extra %>%
     left_join(spec_codes, by = c('species3' = 'level1')) %>% rename(L1_tree3 = species3, L3_tree3 = level3a) %>%
     left_join(spec_codes, by = c('species4' = 'level1')) %>% rename(L1_tree4 = species4, L3_tree4 = level3a)
 
+## of course 'somi' is a misnomer given presence of northern MI data
 somi <- rbind(somi_lower, nomi_extra)
 
 if(sum(is.na(somi$L3_tree1)) != sum(is.na(somi$L1_tree1)) ||
@@ -287,34 +285,20 @@ somi <- somi %>% rename(x = point_x, y = point_y)
 
 somi <- somi[final_columns]
 
+## ----------------------------------DATA CLEANING: UMW -------------------------------------------------------
 
+## data cleaning modified from Simon Goring's witness tree code
+## (https://github.com/PalEON-Project/WitnessTrees/blob/master/R/process_raw/step.one.clean.bind_v1.4.R)
 
-# ----------------------------------DATA CLEANING: UMW -------------------------------------------------------
- # data cleaning modified from Simon's witness tree code (https://github.com/PalEON-Project/WitnessTrees/blob/master/R/process_raw/step.one.clean.bind_v1.4.R)
- # correction factors for UMW are also generated in the witness tree code
-
-#  Binding and cleaning the Wisconsin and Minnesota Public Lands Surveys, data is
-#  sourced from the Mladenoff Lab at the University of Wisconsin.  The lab has
-#  granted us permission to use the data, but not permission to distribute the
-#  original datasets.  A version of the Minnesota data can be obtained from 
-#  http://deli.dnr.state.mn.us/metadata/pveg_btreept3.html
-#  The wisconsin data may be obtained by contacting David Mladenoff at:
-#  mladenoff@wisc.edu
-#
-#  This file opens the Wisconsin and Minnesota datasets, renames the columns of
-#  the Minnesota shapefile to match those of the Wisconsin dataset, and then
-#  binds a number of columns from both datasets together (but not the complete
-#  set of columns, since there are some columns unique to each dataset.  The
-#  The ultimate dataset has the following columns:
-#  Point:  PLS point number
-#  Township:  Township line
-#  Range:  Range line
-#  diam (1 through 4):  Bearing tree diameter
-#  dist  (1 through 4):  Distance to bearing tree
-#  species_level1  (1 through 4):  Species as given in the Public Land Surveys for the bearing tree'
-#  species_level3a  (1 through 4):  Taxa of the bearing tree based on the conversion file 
-#                           'level0_to_level3a_v0.4-7.csv'
-#  az (1 through 4): Azimuth to the bearing trees.
+##  Original warning from Simon Goring's processing:
+## 
+##  Binding and cleaning the Wisconsin and Minnesota Public Lands Surveys, data is
+##  sourced from the Mladenoff Lab at the University of Wisconsin.  The lab has
+##  granted us permission to use the data, but not permission to distribute the
+##  original datasets.  A version of the Minnesota data can be obtained from 
+##  http://deli.dnr.state.mn.us/metadata/pveg_btreept3.html
+##  The wisconsin data may be obtained by contacting David Mladenoff at:
+##  mladenoff@wisc.edu
 
 if(!file.exists(file.path(raw_data_dir, minnesota_file))) 
     unzip(file.path(raw_data_dir, minnesota_zipfile), exdir = raw_data_dir)
@@ -432,11 +416,12 @@ if(sum(is.na(mn$year)) || min(mn$year < 1847) || max(mn$year > 1907))
 ## '<=1853' vs. '>=1854' plus state uniquely defines correction factors without need for region info
 mn <- mn %>% mutate(surveyyear = ifelse(year <= 1853, "<=1853", ">=1854"))
 
-
+## requires about 1 GB RAM
 distances <- rdist(wi[wi$year == 0, c('x_alb','y_alb')],
                    wi[wi$year != 0, c('x_alb','y_alb')])
 closest <- apply(distances, 1, which.min)
 wi$year[wi$year == 0] <- wi$year[wi$year != 0][closest]
+rm(distances)
 
 if(sum(is.na(wi$year)) || min(wi$year < 1832) || max(wi$year > 1891))
     cat("Unexpected missing year or year outside 1847-1907 range")
@@ -514,8 +499,6 @@ umw <- umw %>% mutate(dist1 = convert_to_NA(dist1, missingCodes),
                       sp3 = convert_to_NA(sp3, 0),
                       sp4 = convert_to_NA(sp4, 0))
 
-   
-
 ##  get_angle_um converts the four character azimuth (e.g. N43E) to a numeric, 360
 ##  degree angle.  It also has to deal with a number of special cases.
 ##  1186 cases left as NA after this processing - cases like 'N85', 'W45E'
@@ -556,12 +539,12 @@ umw <- umw %>% mutate(corner = ifelse(point %in% external, 'external', 'internal
 
 umw <- umw[final_columns]
 
+## --------------- Combine regions and do further cleaning ------------------------------
+
 mw <- rbind(umw, inil, somi)
 
-#--------------Reorder the tree number by distance to the point-----------------
-
-#  At this point we need to make sure that the species are ordered by distance
-#  so that trees one and two are actually the closest two trees.
+##  At this point we need to make sure that the species are ordered by distance
+##  so that trees one and two are actually the closest two trees.
 
 ## Missing trees occur in UMW and seem to be dead trees.
 
@@ -599,20 +582,18 @@ mw <- mw %>% mutate(az1 = ifelse(is.na(L3_tree1) | L3_tree1 %in% nontree_codes, 
 
 ## per issue #39 we are calculating density and biomass based on trees below veil line
 ## with correction to get density for trees above the veil line
-## set small trees (below 8 inch veil line) dists to Inf so we find the bigger trees as closest two
 if(FALSE){
-mw <- mw %>% mutate(diam1 = ifelse(diam1 < diameter_cutoff_inches, NA, diam1), 
-                    diam2 = ifelse(diam2 < diameter_cutoff_inches, NA, diam2),
-                    diam3 = ifelse(diam3 < diameter_cutoff_inches, NA, diam3),
-                    diam4 = ifelse(diam4 < diameter_cutoff_inches, NA, diam4))
-
-
-mw <- mw %>% mutate(dist1 = ifelse(diam1 < diameter_cutoff_inches, Inf, dist1), 
-                    dist2 = ifelse(diam2 < diameter_cutoff_inches, Inf, dist2),
-                    dist3 = ifelse(diam3 < diameter_cutoff_inches, Inf, dist3),
-                    dist4 = ifelse(diam4 < diameter_cutoff_inches, Inf, dist4))
+    ## set small trees (below 8 inch veil line) dists to Inf so we find the bigger trees as closest two
+    mw <- mw %>% mutate(diam1 = ifelse(diam1 < diameter_cutoff_inches, NA, diam1), 
+                        diam2 = ifelse(diam2 < diameter_cutoff_inches, NA, diam2),
+                        diam3 = ifelse(diam3 < diameter_cutoff_inches, NA, diam3),
+                        diam4 = ifelse(diam4 < diameter_cutoff_inches, NA, diam4))
+    
+    mw <- mw %>% mutate(dist1 = ifelse(diam1 < diameter_cutoff_inches, Inf, dist1), 
+                        dist2 = ifelse(diam2 < diameter_cutoff_inches, Inf, dist2),
+                        dist3 = ifelse(diam3 < diameter_cutoff_inches, Inf, dist3),
+                        dist4 = ifelse(diam4 < diameter_cutoff_inches, Inf, dist4))
 }
-## TODO: probably set L3 to NA if diam is NA
 
 ## find reordering vector for each row
 ords <- t(apply(as.matrix(mw[ , paste0('dist', 1:4)]), 1, order, na.last = TRUE))
@@ -644,5 +625,5 @@ ntree <- apply(tmp, 1,function(x) sum(!is.na(x)))
 mw <- mw %>% mutate(point = ifelse(ntree > 2, '2nQ', 'Pair'))
 
 
-save(mw, file = 'cleaned_point.Rda')
+save(mw, file = file.path(interim_results_dir, 'cleaned_point.Rda'))
 

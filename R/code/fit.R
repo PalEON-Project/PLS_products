@@ -4,9 +4,6 @@ fit <- function(data, newdata, k_occ = NULL, k_pot = NULL, unc = FALSE, points_t
     ## fits occ and pot components for single k values, with uncertainty if desired OR
     ## fits one or both components for one or more k values, without uncertainty
     
-    if(fit_occ && fit_pot && (length(k_occ) > 1 || length(k_pot) > 1))
-        stop("Can only fit total (pred and occ) if supplying a single k value for each component")
-    
     if(!type_pot %in% c('arith', 'log_arith', 'geom'))
         stop("type_pot must be one of 'arith', 'log_arith', 'geom'")
 
@@ -49,7 +46,6 @@ fit <- function(data, newdata, k_occ = NULL, k_pot = NULL, unc = FALSE, points_t
             names(model_occ) <- names(pred_occ) <- k_occ
             pred_occ <- as.matrix(as.data.frame(pred_occ))
         }
-        if(!return_model_occ) model_occ <- NULL
     } 
  
   ###################################
@@ -68,7 +64,7 @@ fit <- function(data, newdata, k_occ = NULL, k_pot = NULL, unc = FALSE, points_t
             model_pot[[k_idx]] <- fitter(z ~ s(x,y, k = k_pot[k_idx]), data = data, weights = weight,
                                      gamma = gamma, method = "GCV.Cp")            
             pred_pot[[k_idx]] <- predict(model_pot[[k_idx]], newdata= newdata, type='response')
-            if(type != 'arith') {
+            if(type_pot != 'arith') {
                 pred_pot[[k_idx]] <- exp(pred_pot[[k_idx]])
             } else pred_pot[[k_idx]][pred_pot[[k_idx]] < 0] <- 0
         }
@@ -79,7 +75,7 @@ fit <- function(data, newdata, k_occ = NULL, k_pot = NULL, unc = FALSE, points_t
             names(model_pot) <- names(pred_pot) <- k_pot
             pred_pot <- as.matrix(as.data.frame(pred_pot))
         }
-        if(!return_model_pot) model_pot <- NULL
+        if(!return_model) model_pot <- NULL
     }
     
   #####################
@@ -97,9 +93,9 @@ fit <- function(data, newdata, k_occ = NULL, k_pot = NULL, unc = FALSE, points_t
             }
             
             ## posterior draws of (log) occupancy
-            if(fit_occ) {
+            if(!is.null(k_occ)) {
                 Xp <- predict(model_occ, newdata = newdata, type="lpmatrix")
-                draws_coef <- rmvn(n_draws , coef(model_occ), model_occ$Vp) 
+                draws_coef <- rmvn(num_draws , coef(model_occ), model_occ$Vp) 
                 draws_linpred <- Xp %*% t(draws_coef)
                 draws_logocc <- draws_linpred - log(1 + exp(draws_linpred)) # log scale to add to log pot result
             } else draws_logocc <- 0
@@ -107,9 +103,9 @@ fit <- function(data, newdata, k_occ = NULL, k_pot = NULL, unc = FALSE, points_t
             
             ## posterior draws of (log) potential result
             Xp <- predict(model_pot, newdata = newdata, type="lpmatrix")
-            draws_coef <- rmvn(n_draws , coef(model_pot), model_pot$Vp) 
+            draws_coef <- rmvn(num_draws , coef(model_pot), model_pot$Vp) 
             draws_logpot <- Xp %*% t(draws_coef)
-            if(type == 'arith') {
+            if(type_pot == 'arith') {
                 draws_logpot[draws_logpot < 0] <- 0.01
                 draws_logpot <- log(draws_logpot)
             }
@@ -128,6 +124,10 @@ fit <- function(data, newdata, k_occ = NULL, k_pot = NULL, unc = FALSE, points_t
             pred <- data.frame(mean = pred, sd = pp.sd)
         }
     } else if(unc) warning("more than one 'k' value -- not computing uncertainty.")
+    if(!return_model) {
+        model_occ <- NULL
+        model_pot <- NULL
+    }
     return(list(locs = data.frame(x = newdata$x*scaling, y = newdata$y*scaling),
                 pred = pred, pred_occ = pred_occ, pred_pot = pred_pot, draws = draws,
                 model_occ = model_occ, model_pot = model_pot,

@@ -168,8 +168,12 @@ calc_stem_density <- function(data, corr_factors, use_phi =  TRUE) {
     ## only determine in same quad if have definitive info to that effect, not if azimuth is missing
     quad1 <- floor(data$az1/90)
     quad2 <- floor(data$az2/90)
+    
     same_quad <- !is.na(quad1) & !is.na(quad2) & quad1 == quad2
-
+    ## don't treat distance of zero as being in same quad
+    dist0 <- (!is.na(data$dist1) & data$dist1 == 0) | (!is.na(data$dist2) & data$dist2 == 0)
+    same_quad <- same_quad & !dist0
+    
     density <- rep(as.numeric(NA), nrow(data))
 
     ## fix upper radius searched and take 1 tree per that area as density
@@ -219,13 +223,15 @@ calc_biomass_taxon <- function(num_trees, biomass1, biomass2, density, L3_tree1,
     biomass[cond] <- biomass1[cond] * density[cond]  / (kg_per_Mg * 2)  ## 2 to account for taxon represents half the density
     ## if two trees of same taxon, the addition should handle this
     cond <- num_trees == 2 & L3_tree2 == taxon 
-    biomass[cond] <- biomass[cond] + biomass2[cond] * density[cond]  / (kg_per_Mg * 2)
+    biomass[cond] <- biomass[cond] +
+        biomass2[cond] * density[cond]  / (kg_per_Mg * 2)
 
     ## handle case of two trees same taxon but one biomass is missing; use single biomass as the per-tree estimate
-    cond <- (num_trees == 2 & L3_tree1 == taxon & L3_tree2 == taxon & is.na(biomass1)) |
-        (num_trees == 2 & L3_tree1 == taxon & L3_tree2 == taxon & is.na(biomass2))
+    cond <- num_trees == 2 & L3_tree1 == taxon & L3_tree2 == taxon & is.na(biomass1) & !is.na(biomass2)
     biomass[cond] <- biomass2[cond] * density[cond]  / kg_per_Mg
-    
+    cond <- num_trees == 2 & L3_tree1 == taxon & L3_tree2 == taxon & is.na(biomass2) & !is.na(biomass1)
+    biomass[cond] <- biomass1[cond] * density[cond]  / kg_per_Mg
+        
     return(biomass)
 }
 

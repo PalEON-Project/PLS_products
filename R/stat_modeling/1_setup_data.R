@@ -3,26 +3,28 @@ library(dplyr)
 library(readr)
 library(ncdf4)
 
-if(shared_params_in_cell)
-    load('point_with_biomass_shared.Rda') else load('point_with_biomass.Rda')
+if(shared_params_in_cell) {
+    load(file.path(interim_results_dir, 'point_with_biomass_shared.Rda'))
+} else load(file.path(interim_results_dir, 'point_with_biomass.Rda'))
 
 if(!'cell' %in% names(mw)) 
     mw <- mw %>% add_cells_to_dataset()
 
-taxa_conv <- read_csv(file.path(conversions_data_dir, level_3a_to_3s_conversion_file))
+taxa_conv <- read_csv(file.path(conversions_data_dir, level_3a_to_3s_conversion_file)) %>%
+    rename(omit_western = "omit western")
 
-## check that we shouldn't have any omit_western trees anymore
-taxa_conv <- taxa_conv %>% rename(omit_western = "omit western") %>% 
-    mutate(level3s = ifelse(omit_western == "yes", "Other hardwood", level3s)) %>%
-    select(level3a, level3s)
+taxa <- unique(taxa_conv$level3s[taxa_conv$omit_western == "no"])
+
+## very few chestnut so lump them
+taxa_conv <- taxa_conv %>% mutate(level3s = ifelse(level3s == 'Chestnut', "Other hardwood", level3s)) %>% select(level3a, level3s)
 
 mw <- mw %>% 
-    left_join(spec_codes, by = c('L3_tree1' = 'level3s')) %>% rename(L3s_tree1 = level3s) %>%
-    left_join(spec_codes, by = c('L3_tree2' = 'level3s')) %>% rename(L3s_tree2 = level3s) %>%
-    left_join(spec_codes, by = c('L3_tree3' = 'level3s')) %>% rename(L3s_tree3 = level3s) %>%
-    left_join(spec_codes, by = c('L3_tree4' = 'level3s')) %>% rename(L3s_tree4 = level3s)
+    left_join(taxa_conv, by = c('L3_tree1' = 'level3a')) %>% rename(L3s_tree1 = level3s) %>%
+    left_join(taxa_conv, by = c('L3_tree2' = 'level3a')) %>% rename(L3s_tree2 = level3s) %>%
+    left_join(taxa_conv, by = c('L3_tree3' = 'level3a')) %>% rename(L3s_tree3 = level3s) %>%
+    left_join(taxa_conv, by = c('L3_tree4' = 'level3a')) %>% rename(L3s_tree4 = level3s)
 
-taxa <- unique(taxa_conv$level3s)
+
 
 xy <- xyFromCell(base_raster, getValues(base_raster))
 grid <- tibble(x = xy[,1], y = xy[,2], cell = getValues(base_raster))

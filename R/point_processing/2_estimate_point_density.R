@@ -1,11 +1,13 @@
-## to be based on KAH 01b_calculate_full_density.r (and 02_calculate_density.R?)
-## calculate point-level density estimates
+## Estimate tree density at all points, both density of trees above diameter cutoff
+## (for density product) and total density (for use in biomass calculation that
+## includes trees below the cutoff).
+
+## Run time: approximately 15 seconds
 
 library(readr)
 library(dplyr)
 
-
-load('cleaned_point.Rda')
+load(file.path(interim_results_dir, 'cleaned_point.Rda'))
 
 ## determine number of trees per point
 
@@ -25,9 +27,7 @@ mw <- mw %>% filter(!(num_trees == 1 & (is.na(dist1) | dist1 == 0)))
 
 ## can't calculate density for points with missing distances: 1683 points
 mw <- mw %>% filter(!(num_trees == 2 & (is.na(dist1) | is.na(dist2))))
-## can't calculate biomass for points with missing diameters: 3338 points
-## not doing this for the moment as these trees might be omitted when we also omit trees < 8 inches
-## mw <- mw %>% filter(!(num_trees == 2 & (is.na(diam1) | is.na(diam2) | diam1 == 0 | diam2 == 0)))
+
 
 ## Remove one-tree WI points with indications of water;
 ## doing this here as it's simplest to make use of the num_trees field
@@ -52,52 +52,16 @@ if(any(mw[ , paste0('az', 1:4)] == 360)) {
 ## note allometries mostly wouldn't go above 80 cm = 32 inches
 mw <- mw %>% filter(!( (!is.na(diam1) & diam1 >= max_diam_inch) | (!is.na(diam2) & diam2 > max_diam_inch) ))
 
-
-
-## Plans for tricky cases:
-
 ## keep 2-tree points regardless of distances and truncate density (at say 1000 for now)
 ## use 2-tree points with small or NA diameter trees for density calculation,
-## but treat trees with missing diam or diam < 8 as missing in terms of biomass calcs
-## when both trees at a point are missing, that is simple: omit the point since
-## the surveyor did not provide the info we need - two trees >= 8 are presumably there
-## but we don't know anything about them
-## when one tree at a point is missing, it is tricky because the missing tree could be
-## of any taxon but we don't want to impute a zero for everything other than the one tree
-## as that is biased low overall since we know the missing tree is some taxon
-## I think we may need to omit these points too
 
 ## keep 1-tree points and set density to something like 1 tree per unit circle of radius (150 links for now)
 ## ~3.5 trees/ha
-## treat trees with missing diam or small diameter as biomass of zero since we know biomass is low
-
-if(F) {  # temporary exploratory code
-
-mw1 = mw[mw$num_trees == 1,]
-mw2 = mw[mw$num_trees == 2,]
-
-## small tree points
-small <- mw2 %>% filter(mw2$diam1 < 8 | mw2$diam2 < 8)
-
-if(any(is.na(mw$L3_tree1[mw$num_trees == 1])))
-   stop("Missing taxon for some 1-tree points.")
-
-mw2$az1[mw2$az1 == 360] = 0
-mw2$az2[mw2$az2 == 360] = 0
-q1=floor(mw2$az1/90)
-q2=floor(mw2$az2/90)
-}
 
 # about 10k points with points known to be in same azimuth; about 11k with missing az1, 8500 missing az2
 
-##  - deal with azimuth for zero-distance trees - probably fine to have either numeric or NA values
-## as will simply upperbound these densities
-
-
 ## Sensitivity analyses:
 ## w/ and w/o 1-tree points - some increase w/o 1-tree points but seems not generally more than 15-20% per cell
-## perhaps do analysis where use the <8 inch trees to biomass estimates?
-
 
 ## Correction factors to account for surveyor sampling 'design'
 corr_factors <- read_csv(file.path(conversions_data_dir, correction_factors_file),
@@ -111,10 +75,11 @@ corr_factors <- corr_factors %>% left_join(names_df, by = c('state' = 'state')) 
 
 ## per issue #39, we will omit phi (veil line) correction when computing point biomass
 ## as we include biomass of trees below the veil line
+## therefore compute two density estimates here
 mw <- mw %>% mutate(density = calc_stem_density(mw, corr_factors),
                     density_for_biomass = calc_stem_density(mw, corr_factors, use_phi = FALSE))
 
-save(mw, file = 'point_with_density.Rda')
+save(mw, file = file.path(interim_results_dir, 'point_with_density.Rda'))
 
 
 

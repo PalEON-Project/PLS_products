@@ -1,34 +1,21 @@
-## Full workflow for PLS products for PalEON midwest region: biomass, density, basal area
+## Full workflow for PLS products for PalEON midwest region: biomass, density (not complete here), basal area (eventually)
 ## Chris Paciorek
 ## 2018-02-15
 
-## note required input files (download from PalEON Wiki)
-
-
-## upper_midwest_minnesota_file="umw_mn_pointdata_v1.0.csv"
-## upper_midwest_wisconsin_file="umw_wi_pointdata_v1.0.csv"
-## upper_midwest_michigan_file="umw_mi_pointdata_v1.0.csv"
-## southern_michigan_file="southernmi_projected_v1.2.csv"
-## indiana_file="ndinpls_v1.7.csv"
-## illinois_file="ndilpls_v1.8-2.csv"
-## taxa_conversion_file="level0_to_level3a_v0.4-7.csv"
-
 ## setup R packages (with version control) 
 
-if(FALSE) {  ## turn off during initial development
-    
-checkpoint::checkpoint("2018-01-18")
-
-library(devtools)
-install_github("PecanProject/pecan",subdir="base/logger", ref = pecan_base_logger_commit)
-install_github("PecanProject/pecan",subdir="modules/allometry", ref = pecan_modules_allometry_commit)
+if(FALSE) {  ## turn off during initial development  
+    checkpoint::checkpoint("2018-01-18")
+    library(devtools)
+    install_github("PecanProject/pecan",subdir="base/logger", ref = pecan_base_logger_commit)
+    install_github("PecanProject/pecan",subdir="modules/allometry", ref = pecan_modules_allometry_commit)
 }
 
+## note required input files in 'config' (download from PalEON Wiki)
 ## get configuration variables
-
 source('config')
 
-## setup directories and basic data
+## region/state info
 
 states = c('MN', 'WI', 'MI', 'IL', 'IN', 'OH', 'PA', 'NY', 'NJ', 'ME', 'VT', 'MA', 'CT', 'NH', 'RI')
 
@@ -37,9 +24,7 @@ paleon_regions <- 1:12
 
 paleon_states_west <- c(17, 18, 26, 27, 55) 
 
-# check this:
-# excluded_level3s_OH <- c('Dogwood') # only 20 trees >= 20 cm
-## Note that all Atlantic white cedar is mistakenly classified as cedar/juniper; have asked Jody to change this
+## setup directories relative to current working directory
 
 if(raw_data_dir == "")
     raw_data_dir <- file.path("..", "data", "points") 
@@ -51,9 +36,10 @@ if(code_dir == "")
     code_dir <- file.path("code")
 if(output_dir == "")
     output_dir <- file.path("..", "output")
+if(interim_results_dir == "")
+    interim_results_dir <- file.path("..", "data", "interim")
 
 ## source files with R functions
-
 code_files <- list.files(code_dir, pattern = ".R$", full.names = TRUE)
 sapply(code_files, source)
 

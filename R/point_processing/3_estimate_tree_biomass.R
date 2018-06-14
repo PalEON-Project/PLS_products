@@ -1,6 +1,6 @@
-## using code from CJP fia_products estimate biomass using PEcAn at tree level
+## Estimate tree-level biomass using diameter of trees and PEcAn allometries
 
-## get allometry samples via PEcAn
+## Run-time: approximately 40 minutes when using allometry parameters shared by cell
 
 library(dplyr)
 library(readr)
@@ -14,9 +14,9 @@ cols_conv <- cols(
 )
 
 
-load('point_with_density.Rda')
+load(file.path(interim_results_dir, 'point_with_density.Rda'))
 
-## why is MASS::select being loaded (why MASS -- comes from Pecan)
+## MASS masks select, so need dplyr::select (MASS -- comes from Pecan)
 
 taxa_conversion <- read_csv(file.path(conversions_data_dir, pls_to_pecan_conversion_file),
                             col_types = cols_conv) %>%
@@ -47,20 +47,11 @@ mw <- mw %>% left_join(taxa_conversion, by = c("L3_tree1" = "level3a")) %>%
 ## 332, 901, 920, 241, 951, 351, 71 seemingly used
 ## 731 seemingly used (as in FIA) but could use 318;802;541;731
 
-## updated more lumped conversions based on initial results commented about below
-## TODO: this should be done in level3a_to_pecan
-to_convert <- c('762','970')
-mw <- mw %>% mutate(pecan1 = ifelse(pecan1 %in% to_convert, '318,802,541,731', pecan1),
-                    pecan2 = ifelse(pecan2 %in% to_convert, '318,802,541,731', pecan2))
-to_convert <- c('491', '701')
-mw <- mw %>% mutate(pecan1 = ifelse(pecan1 %in% to_convert, '315,471,491,319,355,356,357,931,935,391,701,660,761,500,501,502,763,662,663,765,766', pecan1),
-                    pecan2 = ifelse(pecan2 %in% to_convert, '315,471,491,319,355,356,357,931,935,391,701,660,761,500,501,502,763,662,663,765,766', pecan2))
-to_convert <- c('540')
-mw <- mw %>% mutate(pecan1 = ifelse(pecan1 %in% to_convert, '541,543,544', pecan1),
-                    pecan2 = ifelse(pecan2 %in% to_convert, '541,543,544', pecan2))
+## updates made to produce level3a_to_pecan_v0.3.csv
 
-
-## placeholder so that NA (from Unknown tree) values don't cause problems in allometry fitting
+## Treat Unknown tree as generic hardwood.
+## Even if we want to omit Unknown tree, we need a placeholder so that NA
+## (from Unknown tree) values don't cause problems in allometry fitting
 mw <- mw %>% mutate(pecan1 = ifelse(is.na(pecan1), '318,802,541,731', pecan1),
                     pecan2 = ifelse(is.na(pecan2), '318,802,541,731', pecan2))
 
@@ -72,28 +63,33 @@ pecan_taxa <- lapply(seq_len(length(unique_pecan_allom)), function(i)
 names(pecan_taxa) <- unique_pecan_allom
 
 ## first check which allometries are already in the allom_dir and don't redo
-## TBD
 allom_stats = load.allom(allom_dir)
 
-##allom_stats = AllomAve(pecan_taxa, ngibbs=1000, components = 6, outdir = allom_dir, dmin = 10, dmax = 150)
-
-## create via loop rather than passing list of dataframes because of PEcAn bug -
+## create via loop rather than passing list of dataframes because of PEcAn bug 
 for(i in seq_along(pecan_taxa)) {
     if(!names(pecan_taxa)[i] %in% names(allom_stats)) {
         cat("Fitting ", names(pecan_taxa)[i], ".\n")
         allom_stats[[names(pecan_taxa)[i]]] <- try(AllomAve(pecan_taxa[i], ngibbs = 1000, components = 6,
-                             outdir = allom_dir, dmin = 10, dmax = 150))
-}}
+                                                            outdir = allom_dir, dmin = 10, dmax = 150))
+    }}
+##allom_stats = AllomAve(pecan_taxa, ngibbs=1000, components = 6, outdir = allom_dir, dmin = 10, dmax = 150)
 
 
 ## site effects seem to product crazy allometries - mu0 and mu1 have outliers and taus can be big; how many allometries do we need for stability?
 
-## We want to run the allometry prediction for all trees of a given taxon at a given point simultaneously because this allows for shared allometric parameters (but different tree effects) for trees of the same taxon. In this case we simply run the prediction for all trees at a point at once.
-## arguably we should use shared parameters for all trees in a given cell, but hard to know what spatial scale to assume homogeneity at
+## We want to run the allometry prediction for all trees of a given taxon at a given point simultaneously
+## because this allows for shared allometric parameters (but different tree effects) for trees of the same taxon.
+## In this case we simply run the prediction for all trees at a point at once.
+
+## Actually, arguably we should use shared parameters for all trees in a given cell,
+## but hard to know what spatial scale to assume homogeneity at.
+## Given the increased computational time of running separately for each point,
+## we are currently (based on shared_params_in_cell) doing for all trees in a cell.
 
 mw <- mw %>% mutate(biomass1 = NA, biomass2 = NA)
 
 ## This takes ?? (3.5) hours on smeagol on one core.
+## Parallelizing would require data output manipulation because we write into rows of 'mw'
 ## Note that every call loads in the allometry material for all of the fitted allometries,
 ## so it would be easy to make this more efficient.
 set.seed(1)
@@ -170,22 +166,26 @@ cat("Note: currently using point estimate for individual tree biomass.\n")
 
 ## check for outliers in individual biomass draws
 
-
+## Actually for now do include unknown tree biomass.
 ## For unknown tree, we could just use some overall average allometry, but perhaps for
 ## simplicity just don't determine a biomass. There are 398 Unknown tree in tree1 and 370 in tree2.
 ## This needs to be done because we set a default allometry for 'Unknown tree' above and want
 ## to undo the effect of that.
-mw <- mw %>% mutate(biomass1 = ifelse(L3_tree1 == "Unknown tree", NA, biomass1),
-                    biomass2 = ifelse(L3_tree2 == "Unknown tree", NA, biomass2))
+if(FALSE) {
+    mw <- mw %>% mutate(biomass1 = ifelse(L3_tree1 == "Unknown tree", NA, biomass1),
+                        biomass2 = ifelse(L3_tree2 == "Unknown tree", NA, biomass2))
+}
 
 ## This avoids issue of averaging a 0 biomass when it is really a missing biomass
 mw <- mw %>% mutate(biomass1 = ifelse(!is.na(diam1) & diam1 == 0, NA, biomass1),
                     biomass2 = ifelse(!is.na(diam2) & diam2 == 0, NA, biomass2))
 
 ## based on issue #39 we are not omitting trees below the veil line
-if(FALSE) 
+if(FALSE) { 
     mw <- mw %>% mutate(biomass1 = ifelse(!is.na(diam1) & diam1 < diameter_cutoff_inches, NA, biomass1),
                         biomass2 = ifelse(!is.na(diam2) & diam2 < diameter_cutoff_inches, NA, biomass2))
+}
 
-if(shared_params_in_cell)
-    save(mw, file = 'point_with_biomass_shared.Rda') else save(mw, file = 'point_with_biomass.Rda')
+if(shared_params_in_cell) {
+    save(mw, file = file.path(interim_results_dir, 'point_with_biomass_shared.Rda'))
+} else save(mw, file = file.path(interim_results_dir, 'point_with_biomass.Rda'))
