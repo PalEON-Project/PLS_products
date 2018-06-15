@@ -56,7 +56,6 @@ mw <- mw %>% mutate(pecan1 = ifelse(is.na(pecan1), '318,802,541,731', pecan1),
                     pecan2 = ifelse(is.na(pecan2), '318,802,541,731', pecan2))
 
 ## Fit allometry models for all taxa
-
 unique_pecan_allom <- unique(c(mw$pecan1, mw$pecan2))
 pecan_taxa <- lapply(seq_len(length(unique_pecan_allom)), function(i) 
     data.frame(spcd = as.numeric(strsplit(unique_pecan_allom[i], split = ',')[[1]])))

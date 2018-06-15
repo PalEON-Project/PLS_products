@@ -54,7 +54,7 @@ if(do_cv) {
     folds <- rep(1:n_folds, length.out = length(cells))
     
     cell_full <- cell_full %>% inner_join(data.frame(cell = cells, fold = folds), by = c('cell'))
-
+    stop("this CV code won't work yet")
     results <- fit_cv(cell_full, k_occ, k_pot, n_cores)
 
     ## assess results

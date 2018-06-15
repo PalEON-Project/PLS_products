@@ -9,7 +9,7 @@ convert_to_NA <- function(x, missingCodes = c(88888, 99999)) {
     return(x)
 }
 
-add_cells_to_dataset <- function(data) {
+add_paleon_grid <- function(data) {
     library(dplyr)
     points <- data %>% dplyr::select(x,y)
     coordinates(points) <- ~x+y

@@ -8,7 +8,7 @@ if(shared_params_in_cell) {
 } else load(file.path(interim_results_dir, 'point_with_biomass.Rda'))
 
 if(!'cell' %in% names(mw)) 
-    mw <- mw %>% add_cells_to_dataset()
+    mw <- mw %>% add_paleon_grid()
 
 taxa_conv <- read_csv(file.path(conversions_data_dir, level_3a_to_3s_conversion_file)) %>%
     rename(omit_western = "omit western")
