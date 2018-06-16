@@ -68,9 +68,14 @@ output <- foreach(taxonIdx = seq_along(taxa_to_fit)) %dopar% {
 
     } else {
         critArith <- critLogArith <- NULL
-   
+
+        k_pot <- k_pot_taxon
+        ncells <- sum(cell_full_taxon$points_occ > 0)
+        if(ncells < k_pot_taxon + 200)
+            k_pot <- round(ncells*0.9)
+
         ## fit stats model
-        biomass_taxon <- try(fit(cell_full_taxon, newdata = pred_grid_west, k_occ = k_occ_taxon, k_pot = k_pot_taxon, unc = TRUE, return_model = TRUE, type_pot = 'log_arith', num_draws = n_stat_samples))
+        biomass_taxon <- try(fit(cell_full_taxon, newdata = pred_grid_west, k_occ = k_occ_taxon, k_pot = k_pot, unc = TRUE, return_model = TRUE, type_pot = 'log_arith', num_draws = n_stat_samples))
         ## save(biomass_taxon, file = file.path(interim_results_dir, 'fitted_taxon_biomass2.Rda'))
         ## cat("Finished taxon: ", taxon, "\n")
     }

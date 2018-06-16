@@ -8,6 +8,7 @@ library(ncdf4)
 load(file.path(interim_results_dir, 'fitted_total_biomass.Rda'))
 load(file.path(interim_results_dir, 'fitted_taxon_biomass.Rda'))
 
+taxa <- names(output)
 taxaNames <- gsub("/", ",", taxa)  ## netCDF interprets / as 'groups'
 
 output_netcdf_name <- paste0("PLS_biomass_western_v", product_version, ".nc")

@@ -46,7 +46,7 @@ fit <- function(data, newdata, k_occ = NULL, k_pot = NULL, unc = FALSE, points_t
             names(model_occ) <- names(pred_occ) <- k_occ
             pred_occ <- as.matrix(as.data.frame(pred_occ))
         }
-    } 
+    } else pred_occ <- 1
  
   ###################################
   #  stage 2: fit potential         #
@@ -82,7 +82,7 @@ fit <- function(data, newdata, k_occ = NULL, k_pot = NULL, unc = FALSE, points_t
   # predicted result  #
   #####################
 
-    if(length(k_occ) == 1 && length(k_pot) == 1) {
+    if((is.null(k_occ) || length(k_occ) == 1) && length(k_pot) == 1) {
         pred <- pred_occ * pred_pot
   
         if(unc) {  # implement approx. Bayesian posterior draws following Wood (2004) section 4.8
