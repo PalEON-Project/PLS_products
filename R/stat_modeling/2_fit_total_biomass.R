@@ -72,6 +72,6 @@ if(do_cv) {
 }
 
 ## fit stats model
-biomass_total <- fit(cell_full, newdata = pred_grid_west, k_occ = k_occ_total, k_pot = k_pot_total, return_model = TRUE, unc = TRUE, type_pot = 'log_arith', num_draws = n_stat_samples)
+biomass_total <- fit(cell_full, newdata = pred_grid_west, k_occ = k_occ_total, k_pot = k_pot_total, return_model = TRUE, unc = TRUE, type_pot = 'log_arith', num_draws = n_stat_samples, save_draws = TRUE)
 
 save(biomass_total, file = file.path(interim_results_dir, 'fitted_total_biomass.Rda'))

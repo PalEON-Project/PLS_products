@@ -13,15 +13,12 @@ if(!exists('k_occ_taxon'))
 
 taxa_to_fit <- taxa # or put a single taxon of interest here
 
-## biomass_taxon <- critArith <- critLogArith <- list()
-## length(biomass_taxon) <- length(critArith) <- length(critLogArith) <- length(taxa_to_fit)
-
 if(Sys.getenv("SLURM_JOB_ID") != "")
     nCores <- Sys.getenv("SLURM_NTASKS")
 
 library(doParallel)
 registerDoParallel(cores = nCores)
-output <- foreach(taxonIdx = seq_along(taxa_to_fit)) %dopar% {
+biomass_taxon <- foreach(taxonIdx = seq_along(taxa_to_fit)) %dopar% {
     taxon <- taxa[taxonIdx]
     ## add taxon-specific point-level biomass to dataset
     tmp <- mw %>% mutate(biomass_focal = calc_biomass_taxon(num_trees, biomass1, biomass2, density_for_biomass, L3s_tree1, L3s_tree2, taxon))
@@ -67,20 +64,19 @@ output <- foreach(taxonIdx = seq_along(taxa_to_fit)) %dopar% {
                                           cell_full_taxon$avg*cell_full_taxon$count/cell_full_taxon$total, 200)
 
     } else {
-        critArith <- critLogArith <- NULL
-
         k_pot <- k_pot_taxon
         ncells <- sum(cell_full_taxon$points_occ > 0)
         if(ncells < k_pot_taxon + 200)
             k_pot <- round(ncells*0.9)
 
         ## fit stats model
-        biomass_taxon <- try(fit(cell_full_taxon, newdata = pred_grid_west, k_occ = k_occ_taxon, k_pot = k_pot, unc = TRUE, return_model = TRUE, type_pot = 'log_arith', num_draws = n_stat_samples))
+        output <- try(fit(cell_full_taxon, newdata = pred_grid_west, k_occ = k_occ_taxon, k_pot = k_pot, unc = TRUE, return_model = TRUE, type_pot = 'log_arith', num_draws = n_stat_samples, save_draws = TRUE))
+        output$critArith <- biomass_taxon$critLogArith <- NULL
         ## save(biomass_taxon, file = file.path(interim_results_dir, 'fitted_taxon_biomass2.Rda'))
         ## cat("Finished taxon: ", taxon, "\n")
     }
-    list(biomass_taxon, critArith, critLogArith)
+    output
 }
 
-names(output) <- taxa_to_fit
-save(output, file = file.path(interim_results_dir, 'fitted_taxon_biomass_parallel.Rda'))
+names(biomass_taxon) <- taxa_to_fit
+save(biomass_taxon, file = file.path(interim_results_dir, 'fitted_taxon_biomass.Rda'))
