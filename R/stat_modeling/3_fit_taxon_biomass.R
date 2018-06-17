@@ -13,6 +13,8 @@ if(!exists('k_occ_taxon'))
 
 taxa_to_fit <- taxa # or put a single taxon of interest here
 
+print(taxa_to_fit)
+
 if(Sys.getenv("SLURM_JOB_ID") != "")
     nCores <- Sys.getenv("SLURM_NTASKS")
 
@@ -71,7 +73,7 @@ biomass_taxon <- foreach(taxonIdx = seq_along(taxa_to_fit)) %dopar% {
 
         ## fit stats model
         output <- try(fit(cell_full_taxon, newdata = pred_grid_west, k_occ = k_occ_taxon, k_pot = k_pot, unc = TRUE, return_model = TRUE, type_pot = 'log_arith', num_draws = n_stat_samples, save_draws = TRUE))
-        output$critArith <- biomass_taxon$critLogArith <- NULL
+        output$critArith <- output$critLogArith <- NULL
         ## save(biomass_taxon, file = file.path(interim_results_dir, 'fitted_taxon_biomass2.Rda'))
         ## cat("Finished taxon: ", taxon, "\n")
     }
