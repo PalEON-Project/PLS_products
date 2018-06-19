@@ -72,7 +72,7 @@ biomass_taxon <- foreach(taxonIdx = seq_along(taxa_to_fit)) %dopar% {
             k_pot <- round(ncells*0.9)
 
         ## fit stats model
-        output <- try(fit(cell_full_taxon, newdata = pred_grid_west, k_occ = k_occ_taxon, k_pot = k_pot, unc = TRUE, return_model = TRUE, type_pot = 'log_arith', num_draws = n_stat_samples, save_draws = TRUE))
+        output <- try(fit(cell_full_taxon, newdata = pred_grid_west, k_occ = k_occ_taxon, k_pot = k_pot, unc = TRUE, return_model = FALSE, type_pot = 'log_arith', num_draws = n_stat_samples, save_draws = TRUE))
         output$critArith <- output$critLogArith <- NULL
         ## save(biomass_taxon, file = file.path(interim_results_dir, 'fitted_taxon_biomass2.Rda'))
         ## cat("Finished taxon: ", taxon, "\n")

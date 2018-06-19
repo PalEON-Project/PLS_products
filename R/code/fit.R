@@ -75,7 +75,6 @@ fit <- function(data, newdata, k_occ = NULL, k_pot = NULL, unc = FALSE, points_t
             names(model_pot) <- names(pred_pot) <- k_pot
             pred_pot <- as.matrix(as.data.frame(pred_pot))
         }
-        if(!return_model) model_pot <- NULL
     }
     
   #####################
