@@ -1,3 +1,11 @@
+7/17/18:
+more on hotspots: hotspots.Rda has info on UP hotspot and two LP hot spots
+
+UP hotspot: cells 15481-3: very big trees (2-4 feet diam)
+northern LP hotspot: cells 23217,22921-2: density seems wrong - diameters very close to 0 - in this hotspot and a few other locations in soMI, including some points in far SE, both diams <1 for large proportion of points
+240 such points in dataset of which ~150 are in 4 cells in this hotspot
+central LP hotspot: cells 27652-27654,27357-9
+
 6/14/18:
 cells 15480-15484 have very high predicted biomass because they have very high diameters for many trees (including y birch, spruce, pine, maple, tamarack(!))
 

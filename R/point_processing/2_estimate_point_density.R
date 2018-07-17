@@ -28,6 +28,12 @@ mw <- mw %>% filter(!(num_trees == 1 & (is.na(dist1) | dist1 == 0)))
 ## can't calculate density for points with missing distances: 1683 points
 mw <- mw %>% filter(!(num_trees == 2 & (is.na(dist1) | is.na(dist2))))
 
+## remove points where both distances are less than 1 -- approximately 240 points of which
+## ~150 are in four cells in an east-west row in northern lower Michigan;
+## presumably a decimal point transciption error
+mw <- mw %>% filter(!(!is.na(dist1) & dist1 > 0 & dist1 < 1 &
+                      !is.na(dist2) & dist2 > 0 & dist2 < 1))
+
 
 ## Remove one-tree WI points with indications of water;
 ## doing this here as it's simplest to make use of the num_trees field
