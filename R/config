@@ -3,7 +3,7 @@
 ## this is sourced by R, but in a format that could
 ## be sourced in the shell if desired (use of '=' and without spaces)
 
-product_version=0.1
+product_version=0.99
 
 ## directory locations: these default to ../data/{points,conversions,allom}, code, and ../output in master.R
 raw_data_dir=""

@@ -67,9 +67,6 @@ biomass_taxon <- foreach(taxonIdx = seq_along(taxa_to_fit)) %dopar% {
 
     } else {
         k_pot <- k_pot_taxon
-        ncells <- sum(cell_full_taxon$points_occ > 0)
-        if(ncells < k_pot_taxon + 200)
-            k_pot <- round(ncells*0.9)
 
         ## fit stats model
         output <- try(fit(cell_full_taxon, newdata = pred_grid_west, k_occ = k_occ_taxon, k_pot = k_pot, unc = TRUE, return_model = FALSE, type_pot = 'log_arith', num_draws = n_stat_samples, save_draws = TRUE))

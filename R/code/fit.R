@@ -61,7 +61,10 @@ fit <- function(data, newdata, k_occ = NULL, k_pot = NULL, unc = FALSE, points_t
         
         model_pot <- pred_pot <- list()
         for(k_idx in seq_along(k_pot)) {
-            model_pot[[k_idx]] <- fitter(z ~ s(x,y, k = k_pot[k_idx]), data = data, weights = weight,
+            ## make sure k value not too large relative to sample size
+            kval <- min(k_pot[k_idx], round(nrow(data)*0.9))
+
+            model_pot[[k_idx]] <- fitter(z ~ s(x,y, k = kval), data = data, weights = weight,
                                      gamma = gamma, method = "GCV.Cp")            
             pred_pot[[k_idx]] <- predict(model_pot[[k_idx]], newdata= newdata, type='response')
             if(type_pot != 'arith') {
