@@ -99,7 +99,11 @@ fit <- function(data, newdata, k_occ = NULL, k_pot = NULL, unc = FALSE, points_t
                 Xp <- predict(model_occ, newdata = newdata, type="lpmatrix")
                 draws_coef <- rmvn(num_draws , coef(model_occ), model_occ$Vp) 
                 draws_linpred <- Xp %*% t(draws_coef)
-                draws_logocc <- draws_linpred - log(1 + exp(draws_linpred)) # log scale to add to log pot result
+                draws_logocc <- -log(1 + exp(-draws_linpred)) # log scale to add to log pot result
+                ## address numerical issue that seems to arise
+                ## (e.g., central MI in total biomass)
+                ## that produces some draws where Pr(occ)=0
+                draws_logocc[pred_occ > 0.999] <- 0 
             } else draws_logocc <- 0
             ## best to construct CIs on log scale and exponentiate endpoints
             

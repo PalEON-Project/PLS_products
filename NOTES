@@ -4,7 +4,10 @@ more on hotspots: hotspots.Rda has info on UP hotspot and two LP hot spots
 UP hotspot: cells 15481-3: very big trees (2-4 feet diam)
 northern LP hotspot: cells 23217,22921-2: density seems wrong - diameters very close to 0 - in this hotspot and a few other locations in soMI, including some points in far SE, both diams <1 for large proportion of points
 240 such points in dataset of which ~150 are in 4 cells in this hotspot
-central LP hotspot: cells 27652-27654,27357-9
+central LP hotspot: cells 27652-27654,27357-9 - seem legit
+SE LP hotspot - possibly issue with SE MI data as discussed with Charlie more generally
+
+getting crazy uncertainty in big chunk of SE MI - issue mostly with numerical issues with computation of draws_logocc, but still a bit of an issue with central MI getting draws with 0 occ in middle of data where occ=1. not sure how to address formally but it doesn't seem to affect overall biomass preds much except a downward bias of up to 50 for a swath of central MI; but it does give weird splotches of 0 biomass in central MI for individual draws
 
 6/14/18:
 cells 15480-15484 have very high predicted biomass because they have very high diameters for many trees (including y birch, spruce, pine, maple, tamarack(!))
