@@ -235,6 +235,21 @@ calc_biomass_taxon <- function(num_trees, biomass1, biomass2, density, L3_tree1,
     return(biomass)
 }
 
+calc_density_taxon <- function(num_trees, density, L3_tree1, L3_tree2, taxon) {
+    taxon_density <- rep(0, length(num_trees))
+    
+    cond <- num_trees == 1 & L3_tree1 == taxon
+    taxon_density[cond] <- density[cond] 
+    ## assign half biomass to taxon if either tree is the taxon
+    cond <- num_trees == 2 & L3_tree1 == taxon 
+    taxon_density[cond] <- density[cond]  / 2  ## 2 to account for taxon represents half the density
+    ## if two trees of same taxon, the addition should handle this
+    cond <- num_trees == 2 & L3_tree2 == taxon 
+    taxon_density[cond] <- taxon_density[cond] + density[cond] / 2
+
+    return(taxon_density)
+}
+
 wgt_mse <- function(n, y, yhat) {
     sum(n * (y - yhat)^2, na.rm = TRUE) / sum(n > 0)
 }

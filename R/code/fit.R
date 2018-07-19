@@ -28,6 +28,7 @@ fit <- function(data, newdata, k_occ = NULL, k_pot = NULL, unc = FALSE, points_t
   ###########################
 
     if(!is.null(k_occ)) {
+        se.fit <- ifelse(length(k_occ) == 1, TRUE, FALSE)
         data$z <- cbind(data[[points_occ]], data[[points_total]] - data[[points_occ]])
 
         ## default method is "fREML" which doesn't seem to respond to 'gamma'
@@ -35,13 +36,14 @@ fit <- function(data, newdata, k_occ = NULL, k_pot = NULL, unc = FALSE, points_t
         model_occ <- pred_occ <- list()
         for(k_idx in seq_along(k_occ)) {
             model_occ[[k_idx]] <- fitter(z ~ s(x, y, k = k_occ[k_idx]), data = data, family = 'binomial',
-                                     gamma = gamma, method = "GCV.Cp")
-            pred_occ[[k_idx]] <- predict(model_occ[[k_idx]], newdata = newdata, type = 'response')
-            
+                                         gamma = gamma, method = "GCV.Cp")
+            pred_occ[[k_idx]] <- predict(model_occ[[k_idx]], newdata = newdata, type = 'response',
+                                         se.fit = se.fit)
         }
         if(length(k_occ) == 1) {
             model_occ <- model_occ[[1]]
-            pred_occ <- pred_occ[[1]]
+            pred_occ <- pred_occ[[1]]$fit
+            pred_occ_se <- pred_occ[[1]]$se.fit
         } else {
             names(model_occ) <- names(pred_occ) <- k_occ
             pred_occ <- as.matrix(as.data.frame(pred_occ))
@@ -100,6 +102,11 @@ fit <- function(data, newdata, k_occ = NULL, k_pot = NULL, unc = FALSE, points_t
                 draws_coef <- rmvn(num_draws , coef(model_occ), model_occ$Vp) 
                 draws_linpred <- Xp %*% t(draws_coef)
                 draws_logocc <- -log(1 + exp(-draws_linpred)) # log scale to add to log pot result
+                ## two problematic cases:
+                ## draws_linpred can have high variance near boundary, where value of draws_linpred is very negative (so occ=0)
+                ## individual draws then can have high occ in those areas
+                ## draws_linpred can have high variance in small areas producing very positive linpred values corresponding to very small pred_occ values
+                draws_logocc[pred_occ < 0.0001 & pred_occ_se < 0.0001] <- -Inf            
                 ## address numerical issue that seems to arise
                 ## (e.g., central MI in total biomass)
                 ## that produces some draws where Pr(occ)=0

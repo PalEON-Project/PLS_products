@@ -1,8 +1,8 @@
-## Fit statistical model to smooth the raw point level biomass.
+## Fit statistical model to smooth the raw point level density.
 ## The model fits in two parts - first the proportion of points occupied by trees
 ## (this is much more important for the taxon-level fitting)
-## then the average biomass for occupied points (called potential biomass).
-## Estimated biomass is the product of occupancy and potential.
+## then the average density for occupied points (called potential density).
+## Estimated density is the product of occupancy and potential.
 
 ## Run-time (without cross-validation) approximately XYZ with k values of occ: 2500, pot: 2000
 
@@ -20,22 +20,22 @@ if(Sys.getenv("SLURM_JOB_ID") != "")
 
 library(doParallel)
 registerDoParallel(cores = nCores)
-biomass_taxon <- foreach(taxonIdx = seq_along(taxa_to_fit)) %dopar% {
+density_taxon <- foreach(taxonIdx = seq_along(taxa_to_fit)) %dopar% {
     taxon <- taxa[taxonIdx]
-    ## add taxon-specific point-level biomass to dataset
-    tmp <- mw %>% mutate(biomass_focal = calc_biomass_taxon(num_trees, biomass1, biomass2, density_for_biomass, L3s_tree1, L3s_tree2, taxon))
+    ## add taxon-specific point-level density to dataset
+    tmp <- mw %>% mutate(density_focal = calc_density_taxon(num_trees, density, L3s_tree1, L3s_tree2, taxon))
     
-    ## add total point-level biomass to dataset
-    cell_full_taxon <- tmp %>% filter(!(is.na(biomass_focal))) %>% group_by(cell) %>% summarize(points_total = n())
+    ## add total point-level density to dataset
+    cell_full_taxon <- tmp %>% filter(!(is.na(density_focal))) %>% group_by(cell) %>% summarize(points_total = n())
     
-    ## biomass stats averaged over occupied points
-    cell_occ <- tmp %>% filter(!is.na(biomass_focal) & biomass_focal > 0) %>% 
+    ## density stats averaged over occupied points
+    cell_occ <- tmp %>% filter(!is.na(density_focal) & density_focal > 0) %>% 
         group_by(cell) %>%
-    summarize(avg = mean(biomass_focal),
-              geom_avg = mean(log(biomass_focal)),
+    summarize(avg = mean(density_focal),
+              geom_avg = mean(log(density_focal)),
               points_occ = n())
     
-    ## should have total number of points, occupied number of points, and biomass stats (for occupied points)
+    ## should have total number of points, occupied number of points, and density stats (for occupied points)
     cell_full_taxon <- cell_full_taxon %>% left_join(cell_occ, by = c("cell" = "cell")) %>%
         left_join(grid, by = c("cell" = "cell")) %>%
         mutate(points_occ = ifelse(is.na(points_occ), 0 , points_occ))
@@ -52,28 +52,28 @@ biomass_taxon <- foreach(taxonIdx = seq_along(taxa_to_fit)) %dopar% {
         cell_full_taxon <- cell_full_taxon %>% inner_join(data.frame(cell = cells, fold = folds), by = c('cell'))
 
         stop("this cv code won't work yet")
-        biomass_taxon <- fit_cv(cell_full_taxon, k_occ, k_pot, n_cores)
+        density_taxon <- fit_cv(cell_full_taxon, k_occ, k_pot, n_cores)
         
         ## assess results
-        y <- cell_full_taxon$avg*cell_full_taxon$count/cell_full_taxon$total  ## actual average biomass over all cells
+        y <- cell_full_taxon$avg*cell_full_taxon$count/cell_full_taxon$total  ## actual average density over all cells
         y[is.na(y)] <- 0
         y[y > mx] <- mx
         
         
-        critArith <- calc_cv_criterion(biomass_taxon$pred_occ, biomass_taxon$pred_pot_arith, cell_full_taxon$points_total,
+        critArith <- calc_cv_criterion(density_taxon$pred_occ, density_taxon$pred_pot_arith, cell_full_taxon$points_total,
                                        cell_full_taxon$avg*cell_full_taxon$count/cell_full_taxon$total, 200)
-        critLogArith <- calc_cv_criterion(biomass_taxon$pred_occ, biomass_taxon$pred_pot_larith, cell_full_taxon$points_total,
+        critLogArith <- calc_cv_criterion(density_taxon$pred_occ, density_taxon$pred_pot_larith, cell_full_taxon$points_total,
                                           cell_full_taxon$avg*cell_full_taxon$count/cell_full_taxon$total, 200)
 
     } else {
         ## fit stats model
         output <- try(fit(cell_full_taxon, newdata = pred_grid_west, k_occ = k_occ_taxon, k_pot = k_pot_taxon, unc = TRUE, return_model = FALSE, type_pot = 'log_arith', num_draws = n_stat_samples, save_draws = TRUE))
         output$critArith <- output$critLogArith <- NULL
-        ## save(biomass_taxon, file = file.path(interim_results_dir, 'fitted_taxon_biomass2.Rda'))
+        ## save(density_taxon, file = file.path(interim_results_dir, 'fitted_taxon_density2.Rda'))
         ## cat("Finished taxon: ", taxon, "\n")
     }
     output
 }
 
-names(biomass_taxon) <- taxa_to_fit
-save(biomass_taxon, file = file.path(interim_results_dir, 'fitted_taxon_biomass.Rda'))
+names(density_taxon) <- taxa_to_fit
+save(density_taxon, file = file.path(interim_results_dir, 'fitted_taxon_density.Rda'))

@@ -1,3 +1,13 @@
+7/19/18:
+
+both biomass and density for taxon-level have some crazy outlying draw
+values that result in very high sd values, often on boundary but not
+always (note oak crazy values just because the variability in the linpred
+draws is very high)
+
+perhaps 2500 too high given only 11k data points, though we do see a
+lot of small scale spatial variability in occupancy
+
 7/17/18:
 more on hotspots: hotspots.Rda has info on UP hotspot and two LP hot spots
 
@@ -8,6 +18,8 @@ central LP hotspot: cells 27652-27654,27357-9 - seem legit
 SE LP hotspot - possibly issue with SE MI data as discussed with Charlie more generally
 
 getting crazy uncertainty in big chunk of SE MI - issue mostly with numerical issues with computation of draws_logocc, but still a bit of an issue with central MI getting draws with 0 occ in middle of data where occ=1. not sure how to address formally but it doesn't seem to affect overall biomass preds much except a downward bias of up to 50 for a swath of central MI; but it does give weird splotches of 0 biomass in central MI for individual draws
+
+decent fix seems to be to set draw of occ to 1 when fitted occ > 0.999.
 
 6/14/18:
 cells 15480-15484 have very high predicted biomass because they have very high diameters for many trees (including y birch, spruce, pine, maple, tamarack(!))
