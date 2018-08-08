@@ -1,6 +1,5 @@
 library(mgcv)
 
-
 ## CLEANUP: gamma doesn't respond to bam with fREML default
 
 fit <- function(data, newdata, k_occ = NULL, k_pot = NULL, unc = FALSE, points_total = 'points_total', points_occ = 'points_occ', weight = points_occ, avg = 'avg', geom_avg = 'geom_avg', gamma = 1, units = 'm', use_bam = FALSE, type_pot = 'arith', return_model = FALSE, save_draws = FALSE, num_draws = 250, bound_draws = TRUE) {
@@ -157,7 +156,7 @@ fit <- function(data, newdata, k_occ = NULL, k_pot = NULL, unc = FALSE, points_t
                 k_occ = k_occ, k_pot = k_pot))
 }
 
-fit_cv <- function(cell_full, k_occ, k_pot, n_cores) {
+fit_cv_total <- function(cell_full, k_occ, k_pot) {
     pred_occ <- matrix(0, nrow(cell_full), length(k_occ))
     pred_pot_arith <- pred_pot_larith <- matrix(0, nrow(cell_full), length(k_pot))
     
@@ -165,38 +164,20 @@ fit_cv <- function(cell_full, k_occ, k_pot, n_cores) {
     dimnames(pred_pot_arith)[[2]] <- dimnames(pred_pot_larith)[[2]] <- k_pot
     
     n_folds <- max(cell_full$fold)
-    if(n_cores > 1) {
-        library(doParallel)
-        registerDoParallel(cores = n_cores)
-        output <- foreach(i = seq_len(n_folds)) %dopar% {
-            train <- cell_full %>% filter(fold != i)
-            test <- cell_full %>% filter(fold == i)
-            
-            po <- fit(train, newdata = test, k_occ = k_occ, unc = FALSE)
-            ppa <- fit(train, newdata = test, k_pot = k_pot, type_pot = 'arith', unc = FALSE)
-            ppl <- fit(train, newdata = test, k_pot = k_pot, type_pot = 'log_arith', unc = FALSE)
-            list(po, ppa, ppl)
-            cat("n_fold: ", i, " ", date(), "\n")
-        }
-        for(i in seq_len(n_folds)) {
-            pred_occ[cell_full$fold == i, ] <- output[[i]][[1]]$pred_occ
-            pred_pot_arith[cell_full$fold == i, ] <- output[[i]][[2]]$pred_pot
-            pred_pot_larith[cell_full$fold == i, ] <- output[[i]][[3]]$pred_pot
-        }
-    } else {
-        for(i in seq_len(n_folds)) {
-            train <- cell_full %>% filter(fold != i)
-            test <- cell_full %>% filter(fold == i)
-            
-            po <- fit(train, newdata = test, k_occ = k_occ)
-            ppa <- fit(train, newdata = test, k_pot = k_pot, type_pot = 'arith')
-            ppl <- fit(train, newdata = test, k_pot = k_pot, type_pot = 'log_arith')
-            
-            pred_occ[cell_full$fold == i, ] <- po$pred_occ
-            pred_pot_arith[cell_full$fold == i, ] <- ppa$pred_pot
-            pred_pot_larith[cell_full$fold == i, ] <- ppl$pred_pot
-            cat("n_fold: ", i, " ", date(), "\n")    
-        }
+    output <- foreach(i = seq_len(n_folds)) %dopar% {
+        train <- cell_full %>% filter(fold != i)
+        test <- cell_full %>% filter(fold == i)
+        
+        po <- fit(train, newdata = test, k_occ = k_occ, unc = FALSE)
+        ppa <- fit(train, newdata = test, k_pot = k_pot, type_pot = 'arith', unc = FALSE)
+        ppl <- fit(train, newdata = test, k_pot = k_pot, type_pot = 'log_arith', unc = FALSE)
+        list(po, ppa, ppl)
+        cat("n_fold: ", i, " ", date(), "\n")
+    }
+    for(i in seq_len(n_folds)) {
+        pred_occ[cell_full$fold == i, ] <- output[[i]][[1]]$pred_occ
+        pred_pot_arith[cell_full$fold == i, ] <- output[[i]][[2]]$pred_pot
+        pred_pot_larith[cell_full$fold == i, ] <- output[[i]][[3]]$pred_pot
     }
     return(list(pred_occ = pred_occ, pred_pot_arith = pred_pot_arith, pred_pot_larith = pred_pot_larith))
 }

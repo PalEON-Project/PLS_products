@@ -39,6 +39,11 @@ if(output_dir == "")
 if(interim_results_dir == "")
     interim_results_dir <- file.path("..", "data", "interim")
 
+## values used in cross-validation
+k_occ_cv <- c(100,250,500,1000,1500,2000,2500)
+k_pot_cv = c(100,250,500,1000,1500,2000,2500,3000,3500)
+
+
 ## source files with R functions
 code_files <- list.files(code_dir, pattern = ".R$", full.names = TRUE)
 sapply(code_files, source)

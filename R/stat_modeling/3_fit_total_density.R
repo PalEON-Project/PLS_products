@@ -4,8 +4,6 @@
 ## then the average density for occupied points (called potential density).
 ## Estimated density is the product of occupancy and potential.
 
-## Run-time (without cross-validation) approximately with k values of occ: 500, pot: 3500
-
 if(!exists('k_pot_total'))
     stop("Must specify 'k_pot_total'")
 if(!exists('k_occ_total'))
@@ -38,34 +36,7 @@ cell_full <- cell_full %>% left_join(cell_occ, by = c("cell" = "cell")) %>%
     left_join(grid, by = c("cell" = "cell")) %>%
     mutate(points_occ = ifelse(is.na(points_occ), 0, points_occ))
 
-if(do_cv) {
-
-    k_occ <- c(100,250,500,1000,1500,2000,2500)
-    k_pot = c(100,250,500,1000,1500,2000,2500,3000,3500)
-    
-    set.seed(1)
-    cells <- sample(unique(cell_full$cell), replace = FALSE)
-    folds <- rep(1:n_folds, length.out = length(cells))
-    
-    cell_full <- cell_full %>% inner_join(data.frame(cell = cells, fold = folds), by = c('cell'))
-    stop("this CV code won't work yet")
-    results <- fit_cv(cell_full, k_occ, k_pot, n_cores)
-
-    ## assess results
-    
-    y <- cell_full$avg*cell_full$points_occ/cell_full$points_total ## actual average density over all cells
-    y[is.na(y)] <- 0
-    y[y > mx] <- mx
-
-
-    critArith <- calc_cv_criterion(results$pred_occ, results$pred_pot_arith, cell_full$points_total,
-                                   cell_full$avg*cell_full$count/cell_full$total, 200)
-    critLogArith <- calc_cv_criterion(results$pred_occ, results$pred_pot_larith, cell_full$points_total,
-                                   cell_full$avg*cell_full$count/cell_full$total, 200)
-
-}
-
 ## fit stats model
-density_total <- fit(cell_full, newdata = pred_grid_west, k_occ = k_occ_total, k_pot = k_pot_total, return_model = TRUE, unc = TRUE, type_pot = 'log_arith', num_draws = n_stat_samples, save_draws = TRUE)
+density_total <- fit(cell_full, newdata = pred_grid_west, k_occ = k_occ_total, k_pot = k_pot_total, return_model = TRUE, unc = TRUE, type_pot = 'log_arith', num_draws = n_stat_samples, save_draws = TRUE, use_bam = TRUE)
 
 save(density_total, file = file.path(interim_results_dir, 'fitted_total_density.Rda'))

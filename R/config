@@ -64,11 +64,17 @@ do_allom_uncertainty=0  # for now, don't include allometric uncertainty
 shared_params_in_cell=1  # for speed, do single allometry call for all points ina cell
 
 ## cross-validation folds
-do_cv=0
 n_folds=10
+# truncate at these values when using CV to compare data and fits
+cv_max_biomass=200
+cv_max_density=600
 
 ## parallelization
-n_cores=4
+
+#set to 0 to use all cores on machine or all cores provided through SLURM scheduler
+n_cores=0
+# set to 1 to use doMPI
+use_mpi=0
 
 ## maximum degrees of freedom for spatial statistical smoothing
 k_occ_total=500
