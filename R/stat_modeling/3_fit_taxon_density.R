@@ -16,7 +16,7 @@ taxa_to_fit <- taxa # or put a single taxon of interest here
 print(taxa_to_fit)
 
 if(Sys.getenv("SLURM_JOB_ID") != "")
-    nCores <- Sys.getenv("SLURM_NTASKS")
+    nCores <- Sys.getenv("SLURM_CPUS_PER_TASK")
 
 library(doParallel)
 registerDoParallel(cores = nCores)
@@ -67,7 +67,7 @@ density_taxon <- foreach(taxonIdx = seq_along(taxa_to_fit)) %dopar% {
 
     } else {
         ## fit stats model
-        output <- try(fit(cell_full_taxon, newdata = pred_grid_west, k_occ = k_occ_taxon, k_pot = k_pot_taxon, unc = TRUE, return_model = FALSE, type_pot = 'log_arith', num_draws = n_stat_samples, save_draws = TRUE))
+        output <- try(fit(cell_full_taxon, newdata = pred_grid_west, k_occ = k_occ_taxon, k_pot = k_pot_taxon, unc = TRUE, return_model = FALSE, type_pot = 'log_arith', num_draws = n_stat_samples, save_draws = TRUE, use_bam = TRUE))
         output$critArith <- output$critLogArith <- NULL
         ## save(density_taxon, file = file.path(interim_results_dir, 'fitted_taxon_density2.Rda'))
         ## cat("Finished taxon: ", taxon, "\n")
@@ -76,4 +76,4 @@ density_taxon <- foreach(taxonIdx = seq_along(taxa_to_fit)) %dopar% {
 }
 
 names(density_taxon) <- taxa_to_fit
-save(density_taxon, file = file.path(interim_results_dir, 'fitted_taxon_density.Rda'))
+save(density_taxon, file = file.path(interim_results_dir, 'fitted_taxon_density_k2500.Rda'))

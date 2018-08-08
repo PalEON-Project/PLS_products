@@ -3,7 +3,7 @@
 ## this is sourced by R, but in a format that could
 ## be sourced in the shell if desired (use of '=' and without spaces)
 
-product_version=0.99
+product_version=0.991
 
 ## directory locations: these default to ../data/{points,conversions,allom}, code, and ../output in master.R
 raw_data_dir=""
@@ -73,7 +73,7 @@ n_cores=4
 ## maximum degrees of freedom for spatial statistical smoothing
 k_occ_total=500
 k_pot_total=3500
-k_occ_taxon=2500
+k_occ_taxon=2500  
 ## using somewhat lower (i.e., 2000) helps in terms of taxa where fitting df requires lower value
 k_pot_taxon=2000
 n_stat_samples=250

@@ -1,6 +1,9 @@
 library(mgcv)
 
-fit <- function(data, newdata, k_occ = NULL, k_pot = NULL, unc = FALSE, points_total = 'points_total', points_occ = 'points_occ', weight = points_occ, avg = 'avg', geom_avg = 'geom_avg', gamma = 1, units = 'm', use_bam = FALSE, type_pot = 'arith', return_model = FALSE, save_draws = FALSE, num_draws = 250) {
+
+## CLEANUP: gamma doesn't respond to bam with fREML default
+
+fit <- function(data, newdata, k_occ = NULL, k_pot = NULL, unc = FALSE, points_total = 'points_total', points_occ = 'points_occ', weight = points_occ, avg = 'avg', geom_avg = 'geom_avg', gamma = 1, units = 'm', use_bam = FALSE, type_pot = 'arith', return_model = FALSE, save_draws = FALSE, num_draws = 250, bound_draws = TRUE) {
     ## fits occ and pot components for single k values, with uncertainty if desired OR
     ## fits one or both components for one or more k values, without uncertainty
     
@@ -31,19 +34,20 @@ fit <- function(data, newdata, k_occ = NULL, k_pot = NULL, unc = FALSE, points_t
         se.fit <- ifelse(length(k_occ) == 1, TRUE, FALSE)
         data$z <- cbind(data[[points_occ]], data[[points_total]] - data[[points_occ]])
 
-        ## default method is "fREML" which doesn't seem to respond to 'gamma'
+        ## default bam() method is "fREML" which doesn't seem to respond to 'gamma'
         ## and is not the same method as used in gam()
         model_occ <- pred_occ <- list()
         for(k_idx in seq_along(k_occ)) {
             model_occ[[k_idx]] <- fitter(z ~ s(x, y, k = k_occ[k_idx]), data = data, family = 'binomial',
-                                         gamma = gamma, method = "GCV.Cp")
+                                         gamma = gamma)
             pred_occ[[k_idx]] <- predict(model_occ[[k_idx]], newdata = newdata, type = 'response',
                                          se.fit = se.fit)
         }
         if(length(k_occ) == 1) {
             model_occ <- model_occ[[1]]
-            pred_occ <- pred_occ[[1]]$fit
+            tmpfit <- pred_occ[[1]]$fit
             pred_occ_se <- pred_occ[[1]]$se.fit
+            pred_occ <- tmpfit
         } else {
             names(model_occ) <- names(pred_occ) <- k_occ
             pred_occ <- as.matrix(as.data.frame(pred_occ))
@@ -67,7 +71,7 @@ fit <- function(data, newdata, k_occ = NULL, k_pot = NULL, unc = FALSE, points_t
             kval <- min(k_pot[k_idx], round(nrow(data)*0.9))
 
             model_pot[[k_idx]] <- fitter(z ~ s(x,y, k = kval), data = data, weights = weight,
-                                     gamma = gamma, method = "GCV.Cp")            
+                                     gamma = gamma)            
             pred_pot[[k_idx]] <- predict(model_pot[[k_idx]], newdata= newdata, type='response')
             if(type_pot != 'arith') {
                 pred_pot[[k_idx]] <- exp(pred_pot[[k_idx]])
@@ -102,15 +106,18 @@ fit <- function(data, newdata, k_occ = NULL, k_pot = NULL, unc = FALSE, points_t
                 draws_coef <- rmvn(num_draws , coef(model_occ), model_occ$Vp) 
                 draws_linpred <- Xp %*% t(draws_coef)
                 draws_logocc <- -log(1 + exp(-draws_linpred)) # log scale to add to log pot result
-                ## two problematic cases:
-                ## draws_linpred can have high variance near boundary, where value of draws_linpred is very negative (so occ=0)
-                ## individual draws then can have high occ in those areas
-                ## draws_linpred can have high variance in small areas producing very positive linpred values corresponding to very small pred_occ values
-                draws_logocc[pred_occ < 0.0001 & pred_occ_se < 0.0001] <- -Inf            
-                ## address numerical issue that seems to arise
-                ## (e.g., central MI in total biomass)
-                ## that produces some draws where Pr(occ)=0
-                draws_logocc[pred_occ > 0.999] <- 0 
+                if(bound_draws) {
+                    draws_logocc_orig <- draws_logocc
+                    ## two problematic cases:
+                    ## draws_linpred can have high variance near boundary, where value of draws_linpred is very negative (so occ=0)
+                    ## individual draws then can have high occ in those areas
+                    ## draws_linpred can have high variance in small areas producing very positive linpred values corresponding to very small pred_occ values
+                    draws_logocc[pred_occ < 0.001 & pred_occ_se < 0.001] <- -Inf            
+                    ## address numerical issue that seems to arise
+                    ## (e.g., central MI in total biomass)
+                    ## that produces some draws where Pr(occ)=0
+                    draws_logocc[pred_occ > 0.999] <- 0
+                } else draws_logocc_orig <- NULL
             } else draws_logocc <- 0
             ## best to construct CIs on log scale and exponentiate endpoints
             
@@ -142,7 +149,10 @@ fit <- function(data, newdata, k_occ = NULL, k_pot = NULL, unc = FALSE, points_t
         model_pot <- NULL
     }
     return(list(locs = data.frame(x = newdata$x*scaling, y = newdata$y*scaling),
-                pred = pred, pred_occ = pred_occ, pred_pot = pred_pot, draws = draws,
+                pred = pred, pred_occ = pred_occ, pred_occ_se = pred_occ_se,
+                pred_pot = pred_pot, draws = draws,
+                draws_logpot = draws_logpot, draws_logocc = draws_logocc,
+                draws_logocc_orig = draws_logocc_orig,
                 model_occ = model_occ, model_pot = model_pot,
                 k_occ = k_occ, k_pot = k_pot))
 }
@@ -192,93 +202,3 @@ fit_cv <- function(cell_full, k_occ, k_pot, n_cores) {
 }
 
 
-
-
-
-
-if(FALSE) { ## save for the moment in case needed later
-    
-    fit_occ <- function(data, newdata, k, total = 'total', count = 'count', gamma = 1, units = 'm', use_bam = FALSE, return_model = FALSE) {
-        
-        if(use_bam)
-            fitter <- bam else fitter <- gam
-
-        if(units == 'm') {
-            scaling <- 8000
-        } else {
-            if(units == 'km') {
-                scaling <- 8
-            } else stop("units should either be 'm' or 'km'")
-        }
-        
-        newdata[ , c('x','y')] <- newdata[ , c('x','y')] / scaling
-        data[ , c('x','y')] <- data[ , c('x','y')] / scaling 
-        
-        data$z <- cbind(data[[count]], data[[total]] - data[[count]])
-
-        ## default method is "fREML" which doesn't seem to respond to 'gamma'
-        ## and is not the same method as used in gam()
-        model <- pr_occ <- list()
-        for(k_idx in seq_along(k)) {
-            model[[k_idx]] <- fitter(z ~ s(x, y, k = k[k_idx]), data = data, family = 'binomial',
-                                     gamma = gamma, method = "GCV.Cp")
-            pr_occ[[k_idx]] <- predict(model[[k_idx]], newdata = newdata, type = 'response')
-            
-        }
-        if(length(k) == 1) {
-            model <- model[[1]]
-            pr_occ <- pr_occ[[1]]
-        } else {
-            names(model) <- names(pr_occ) <- k
-            pr_occ <- as.matrix(as.data.frame(pr_occ))
-        }
-        if(!return_model) model <- NULL
-        return(list(pr_occ = pr_occ, model = model))
-    }
-    
-    fit_pot <- function(data, newdata, k = 100, total = 'total', count = 'count', weight = count, avg = 'avg', geom_avg = 'geom_avg', gamma = 1, units = 'm', use_bam = FALSE, type = 'arith', return_model = FALSE) {
-
-        if(!type %in% c('arith', 'log_arith', 'geom'))
-            stop("type must be one of 'arith', 'log_arith', 'geom'")
-        if(use_bam)
-            fitter <- bam else fitter <- gam
-
-        if(units == 'm') {
-            scaling <- 8000
-        } else {
-            if(units == 'km') {
-                scaling <- 8
-            } else stop("units should either be 'm' or 'km'")
-        }
-        
-        newdata[ , c('x','y')] <- newdata[ , c('x','y')] / scaling
-        data[ , c('x','y')] <- data[ , c('x','y')] / scaling 
-        
-        data <- data[data[[count]] > 0, ]
-        if(type == 'arith') data$z <- data[[avg]]
-        if(type == 'log_arith') data$z <- log(data[[avg]])
-        if(type == 'geom') data$z <- data[[geom_avg]]
-        data$weight <- data[[weight]]
-        
-        model <- pr_pot <- list()
-        for(k_idx in seq_along(k)) {
-            model[[k_idx]] <- fitter(z ~ s(x,y, k = k[k_idx]), data = data, weights = weight,
-                                     gamma = gamma, method = "GCV.Cp")
-            
-            pr_pot[[k_idx]] <- predict(model[[k_idx]], newdata= newdata, type='response')
-            if(type != 'arith') {
-                pr_pot[[k_idx]] <- exp(pr_pot[[k_idx]])
-            } else pr_pot[[k_idx]][pr_pot[[k_idx]] < 0] <- 0
-        }
-        if(length(k) == 1) {
-            model <- model[[1]]
-            pr_pot <- pr_pot[[1]]
-        } else {
-            names(model) <- names(pr_pot) <- k
-            pr_pot <- as.matrix(as.data.frame(pr_pot))
-        }
-        if(!return_model) model <- NULL
-        return(list(pr_pot = pr_pot, model = model))
-    }
-
-}

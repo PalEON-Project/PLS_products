@@ -1,3 +1,35 @@
+8/7/18:
+the bam weird fits for beech seem to disappear if use fREML (default) and not GCV.Cp
+
+given anomalies in gam fit, at moment plan to use bam
+
+note that bam sometimes gives warnings about 0/1 values or lack of convergence but I think this occurs at the end of the fitting
+
+current tweak to eliminate weird occ draws is
+
+                draws_logocc[pred_occ < 0.001 & pred_occ_se < 0.001] <- -Inf
+
+catches most but not all anomalies
+
+with bam/fREML the sd outliers seem to all occur where occ is zero (outside range boundary)
+
+7/26/18:
+bam with k=1500 for density is showing no point est weirdness but a few boundary effects (though not terrible) and very weird fits for beech/hemlock
+
+7/25/18:
+density at taxon-level has anomalies even in point predictions for occ.
+Changing to bam with k = 1500 or 2500 for birch seems to eliminate those
+
+using gam with smaller k doesn't get rid of the anomalies
+
+current ad hoc tweak to eliminate weird draw values in occ doesn't seem to catch all cases:
+                draws_logocc[pred_occ < 0.0001 & pred_occ_se < 0.0001] <- -Inf  
+                draws_logocc[pred_occ > 0.999] <- 0 
+
+
+7/20/18:
+high density total in NW UP MI seems legit based on data - bunch of points with two trees pretty close
+
 7/19/18:
 
 both biomass and density for taxon-level have some crazy outlying draw
