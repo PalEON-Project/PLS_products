@@ -46,9 +46,10 @@ level_3a_to_3s_conversion_file="level3a_to_level3s_v0.4.csv"
 ## unit conversions
 cm_per_inch=2.54
 cm_per_m=100
-meters_per_chain=0.201168
+meters_per_link=0.201168
 meters_sq_per_ha=10000
 kg_per_Mg=1000
+links_per_chain=100
 
 ## sanity/estimation bounds
 diameter_cutoff_inches=8

@@ -177,7 +177,7 @@ calc_stem_density <- function(data, corr_factors, use_phi =  TRUE) {
     density <- rep(as.numeric(NA), nrow(data))
 
     ## fix upper radius searched and take 1 tree per that area as density
-    max_dist_meters <- max_distance_surveyed * meters_per_chain
+    max_dist_meters <- max_distance_surveyed * meters_per_link
     density[data$num_trees == 1] <- (1 / (pi * max_dist_meters^2)) * meters_sq_per_ha
     
     density[data$num_trees == 0] <- 0
@@ -189,11 +189,11 @@ calc_stem_density <- function(data, corr_factors, use_phi =  TRUE) {
     diam <- sub$diam1
     diam[is.na(diam)] <- 10
     ## distance in meters: distance plus one-half diameter of tree
-    distm1 <- sub$dist1 * meters_per_chain + 0.5 * diam * cm_per_inch / cm_per_m
+    distm1 <- sub$dist1 * meters_per_link + 0.5 * diam * cm_per_inch / cm_per_m
     diam <- sub$diam2
     diam[is.na(diam)] <- 10
     ## distance in meters: distance plus one-half diameter of tree
-    distm2 <- sub$dist2 * meters_per_chain + 0.5 * diam * cm_per_inch / cm_per_m
+    distm2 <- sub$dist2 * meters_per_link + 0.5 * diam * cm_per_inch / cm_per_m
 
     ##  From the formula,
     ##  lambda = kappa * theta * (q - 1)/(pi * n) * (q / sum_(1:q)(r^2))
@@ -265,4 +265,13 @@ calc_cv_criterion <- function(pred_occ, pred_pot, n, y, mx, obj_fun = wgt_mse) {
             crit[i, j] <- obj_fun(n, y, tmp)
         }}
     return(crit)
+}
+
+convert_chains_to_links <- function(dists) {
+    ## x.5 decimals may well be links
+    dec_valued <- round(dists) != dists
+    dists_in_chains <- dec_valued &
+        ( dists <= 1 | (dists > 1 & dists %% 1 != 0.5) )
+    dists[dists_in_chains] <- dists[dists_in_chains] * links_per_chain
+    return(dists)
 }

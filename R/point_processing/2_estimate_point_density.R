@@ -28,6 +28,7 @@ mw <- mw %>% filter(!(num_trees == 1 & (is.na(dist1) | dist1 == 0)))
 ## can't calculate density for points with missing distances: 1683 points
 mw <- mw %>% filter(!(num_trees == 2 & (is.na(dist1) | is.na(dist2))))
 
+## TODO: check on this now that have cleaned up decimal distances as generally being in chains
 ## remove points where both distances are less than 1 -- approximately 240 points of which
 ## ~150 are in four cells in an east-west row in northern lower Michigan;
 ## presumably a decimal point transciption error

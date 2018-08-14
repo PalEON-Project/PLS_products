@@ -624,6 +624,11 @@ tmp[tmp %in% c('No tree', 'Water')] <- NA
 ntree <- apply(tmp, 1,function(x) sum(!is.na(x)))
 mw <- mw %>% mutate(point = ifelse(ntree > 2, '2nQ', 'Pair'))
 
+## most decimal distances are chains except for x.5 values
+mw <- mw %>% mutate(dist1 = convert_chains_to_links(dist1),
+                    dist2 = convert_chains_to_links(dist2),
+                    dist3 = convert_chains_to_links(dist3),
+                    dist4 = convert_chains_to_links(dist4))
 
 save(mw, file = file.path(interim_results_dir, 'cleaned_point.Rda'))
 
