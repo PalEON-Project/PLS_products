@@ -54,5 +54,5 @@ y <- cell_full$avg*cell_full$points_occ/cell_full$points_total ## actual average
 critArith <- calc_cv_criterion(results$pred_occ, results$pred_pot_arith, cell_full$points_total, y, cv_max_density)
 critLogArith <- calc_cv_criterion(results$pred_occ, results$pred_pot_larith, cell_full$points_total, y, cv_max_density)
 
-save(critArith, critLogArith, file = file.path(interim_results_dir, 'cv_total_density.Rda'))
+save(critArith, critLogArith, results, file = file.path(interim_results_dir, 'cv_total_density.Rda'))
 

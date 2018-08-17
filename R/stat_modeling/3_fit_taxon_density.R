@@ -23,7 +23,7 @@ library(doParallel)
 registerDoParallel(cores = n_cores)
 
 density_taxon <- foreach(taxonIdx = seq_along(taxa_to_fit)) %dopar% {
-    taxon <- taxa[taxonIdx]
+    taxon <- taxa_to_fit[taxonIdx]
     ## add taxon-specific point-level density to dataset
     tmp <- mw %>% mutate(density_focal = calc_density_taxon(num_trees, density, L3s_tree1, L3s_tree2, taxon))
     

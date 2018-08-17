@@ -23,7 +23,7 @@ library(doParallel)
 registerDoParallel(cores = n_cores)
 
 biomass_taxon <- foreach(taxonIdx = seq_along(taxa_to_fit)) %dopar% {
-    taxon <- taxa[taxonIdx]
+    taxon <- taxa_to_fit[taxonIdx]
     ## add taxon-specific point-level biomass to dataset
     tmp <- mw %>% mutate(biomass_focal = calc_biomass_taxon(num_trees, biomass1, biomass2, density_for_biomass, L3s_tree1, L3s_tree2, taxon))
     
