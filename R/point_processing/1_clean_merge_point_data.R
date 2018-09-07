@@ -311,12 +311,6 @@ wi <- read_csv(file.path(raw_data_dir, wisconsin_file), guess_max = 100000) %>% 
 mn <- read_csv(file.path(raw_data_dir, minnesota_file), guess_max = 100000) %>% mutate(state = 'MN')
 nomi <- read_csv(file.path(raw_data_dir, northern_michigan_file), guess_max = 100000) %>% mutate(state = 'NoMI')
 
-#remove 2 corners from nomi - these are corners Charlie checked the PLS notes and suggested deleting these from the analysis due to
-#the garbled dual two tree corners where there are inconsistencies in the field notes which cannot be resolved, thus deserve to be ignored. 
-nomi_delete <- c("8767","53210")
-
-nomi <- nomi %>% filter(!FID %in% nomi_delete)
-
 wi <- wi %>% mutate(point_id = seq_len(nrow(wi)))
 nomi <- nomi %>% mutate(point_id = seq_len(nrow(nomi)), vegtype = NA)
 mn <- mn %>% mutate(point_id = seq_len(nrow(mn)))
