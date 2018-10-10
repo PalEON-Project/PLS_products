@@ -1,33 +1,41 @@
-## Fit statistical model to smooth the raw point level biomass.
+## Fit statistical model to smooth the raw cell-level biomass via cross-validation
+## to determine best upper-bound on amount of spatial smoothing.
+
 ## The model fits in two parts - first the proportion of points occupied by trees
 ## (this is much more important for the taxon-level fitting)
 ## then the average biomass for occupied points (called potential biomass).
 ## Estimated biomass is the product of occupancy and potential.
 
-taxa_to_fit <- taxa # or put a single taxon of interest here
+## This is very computationally-intensive and best done on a cluster.
 
-print(taxa_to_fit)
+load(file.path(interim_results_dir, 'cell_with_biomass_grid.Rda'))
 
 if(use_mpi) {
     library(doMPI)
     cl <- startMPIcluster()
     registerDoMPI(cl)
 } else {
+    library(doParallel)
     if(n_cores == 0) {
         if(Sys.getenv("SLURM_JOB_ID") != "") {
             n_cores <- Sys.getenv("SLURM_CPUS_PER_TASK")
         } else n_cores <- detectCores()
     }
-    library(doParallel)
     registerDoParallel(cores = n_cores)
 }
 
+taxa_to_fit <- taxa 
+print(taxa_to_fit)
+
+## Fit statistical model to each taxon and fold.
+## Nested foreach will run separate tasks for each combination of taxon and fold.
 output <- foreach(taxonIdx = seq_along(taxa_to_fit)) %:%
     foreach(i = seq_len(n_folds)) %dopar% {
 
         taxon <- taxa_to_fit[taxonIdx]
         ## add taxon-specific point-level biomass to dataset
-        tmp <- mw %>% mutate(biomass_focal = calc_biomass_taxon(num_trees, biomass1, biomass2, density_for_biomass, L3s_tree1, L3s_tree2, taxon))
+        tmp <- mw %>% mutate(biomass_focal = calc_biomass_taxon(num_trees, biomass1, biomass2,
+                                                                density_for_biomass, L3s_tree1, L3s_tree2, taxon))
         
         ## add total point-level biomass to dataset
         cell_full_taxon <- tmp %>% filter(!(is.na(biomass_focal))) %>% group_by(cell) %>% summarize(points_total = n())
@@ -73,10 +81,8 @@ for(taxonIdx in seq_along(taxa_to_fit))
         pred_pot_arith[taxonIdx, cell_full$fold == i, ] <- output[[taxonIdx]][[i]][[2]]
         pred_pot_larith[taxonIdx, cell_full$fold == i, ] <- output[[taxonIdx]][[i]][[3]]
     }
-}
 
-
-## assess results
+## Assess results.
 
 critArith <- critLogArith <- array(0, c(length(taxa_to_fit), length(k_occ_cv), length(k_pot_cv)))
 for(taxonIdx in seq_along(taxa_to_fit)) {
@@ -108,7 +114,8 @@ for(taxonIdx in seq_along(taxa_to_fit)) {
                                                     cell_full_taxon$points_total, y, cv_max_biomass)
 }
 
-save(critArith, critLogArith, pred_occ, pred_pot_arith, pred_pot_larith, file = file.path(interim_results_dir, 'cv_taxon_biomass.Rda'))
+save(critArith, critLogArith, pred_occ, pred_pot_arith, pred_pot_larith,
+     file = file.path(interim_results_dir, 'cv_taxon_biomass.Rda'))
 
 
 if(use_mpi) closeCluster(cl)

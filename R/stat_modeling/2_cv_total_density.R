@@ -1,4 +1,7 @@
-## Fit statistical model to smooth the raw point level density.
+## Fit statistical model to smooth the raw cell-level density via cross-validation
+## to determine best upper-bound on amount of spatial smoothing.
+
+
 ## The model fits in two parts - first the proportion of points occupied by trees
 ## (this is much more important for the taxon-level fitting)
 ## then the average density for occupied points (called potential density).
@@ -9,6 +12,16 @@
 ## this assumes that missingness of diameter is non-informative
 ## 1384 2-tree points with tree2 diam missing
 ## 1317 2-tree points with tree1 diam missing
+
+load(file.path(interim_results_dir, 'cell_with_density_grid.Rda'))
+
+library(doParallel)
+if(n_cores == 0) {
+    if(Sys.getenv("SLURM_JOB_ID") != "") {
+        n_cores <- Sys.getenv("SLURM_CPUS_PER_TASK")
+    } else n_cores <- detectCores()
+}
+registerDoParallel(cores = n_cores)
 
 ## total points per cell
 cell_full <- mw %>% filter(!is.na(density)) %>%
@@ -37,22 +50,37 @@ folds <- rep(1:n_folds, length.out = length(cells))
     
 cell_full <- cell_full %>% inner_join(data.frame(cell = cells, fold = folds), by = c('cell'))
 
-if(n_cores == 0) {
-    if(Sys.getenv("SLURM_JOB_ID") != "") {
-        n_cores <- Sys.getenv("SLURM_CPUS_PER_TASK")
-    } else n_cores <- detectCores()
+pred_occ <- matrix(0, nrow(cell_full), length(k_occ_cv))
+dimnames(pred_occ)[[2]] <- k_occ_cv
+pred_pot_arith <- pred_pot_larith <- matrix(0, nrow(cell_full), length(k_pot_cv))
+dimnames(pred_pot_arith)[[2]] <- dimnames(pred_pot_larith)[[2]] <- k_pot_cv
+
+n_folds <- max(cell_full$fold)
+output <- foreach(i = seq_len(n_folds)) %dopar% {
+    train <- cell_full %>% filter(fold != i)
+    test <- cell_full %>% filter(fold == i)
+    
+    po <- fit(train, newdata = test, k_occ = k_occ_cv, unc = FALSE, use_bam = TRUE)
+    ppa <- fit(train, newdata = test, k_pot = k_pot_cv, type_pot = 'arith', unc = FALSE, use_bam = TRUE)
+    ppl <- fit(train, newdata = test, k_pot = k_pot_cv, type_pot = 'log_arith', unc = FALSE, use_bam = TRUE)
+    cat("n_fold: ", i, " ", date(), "\n")
+    list(po, ppa, ppl)
+}
+for(i in seq_len(n_folds)) {
+    pred_occ[cell_full$fold == i, ] <- output[[i]][[1]]$pred_occ
+    pred_pot_arith[cell_full$fold == i, ] <- output[[i]][[2]]$pred_pot
+    pred_pot_larith[cell_full$fold == i, ] <- output[[i]][[3]]$pred_pot
 }
 
-library(doParallel)
-registerDoParallel(cores = n_cores)
-
-results <- fit_cv_total(cell_full, k_occ_cv, k_pot_cv)
 
 ## assess results
 y <- cell_full$avg*cell_full$points_occ/cell_full$points_total ## actual average density over all cells
 
-critArith <- calc_cv_criterion(results$pred_occ, results$pred_pot_arith, cell_full$points_total, y, cv_max_density)
-critLogArith <- calc_cv_criterion(results$pred_occ, results$pred_pot_larith, cell_full$points_total, y, cv_max_density)
+critArith <- calc_cv_criterion(pred_occ, pred_pot_arith, cell_full$points_total,
+                               y, cv_max_density)
+critLogArith <- calc_cv_criterion(pred_occ, pred_pot_larith, cell_full$points_total,
+                                  y, cv_max_density)
 
-save(critArith, critLogArith, results, file = file.path(interim_results_dir, 'cv_total_density.Rda'))
+save(critArith, critLogArith, results, file = file.path(interim_results_dir,
+                                                        'cv_total_density.Rda'))
 

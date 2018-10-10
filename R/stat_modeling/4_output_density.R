@@ -1,12 +1,17 @@
 ## Outputs a netCDF file with dimensions of x, y, samples and
 ## variables for total density and density of each taxon
 
-## currently point estimate is directly from gam; check to see if mean of draws is essentially the same
-
 library(ncdf4)
 
 load(file.path(interim_results_dir, 'fitted_total_density.Rda'))
 load(file.path(interim_results_dir, 'fitted_taxon_density.Rda'))
+
+## center draws on point estimates so mean of draws equal point estimate
+density_total$draws <- density_total$draws - rowMeans(density_total$draws) +
+    as.numeric(density_total$pred$mean)
+for(k in seq_along(density_taxon))
+    density_taxon[[k]]$draws <- density_taxon[[k]]$draws - rowMeans(density_taxon[[k]]$draws) +
+    as.numeric(density_taxon[[k]]$pred$mean)
 
 taxa <- names(density_taxon)
 taxaNames <- gsub("/", ",", taxa)  ## netCDF interprets / as 'groups'

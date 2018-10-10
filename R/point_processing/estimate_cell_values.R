@@ -1,3 +1,5 @@
+## Code not part of workflow.
+
 ## code for aggregation of raw data, without statistical modeling
 ## to be used for exploration
 

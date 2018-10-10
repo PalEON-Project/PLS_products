@@ -1,14 +1,20 @@
+## Code for fitting occupancy and potential biomass/density models.
+
 library(mgcv)
 
 ## CLEANUP: gamma doesn't respond to bam with fREML default
 
-fit <- function(data, newdata, k_occ = NULL, k_pot = NULL, unc = FALSE, points_total = 'points_total', points_occ = 'points_occ', weight = points_occ, avg = 'avg', geom_avg = 'geom_avg', gamma = 1, units = 'm', use_bam = FALSE, type_pot = 'arith', return_model = FALSE, save_draws = FALSE, num_draws = 250, bound_draws = TRUE) {
+fit <- function(data, newdata, k_occ = NULL, k_pot = NULL, unc = FALSE, points_total = 'points_total',
+                points_occ = 'points_occ', weight = points_occ, avg = 'avg', geom_avg = 'geom_avg',
+                gamma = 1, units = 'm', use_bam = FALSE, type_pot = 'arith', return_model = FALSE,
+                save_draws = FALSE, num_draws = 250, bound_draws = TRUE) {
     ## fits occ and pot components for single k values, with uncertainty if desired OR
     ## fits one or both components for one or more k values, without uncertainty
     
     if(!type_pot %in% c('arith', 'log_arith', 'geom'))
         stop("type_pot must be one of 'arith', 'log_arith', 'geom'")
 
+    ## bam() handles big datasets more quickly and seems to be more numerically stable.
     if(use_bam)
         fitter <- bam else fitter <- gam
     
@@ -101,6 +107,7 @@ fit <- function(data, newdata, k_occ = NULL, k_pot = NULL, unc = FALSE, points_t
             
             ## posterior draws of (log) occupancy
             if(!is.null(k_occ)) {
+                warning("check robustness fixes here in PLS, relative to code in FIA")
                 Xp <- predict(model_occ, newdata = newdata, type="lpmatrix")
                 draws_coef <- rmvn(num_draws , coef(model_occ), model_occ$Vp) 
                 draws_linpred <- Xp %*% t(draws_coef)
@@ -108,7 +115,8 @@ fit <- function(data, newdata, k_occ = NULL, k_pot = NULL, unc = FALSE, points_t
                 if(bound_draws) {
                     draws_logocc_orig <- draws_logocc
                     ## two problematic cases:
-                    ## draws_linpred can have high variance near boundary, where value of draws_linpred is very negative (so occ=0)
+                    ## draws_linpred can have high variance near boundary,
+                    ## where value of draws_linpred is very negative (so occ=0)
                     ## individual draws then can have high occ in those areas
                     ## draws_linpred can have high variance in small areas producing very positive linpred values corresponding to very small pred_occ values
                     draws_logocc[pred_occ < 0.001 & pred_occ_se < 0.001] <- -Inf            
@@ -117,7 +125,7 @@ fit <- function(data, newdata, k_occ = NULL, k_pot = NULL, unc = FALSE, points_t
                     ## that produces some draws where Pr(occ)=0
                     draws_logocc[pred_occ > 0.999] <- 0
                 } else draws_logocc_orig <- NULL
-            } else draws_logocc <- 0
+            } else draws_logocc <- draws_logocc_orig <- 0
             ## best to construct CIs on log scale and exponentiate endpoints
             
             ## posterior draws of (log) potential result
@@ -159,36 +167,5 @@ fit <- function(data, newdata, k_occ = NULL, k_pot = NULL, unc = FALSE, points_t
                 k_occ = k_occ, k_pot = k_pot))
 }
 
-fit_cv_total <- function(cell_full, k_occ = NULL, k_pot) {
-    if(!is.null(k_occ)) {
-        pred_occ <- matrix(0, nrow(cell_full), length(k_occ))
-        dimnames(pred_occ)[[2]] <- k_occ
-    }
-
-    pred_pot_arith <- pred_pot_larith <- matrix(0, nrow(cell_full), length(k_pot))
-    dimnames(pred_pot_arith)[[2]] <- dimnames(pred_pot_larith)[[2]] <- k_pot
-    
-    n_folds <- max(cell_full$fold)
-    output <- foreach(i = seq_len(n_folds)) %dopar% {
-        train <- cell_full %>% filter(fold != i)
-        test <- cell_full %>% filter(fold == i)
-
-        if(!is.null(k_occ)) {
-            po <- fit(train, newdata = test, k_occ = k_occ, unc = FALSE, use_bam = TRUE)
-        } else po <- NULL
-        ppa <- fit(train, newdata = test, k_pot = k_pot, type_pot = 'arith', unc = FALSE, use_bam = TRUE)
-        ppl <- fit(train, newdata = test, k_pot = k_pot, type_pot = 'log_arith', unc = FALSE, use_bam = TRUE)
-        list(po, ppa, ppl)
-        cat("n_fold: ", i, " ", date(), "\n")
-    }
-    for(i in seq_len(n_folds)) {
-        if(!is.null(k_occ)) {
-            pred_occ[cell_full$fold == i, ] <- output[[i]][[1]]$pred_occ
-        } else pred_occ[cell_full$fold == i, ] <- 1
-        pred_pot_arith[cell_full$fold == i, ] <- output[[i]][[2]]$pred_pot
-        pred_pot_larith[cell_full$fold == i, ] <- output[[i]][[3]]$pred_pot
-    }
-    return(list(pred_occ = pred_occ, pred_pot_arith = pred_pot_arith, pred_pot_larith = pred_pot_larith))
-}
 
 

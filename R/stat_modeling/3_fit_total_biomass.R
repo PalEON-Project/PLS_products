@@ -1,13 +1,15 @@
-## Fit statistical model to smooth the raw point level biomass.
+## Fit statistical model to smooth the raw cell level biomass.
 ## The model fits in two parts - first the proportion of points occupied by trees
 ## (this is much more important for the taxon-level fitting)
 ## then the average biomass for occupied points (called potential biomass).
 ## Estimated biomass is the product of occupancy and potential.
 
-if(!exists('k_pot_total'))
-    stop("Must specify 'k_pot_total'")
-if(!exists('k_occ_total'))
-    stop("Must specify 'k_occ_total'")
+load(file.path(interim_results_dir, 'cell_with_biomass_grid.Rda'))
+
+if(!exists('k_pot_total_biomass'))
+    stop("Must specify 'k_pot_total_biomass'")
+if(!exists('k_occ_total_biomass'))
+    stop("Must specify 'k_occ_total_biomass'")
 
 ## note that in cases with one tree with 0 or NA diameter and therefore missing biomass
 ## we use the biomass for the other tree as the representative value
@@ -43,6 +45,6 @@ cell_full <- cell_full %>% left_join(cell_occ, by = c("cell" = "cell")) %>%
     mutate(points_occ = ifelse(is.na(points_occ), 0, points_occ))
 
 ## fit stats model
-biomass_total <- fit(cell_full, newdata = pred_grid_west, k_occ = k_occ_total, k_pot = k_pot_total, return_model = TRUE, unc = TRUE, type_pot = 'log_arith', num_draws = n_stat_samples, save_draws = TRUE, use_bam = TRUE)
+biomass_total <- fit(cell_full, newdata = pred_grid_west, k_occ = k_occ_total_biomass, k_pot = k_pot_total_biomass, return_model = TRUE, unc = TRUE, type_pot = fit_scale_biomass, num_draws = n_stat_samples, save_draws = TRUE, use_bam = TRUE)
 
 save(biomass_total, file = file.path(interim_results_dir, 'fitted_total_biomass.Rda'))

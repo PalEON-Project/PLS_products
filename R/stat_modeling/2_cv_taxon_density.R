@@ -1,28 +1,32 @@
-## Fit statistical model to smooth the raw point level density.
+## Fit statistical model to smooth the raw cell-level density via cross-validation
+## to determine best upper-bound on amount of spatial smoothing.
+
 ## The model fits in two parts - first the proportion of points occupied by trees
 ## (this is much more important for the taxon-level fitting)
 ## then the average density for occupied points (called potential density).
 ## Estimated density is the product of occupancy and potential.
 
-taxa_to_fit <- taxa # or put a single taxon of interest here
-
-print(taxa_to_fit)
+load(file.path(interim_results_dir, 'cell_with_density_grid.Rda'))
 
 if(use_mpi) {
     library(doMPI)
     cl <- startMPIcluster()
     registerDoMPI(cl)
 } else {
+    library(doParallel)
     if(n_cores == 0) {
         if(Sys.getenv("SLURM_JOB_ID") != "") {
             n_cores <- Sys.getenv("SLURM_CPUS_PER_TASK")
         } else n_cores <- detectCores()
     }
-    library(doParallel)
     registerDoParallel(cores = n_cores)
 }
 
-## nested foreach to loop over taxa and folds to allow exploitation of many cores across many nodes when do_mpi=1
+taxa_to_fit <- taxa 
+print(taxa_to_fit)
+
+## Fit statistical model to each taxon and fold.
+## Nested foreach will run separate tasks for each combination of taxon and fold.
 output <- foreach(taxonIdx = seq_along(taxa_to_fit)) %:%
     foreach(i = seq_len(n_folds)) %dopar% {
         
@@ -74,10 +78,9 @@ for(taxonIdx in seq_along(taxa_to_fit))
         pred_pot_arith[taxonIdx, cell_full$fold == i, ] <- output[[taxonIdx]][[i]][[2]]
         pred_pot_larith[taxonIdx, cell_full$fold == i, ] <- output[[taxonIdx]][[i]][[3]]
     }
-}
 
+## Assess results.
 
-## assess results
 critArith <- critLogArith <- array(0, c(length(taxa_to_fit), length(k_occ_cv), length(k_pot_cv)))
 for(taxonIdx in seq_along(taxa_to_fit)) {
     ## extract raw data (again) for the taxon
@@ -108,7 +111,8 @@ for(taxonIdx in seq_along(taxa_to_fit)) {
                                                     y, cv_max_density)
 }
 
-save(critArith, critLogArith, pred_occ, pred_pot_arith, pred_pot_larith, file = file.path(interim_results_dir, 'cv_taxon_density.Rda'))
+save(critArith, critLogArith, pred_occ, pred_pot_arith, pred_pot_larith,
+     file = file.path(interim_results_dir, 'cv_taxon_density.Rda'))
 
 
 if(use_mpi) closeCluster(cl)

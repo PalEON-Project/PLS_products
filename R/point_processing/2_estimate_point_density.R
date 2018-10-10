@@ -54,6 +54,7 @@ if(any(mw[ , paste0('az', 1:4)] == 360)) {
                         az4 = ifelse(az4 == 360, 0, az4))
 }
 
+## TODO: check if any remain given Charlie's cleaning
 
 ## about 40 trees > 100 in diameter; omit these points as likely erroneous and would induce huge biomass
 ## note allometries mostly wouldn't go above 80 cm = 32 inches

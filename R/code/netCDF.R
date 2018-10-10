@@ -6,17 +6,17 @@ make_albers_netcdf <- function(name = NULL, units = '', longname = '', fn = NULL
   if(num_samples)
       draw_dim <- ncdim_def("sample", "number", 1:num_samples, longname = "MCMC sample")
   vars <- list()
-  length(vars) == length(taxa)
+  length(vars) <- length(taxa)
   for(k in seq_along(taxa)) {
       if(num_samples) {
           vars[[k]] <- ncvar_def(name = taxa[k], dim=list(x_dim, y_dim, draw_dim), units = units,
-                                 longname = paste0(longname, " for taxon ", taxa[k]), prec="double")
+                                 longname = paste0(longname, " for ", ifelse(taxa[k] == "total", "", "taxon "), taxa[k]), prec="double")
       } else {
           vars[[k]] <- ncvar_def(name = taxa[k], dim=list(x_dim, y_dim), units = units,
-                                 longname = paste0(longname, " for taxon ", taxa[k]), prec="double")
+                                 longname = paste0(longname, " for ", ifelse(taxa[k] == "total", "", "taxon "), taxa[k]), prec="double")
       }
   }
-  ncdfPtr <- nc_create(file.path(dir, fn), vars)
+  ncdfPtr <- nc_create(file.path(dir, fn), vars, force_v4 = TRUE)
   nc_close(ncdfPtr)
   invisible(NULL)
 }

@@ -1,12 +1,17 @@
 ## Outputs a netCDF file with dimensions of x, y, samples and
 ## variables for total biomass and biomass of each taxon
 
-## currently point estimate is directly from gam; check to see if mean of draws is essentially the same
-
 library(ncdf4)
 
 load(file.path(interim_results_dir, 'fitted_total_biomass.Rda'))
 load(file.path(interim_results_dir, 'fitted_taxon_biomass.Rda'))
+
+## center draws on point estimates so mean of draws equal point estimate
+biomass_total$draws <- biomass_total$draws - rowMeans(biomass_total$draws) +
+    as.numeric(biomass_total$pred$mean)
+for(k in seq_along(biomass_taxon))
+    biomass_taxon[[k]]$draws <- biomass_taxon[[k]]$draws - rowMeans(biomass_taxon[[k]]$draws) +
+    as.numeric(biomass_taxon[[k]]$pred$mean)
 
 taxa <- names(biomass_taxon)
 taxaNames <- gsub("/", ",", taxa)  ## netCDF interprets / as 'groups'

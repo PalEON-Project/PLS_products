@@ -1,5 +1,5 @@
 ## Clean all the data for Southern MI, Upper Midwest, and Indiana + Illinois separately,
-## get correction factors for all the data, then join together.
+## then combine and ensure that trees are ordered by distance.
 
 ## TODO: add assertions at various places
 
@@ -202,11 +202,6 @@ inil <- inil[final_columns]
 
 somi <- read_csv(file.path(raw_data_dir, southern_michigan_file), guess_max = 100000)
 somi <- somi %>% mutate(point_id = seq_len(nrow(somi)), vegtype = NA, state = "SoMI")
-
-## remove problematic points where transcription may have been inaccurate (see issue #40)
-fids <- read.csv(file.path(raw_data_dir, southern_michigan_removal_file))
-somi <- somi %>% filter(!FID %in% fids$FID)
-
 
 ## Schoolcraft County and Isle Royale data provided separately but in same format as southern MI data
 nomi_extra <- read_csv(file.path(raw_data_dir, northern_michigan_supp_file), guess_max = 100000)
@@ -623,6 +618,8 @@ tmp <- as.matrix(mw[ , paste0('L3_tree', 1:4)])
 tmp[tmp %in% c('No tree', 'Water')] <- NA
 ntree <- apply(tmp, 1,function(x) sum(!is.na(x)))
 mw <- mw %>% mutate(point = ifelse(ntree > 2, '2nQ', 'Pair'))
+
+## TODO: check here for decimal values
 
 ## most decimal distances are chains except for x.5 values
 mw <- mw %>% mutate(dist1 = convert_chains_to_links(dist1),
