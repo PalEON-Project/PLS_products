@@ -4,6 +4,8 @@
 ## then the average biomass for occupied points (called potential biomass).
 ## Estimated biomass is the product of occupancy and potential.
 
+library(dplyr)
+
 load(file.path(interim_results_dir, 'cell_with_biomass_grid.Rda'))
 
 ## Allow for parallelization across taxa, including on Berkeley Statistics cluster with SLURM scheduler

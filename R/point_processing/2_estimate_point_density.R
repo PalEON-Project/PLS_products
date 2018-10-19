@@ -22,19 +22,11 @@ mw <- mw %>% mutate(num_trees = num_trees)
 
 ## remove 1-tree 0-distance (or unknown distance) points as unclear what to use for density
 ## there are clusters of such points in LP of MI, southern IL and southern IN, and around Green Bay
-## 3413 points
+## 3340 points
 mw <- mw %>% filter(!(num_trees == 1 & (is.na(dist1) | dist1 == 0)))
 
-## can't calculate density for points with missing distances: 1683 points
+## can't calculate density for points with missing distances: 1698 points
 mw <- mw %>% filter(!(num_trees == 2 & (is.na(dist1) | is.na(dist2))))
-
-## TODO: check on this now that have cleaned up decimal distances as generally being in chains
-## remove points where both distances are less than 1 -- approximately 240 points of which
-## ~150 are in four cells in an east-west row in northern lower Michigan;
-## presumably a decimal point transciption error
-mw <- mw %>% filter(!(!is.na(dist1) & dist1 > 0 & dist1 < 1 &
-                      !is.na(dist2) & dist2 > 0 & dist2 < 1))
-
 
 ## Remove one-tree WI points with indications of water;
 ## doing this here as it's simplest to make use of the num_trees field
@@ -44,21 +36,20 @@ waterTypes <- c('L', 'M', 'S', 'R', 'A')
 mw <- mw %>% filter(!(state == 'WI' & num_trees == 1 & vegtype %in% waterTypes)) %>%
     select(-vegtype)
 
-## Most of these az=360 values are in so MI and given that Charlie cleaned the azimuths there,
-## these should be fine.
+## Most of these az=360 values are in so MI and Charlie has confirmed that this is as expected.
 if(any(mw[ , paste0('az', 1:4)] == 360)) {
-    warning("Found some azimuths = 360")
     mw <- mw %>% mutate(az1 = ifelse(az1 == 360, 0, az1),
                         az2 = ifelse(az2 == 360, 0, az2),
                         az3 = ifelse(az3 == 360, 0, az3),
                         az4 = ifelse(az4 == 360, 0, az4))
 }
 
-## TODO: check if any remain given Charlie's cleaning
-
-## about 40 trees > 100 in diameter; omit these points as likely erroneous and would induce huge biomass
-## note allometries mostly wouldn't go above 80 cm = 32 inches
-mw <- mw %>% filter(!( (!is.na(diam1) & diam1 >= max_diam_inch) | (!is.na(diam2) & diam2 > max_diam_inch) ))
+## Charlie Cogbill has checked all MI trees > 50 inches.
+## We should have a limited number of trees > 50 remaining.
+## Note allometries mostly wouldn't go above 80 cm = 32 inches.
+tmp <- mw %>% filter((!is.na(diam1) & diam1 >= 50) | (!is.na(diam2) & diam2 >= 50) )
+assert_that(nrow(tmp) < 500,
+            msg = "more than 500 points with trees with diameter greater than 50 inches")
 
 ## keep 2-tree points regardless of distances and truncate density (at say 1000 for now)
 ## use 2-tree points with small or NA diameter trees for density calculation,

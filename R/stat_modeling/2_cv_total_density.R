@@ -45,7 +45,7 @@ cell_full <- cell_full %>% left_join(cell_occ, by = c("cell" = "cell")) %>%
     mutate(points_occ = ifelse(is.na(points_occ), 0, points_occ))
 
 set.seed(1)
-cells <- sample(unique(cell_full$cell), replace = FALSE)
+cells <- sample(cell_full$cell, replace = FALSE)
 folds <- rep(1:n_folds, length.out = length(cells))
     
 cell_full <- cell_full %>% inner_join(data.frame(cell = cells, fold = folds), by = c('cell'))
@@ -75,6 +75,7 @@ for(i in seq_len(n_folds)) {
 
 ## assess results
 y <- cell_full$avg*cell_full$points_occ/cell_full$points_total ## actual average density over all cells
+y[is.na(y)] <- 0   # cells with no points with trees (since $avg will be NA)
 
 critArith <- calc_cv_criterion(pred_occ, pred_pot_arith, cell_full$points_total,
                                y, cv_max_density)

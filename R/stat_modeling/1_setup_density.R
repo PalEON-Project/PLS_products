@@ -8,12 +8,12 @@ load(file.path(interim_results_dir, 'point_with_density.Rda'))
 if(!'cell' %in% names(mw)) 
     mw <- mw %>% add_paleon_grid()
 
+mw <- mw %>% filter(!is.na(density))
+
 taxa_conv <- read_csv(file.path(conversions_data_dir, level_3a_to_3s_conversion_file)) %>%
     rename(omit_western = "omit western")
 
 taxa <- unique(taxa_conv$level3s[taxa_conv$omit_western == "no"])
-
-## TODO: check this Chestnut conversion
 
 ## Too few of certain taxa to treat separately
 taxa_conv <- taxa_conv %>% mutate(level3s = ifelse(level3s %in% excluded_level3s, "Other hardwood", level3s)) %>% select(level3a, level3s)

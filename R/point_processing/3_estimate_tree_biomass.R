@@ -1,6 +1,6 @@
 ## Estimate tree-level biomass using diameter of trees and PEcAn allometries
 
-## Run-time: approximately 40 minutes when using allometry parameters shared by cell
+## Run-time: approximately 60 minutes when using allometry parameters shared by cell with 25 samples.
 
 library(dplyr)
 library(readr)
@@ -39,6 +39,10 @@ mw <- mw %>% left_join(taxa_conversion, by = c("L3_tree1" = "level3a")) %>%
 ## (from Unknown tree) values don't cause problems in allometry fitting
 mw <- mw %>% mutate(pecan1 = ifelse(is.na(pecan1), '318,802,541,731', pecan1),
                     pecan2 = ifelse(is.na(pecan2), '318,802,541,731', pecan2))
+
+
+assert_that(sum(is.na(mw$pecan1)) == 0, msg = "missing allometries")
+assert_that(sum(is.na(mw$pecan2)) == 0, msg = "missing allometries")
 
 ## Fit allometry models for all taxa
 unique_pecan_allom <- unique(c(mw$pecan1, mw$pecan2))
@@ -94,6 +98,7 @@ if(!shared_params_in_cell) {
                                   n = n_allom_samples,
                                   interval = "prediction", 
                                   single.tree = FALSE)
+            pred[pred > biomass_max_kg] <- biomass_max_kg
             if(!do_allom_uncertainty) {
                 mw[pnt, c('biomass1', 'biomass2')] <- colMeans(pred)  
             } else stop("allometric uncertainty sampling not yet fully coded")                
@@ -106,6 +111,7 @@ if(!shared_params_in_cell) {
                                   n = n_allom_samples,
                                   interval = "prediction", 
                                   single.tree = FALSE)
+            pred[pred > biomass_max_kg] <- biomass_max_kg
             if(!do_allom_uncertainty) {
                 mw[pnt, c('biomass1')] <- mean(pred)
             } else stop("allometric uncertainty sampling not yet fully coded")                
@@ -113,7 +119,7 @@ if(!shared_params_in_cell) {
         if(pnt %% 10000 == 0) cat("Finished row ", pnt, "\n")
     }
 } else {
-    mw <- mw %>% add_cells_to_dataset()
+    mw <- mw %>% add_paleon_grid()
     cells <- unique(mw$cell)
     for(cc in seq_along(cells)) {
         wh <- which(mw$cell == cells[cc])
@@ -128,6 +134,7 @@ if(!shared_params_in_cell) {
                                   n = n_allom_samples,
                                   interval = "prediction", 
                                   single.tree = FALSE)
+            pred[pred > biomass_max_kg] <- biomass_max_kg
             if(!do_allom_uncertainty) {
                 mw[two_tree_points, c('biomass1', 'biomass2')] <- colMeans(pred)  
             } else stop("allometric uncertainty sampling not yet fully coded")
@@ -141,6 +148,7 @@ if(!shared_params_in_cell) {
                                   n = n_allom_samples,
                                   interval = "prediction", 
                                   single.tree = FALSE)
+            pred[pred > biomass_max_kg] <- biomass_max_kg
             if(!do_allom_uncertainty) {
                 mw[one_tree_points, 'biomass1'] <- colMeans(pred)  ## for moment use posterior mean
             } else stop("allometric uncertainty sampling not yet fully coded")                
@@ -150,13 +158,13 @@ if(!shared_params_in_cell) {
 }
 cat("Note: currently using point estimate for individual tree biomass.\n")
 
-assert_that(min(biomass) > 0 & max(biomass) < 1e6, msg = "extreme biomass values")
-
-## TODO: check the 398/370 numbers below
+assert_that(min(mw$biomass1, na.rm = TRUE) >= 0 & min(mw$biomass2, na.rm = TRUE) >= 0 &
+            max(mw$biomass1, na.rm = TRUE) < 1e6 & max(mw$biomass2, na.rm = TRUE) < 1e6,
+            msg = "extreme biomass values")
 
 ## We considered setting biomass for 'Unknown tree' to NA, but for now we do estimate biomass
 ## by using generic hardwood allometry.
-## There are 398 Unknown tree in tree1 and 370 in tree2.
+## There are 388 Unknown tree in tree1 and 362 in tree2.
 if(FALSE) {
     ## This needs to be done because we set a default allometry for 'Unknown tree' above and want
     ## to undo the effect of that.

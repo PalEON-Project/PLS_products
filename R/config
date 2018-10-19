@@ -30,25 +30,28 @@ minnesota_zipfile="mn_pls_projected_v1.1.zip"
 minnesota_file="mn_pls_projected_v1.1.csv"
 wisconsin_zipfile="wi_pls_projected_v1.1.zip"
 wisconsin_file="wi_pls_projected_v1.1.csv"
+## note that zip for northern MI not on Wiki for v1.2
 northern_michigan_zipfile="northernmi_pls_projected_v1.1.zip"
-northern_michigan_file="northernmi_pls_projected_v1.1.csv"
-northern_michigan_supp_file="northernmi_pls_projected_supplement_v1.0.csv"
+northern_michigan_file="northernmi_pls_projected_v1.2.csv"
+northern_michigan_supp_file="northernmi_pls_projected_supplement_v1.1.csv"
 southern_michigan_file="southernmi_projected_v1.5.csv"
+michigan_up_lp_file="northernMI_UP_LP_FIDs.csv"
 indiana_file="ndinpls_v1.7-1.csv"
 illinois_file="ndilpls_v1.8-4.csv"
 minnesota_survey_file="mn_surveys.csv"
 
 ## taxon conversion files
-taxa_conversion_file="level0_to_level3a_v0.4-9.csv"
+taxa_conversion_file="level0_to_level3a_v0.5.csv"
 level_3a_to_3s_conversion_file="level3a_to_level3s_v0.4.csv"
 pls_to_pecan_conversion_file="level3a_to_pecan_v0.3.csv"
 indiana_conversion_domain="Indiana v1.7-1"
 illinois_conversion_domain="Illinois_v1.8-4"
-southern_michigan_conversion_domain="Southern MI v1.3"
+southern_michigan_conversion_domain="Southern MI v1.5"
 upper_midwest_conversion_domain="Upper Midwest"
 
-correction_factors_file="cogbill_density_corrections_full_midwest_v1.1.csv"
-
+correction_factors_file="cogbill_density_corrections_full_midwest_v1.2.csv"
+## file identifying townships that have specific correction factors
+michigan_special_township_file="NETwns_EMeridian_southernMI.csv"
 
 ## unit conversions
 cm_per_inch=2.54
@@ -60,7 +63,7 @@ links_per_chain=100
 
 ## sanity/estimation bounds
 diameter_cutoff_inches=8
-max_diam_inch=100
+biomass_max_kg=15000
 max_distance_surveyed=150  # links
 max_density=10000  # stems/ha (one tree per square meter)
 

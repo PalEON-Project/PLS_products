@@ -25,6 +25,13 @@ if(use_mpi) {
 taxa_to_fit <- taxa 
 print(taxa_to_fit)
 
+## set up CV folds
+set.seed(1)
+cells <- sample(unique(mw$cell), replace = FALSE)
+folds <- rep(1:n_folds, length.out = length(cells))
+cell_full <- data.frame(cell = cells, fold = folds) %>% arrange(cell)
+
+
 ## Fit statistical model to each taxon and fold.
 ## Nested foreach will run separate tasks for each combination of taxon and fold.
 output <- foreach(taxonIdx = seq_along(taxa_to_fit)) %:%
@@ -49,11 +56,8 @@ output <- foreach(taxonIdx = seq_along(taxa_to_fit)) %:%
             left_join(grid, by = c("cell" = "cell")) %>%
             mutate(points_occ = ifelse(is.na(points_occ), 0 , points_occ))
         
-        set.seed(1)
-        cells <- sample(unique(cell_full_taxon$cell), replace = FALSE)
-        folds <- rep(1:n_folds, length.out = length(cells))
-    
-        cell_full_taxon <- cell_full_taxon %>% inner_join(data.frame(cell = cells, fold = folds), by = c('cell'))
+        ## get fold information
+        cell_full_taxon <- cell_full %>% left_join(cell_full_taxon, by = c("cell" = "cell")) %>% arrange(cell)
 
         train <- cell_full_taxon %>% filter(fold != i)
         test <- cell_full_taxon %>% filter(fold == i)
@@ -104,6 +108,8 @@ for(taxonIdx in seq_along(taxa_to_fit)) {
         mutate(points_occ = ifelse(is.na(points_occ), 0 , points_occ))
         
     y <- cell_full_taxon$avg*cell_full_taxon$points_occ/cell_full_taxon$points_total  ## actual average density over all cells
+    y[is.na(y)] <- 0  # cells with no points with trees (since $avg will be NA)
+    y[is.na(cell_full_taxon$points_occ)] <- NA  # exclude cells with no valid points (but for density, unlike biomass, this shouldn't occur because NA density values are excluded in 1_setup_density.R)
 
     critArith[taxonIdx, , ] <- calc_cv_criterion(pred_occ[taxonIdx, , ], pred_pot_arith[taxonIdx, , ], cell_full_taxon$points_total,
                                                  y, cv_max_density)

@@ -8,6 +8,8 @@
 
 ## This is very computationally-intensive and best done on a cluster.
 
+library(dplyr)
+
 load(file.path(interim_results_dir, 'cell_with_biomass_grid.Rda'))
 
 if(use_mpi) {
@@ -26,6 +28,12 @@ if(use_mpi) {
 
 taxa_to_fit <- taxa 
 print(taxa_to_fit)
+
+## set up CV folds
+set.seed(1)
+cells <- sample(unique(mw$cell), replace = FALSE)
+folds <- rep(1:n_folds, length.out = length(cells))
+cell_full <- data.frame(cell = cells, fold = folds) %>% arrange(cell)
 
 ## Fit statistical model to each taxon and fold.
 ## Nested foreach will run separate tasks for each combination of taxon and fold.
@@ -52,19 +60,16 @@ output <- foreach(taxonIdx = seq_along(taxa_to_fit)) %:%
             left_join(grid, by = c("cell" = "cell")) %>%
             mutate(points_occ = ifelse(is.na(points_occ), 0 , points_occ))
     
-        set.seed(1)
-        cells <- sample(unique(cell_full_taxon$cell), replace = FALSE)
-        folds <- rep(1:n_folds, length.out = length(cells))
-        
-        cell_full_taxon <- cell_full_taxon %>% inner_join(data.frame(cell = cells, fold = folds), by = c('cell'))
+        ## get fold information
+        cell_full_taxon <- cell_full %>% left_join(cell_full_taxon, by = c("cell" = "cell")) %>% arrange(cell)
 
         train <- cell_full_taxon %>% filter(fold != i)
-        test <- cell_full_taxon %>% filter(fold == i)
+        test <- cell_full_taxon %>% filter(fold == i) %>% arrange(cell)
         
         po <- fit(train, newdata = test, k_occ = k_occ_cv, unc = FALSE, use_bam = TRUE)
         ppa <- fit(train, newdata = test, k_pot = k_pot_cv, type_pot = 'arith', unc = FALSE, use_bam = TRUE)
         ppl <- fit(train, newdata = test, k_pot = k_pot_cv, type_pot = 'log_arith', unc = FALSE, use_bam = TRUE)
-        print(i, taxonIdx)
+        cat("taxon: ", taxonIdx, " ; fold: ", i, "\n", sep = "")
         list(po$pred_occ, ppa$pred_pot, ppl$pred_pot)
     }
 
@@ -104,10 +109,14 @@ for(taxonIdx in seq_along(taxa_to_fit)) {
     ## should have total number of points, occupied number of points, and biomass stats (for occupied points)
     cell_full_taxon <- cell_full_taxon %>% left_join(cell_occ, by = c("cell" = "cell")) %>%
         left_join(grid, by = c("cell" = "cell")) %>%
-        mutate(points_occ = ifelse(is.na(points_occ), 0 , points_occ))
-        
-    y <- cell_full_taxon$avg*cell_full_taxon$points_occ/cell_full_taxon$points_total  ## actual average biomass over all cells
+        mutate(points_occ = ifelse(is.na(points_occ), 0 , points_occ)) %>% arrange(cell)
 
+    cell_full_taxon <- cell_full %>% left_join(cell_full_taxon, by = c("cell" = "cell")) %>% arrange(cell)
+
+    y <- cell_full_taxon$avg*cell_full_taxon$points_occ/cell_full_taxon$points_total  ## actual average biomass over all cells
+    y[is.na(y)] <- 0  # cells with no points with trees (since $avg will be NA)
+    y[is.na(cell_full_taxon$points_occ)] <- NA  # exclude cells with no valid points
+    
     critArith[taxonIdx, , ] <- calc_cv_criterion(pred_occ[taxonIdx, , ], pred_pot_arith[taxonIdx, , ],
                                                  cell_full_taxon$points_total, y, cv_max_biomass)
     critLogArith[taxonIdx, , ] <- calc_cv_criterion(pred_occ[taxonIdx, , ], pred_pot_larith[taxonIdx, , ],

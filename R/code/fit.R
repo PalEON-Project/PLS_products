@@ -114,15 +114,22 @@ fit <- function(data, newdata, k_occ = NULL, k_pot = NULL, unc = FALSE, points_t
                 draws_logocc <- -log(1 + exp(-draws_linpred)) # log scale to add to log pot result
                 if(bound_draws) {
                     draws_logocc_orig <- draws_logocc
-                    ## two problematic cases:
-                    ## draws_linpred can have high variance near boundary,
+                    ## Draws_linpred can have high variance near boundary,
                     ## where value of draws_linpred is very negative (so occ=0)
-                    ## individual draws then can have high occ in those areas
-                    ## draws_linpred can have high variance in small areas producing very positive linpred values corresponding to very small pred_occ values
-                    draws_logocc[pred_occ < 0.001 & pred_occ_se < 0.001] <- -Inf            
+                    ## individual draws then can have high occ in those areas.
+                    ## 
+                    ## Draws_linpred can have high variance in small areas producing very positive
+                    ## linpred values corresponding to very small pred_occ values.
+                    ## 
+                    ## Hacky fix that seems reasonable: draws bigger than 5x point estimate of occupancy
+                    ## replaced with point prediction. 
+                    log_predocc_plus5 <- log(5) + log(pred_occ)
+                    draws_logocc <- apply(draws_logocc, 2, function(x) {
+                        x[x > log_predocc_plus5] <- log(pred_occ[x > log_predocc_plus5])
+                        return(x)})
                     ## address numerical issue that seems to arise
-                    ## (e.g., central MI in total biomass)
-                    ## that produces some draws where Pr(occ)=0
+                    ## (e.g., central MI in total FIA biomass)
+                    ## that produces some draws where Pr(occ)=0 but point prediction is 1
                     draws_logocc[pred_occ > 0.999] <- 0
                 } else draws_logocc_orig <- NULL
             } else draws_logocc <- draws_logocc_orig <- 0
@@ -142,17 +149,11 @@ fit <- function(data, newdata, k_occ = NULL, k_pot = NULL, unc = FALSE, points_t
             pp.sd <- apply(draws, 1, sd)
             if(!save_draws)
                 draws <- NULL
-            if(FALSE) {  ## not clear we want to do this
-                ## zero out uncertainty outside of range boundary where weird things are happening
-                pp.sd[pp.sd/result > 2 & result < 1] <- 0
-                
-                cat("Note that the Bayesian uncertainty in areas well outside of the range of a taxon has unreasonably large uncertainty, likely due to numerical issues in estimating very small probabilities. Uncertainty in these locations has been set to zero artificially.\n")
-            }
             pred <- data.frame(mean = pred, sd = pp.sd)
         }
     } else {
         if(unc) warning("more than one 'k' value -- not computing uncertainty.")
-        draws_log_pot <- draws_logocc <- draws_logocc_orig <- NULL
+        draws_logpot <- draws_logocc <- draws_logocc_orig <- NULL
     }
     if(!return_model) {
         model_occ <- NULL

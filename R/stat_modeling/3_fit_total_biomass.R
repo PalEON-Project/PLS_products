@@ -4,6 +4,8 @@
 ## then the average biomass for occupied points (called potential biomass).
 ## Estimated biomass is the product of occupancy and potential.
 
+library(dplyr)
+
 load(file.path(interim_results_dir, 'cell_with_biomass_grid.Rda'))
 
 if(!exists('k_pot_total_biomass'))

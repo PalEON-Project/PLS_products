@@ -203,7 +203,7 @@ inil <- inil[final_columns]
 somi <- read_csv(file.path(raw_data_dir, southern_michigan_file), guess_max = 100000)
 somi <- somi %>% mutate(point_id = seq_len(nrow(somi)), vegtype = NA, state = "SoMI")
 
-## Schoolcraft County and Isle Royale data provided separately but in same format as southern MI data
+## Isle Royale data provided separately but in same format as southern MI data
 nomi_extra <- read_csv(file.path(raw_data_dir, northern_michigan_supp_file), guess_max = 100000)
 nomi_extra <- nomi_extra %>% mutate(point_id = seq_len(nrow(nomi_extra)), vegtype = NA, state = "NoMI_extra")
 
@@ -227,7 +227,7 @@ somi_lower <- somi %>%
     left_join(spec_codes, by = c('species3' = 'level1')) %>% rename(L1_tree3 = species3, L3_tree3 = level3a) %>%
     left_join(spec_codes, by = c('species4' = 'level1')) %>% rename(L1_tree4 = species4, L3_tree4 = level3a)
 
-## Schoolcraft county and Isle Royale points
+## Isle Royale points
 spec_codes <- read_csv(file.path(conversions_data_dir, taxa_conversion_file), guess_max = 1000) %>% 
     filter(domain == upper_midwest_conversion_domain) %>%
     select(level1, level3a) 
@@ -238,6 +238,13 @@ nomi_extra <- nomi_extra %>%
     left_join(spec_codes, by = c('species3' = 'level1')) %>% rename(L1_tree3 = species3, L3_tree3 = level3a) %>%
     left_join(spec_codes, by = c('species4' = 'level1')) %>% rename(L1_tree4 = species4, L3_tree4 = level3a)
 
+## Remove the entries with sec_corner == "Check  -  Double" on Isle Royale
+## as these have two points at a location. Keep the entries with 'Check'
+## as Charlie Cogbill checked these; they are valid data but location is a
+## bit off and puts them in the Lake.
+nomi_extra <- nomi_extra %>% filter(!sec_corner %in% c("Check - double"))
+
+
 ## of course 'somi' is a misnomer given presence of northern MI data
 somi <- rbind(somi_lower, nomi_extra)
 
@@ -247,24 +254,23 @@ if(sum(is.na(somi$L3_tree1)) != sum(is.na(somi$L1_tree1)) ||
    sum(is.na(somi$L3_tree4)) != sum(is.na(somi$L1_tree4)))
     cat("Apparently some L1 taxa are missing from the southern Michigan L1 to L3 conversion table.\n")
 
-#remove the entries with sec_corner = "Check"
-somi <- somi %>% filter(!sec_corner %in% 'Check')
-
-## make sure township names have the state in front of them:
-somi <- somi %>% mutate(twp = paste0('MI_', twnrng)) 
-
 ## determine subdomain for use with correction factors
 if(nrow(somi) != length(grep('[EW]', somi$range)))
     cat("Can't assign surveyyear for some southern Michigan sites.\n")
 ## shorthand (and unique) for 'SE - E of central Meridian S of tension'
 surveyyear <- rep('<=1824', nrow(somi))  
 ## shorthand (and unique) for 'SW - W of central Meridian S of tension'
-surveyyear[grep('W', somi$range)] <- '1825 -1835'  
-## Schoolcraft and Isle Royale in UP: >=1840+ is shorthand (and unique) for 'UP, >=1840'
-surveyyear[somi$point_y > 900000] <- '>=1840'
+surveyyear[grep('W', somi$range)] <- '1825 -1835'
+## these townships in northern part of southern Michigan have their own correction factors
+special <- read_csv(file.path(conversions_data_dir, michigan_special_township_file))
+surveyyear[somi$twnrng %in% special$TWNRNG] <- ">=1831"
+## Isle Royale in UP: 1847-1848 is shorthand (and unique) for 'Isle Royale, 1847-1848'
+surveyyear[somi$point_y > 900000] <- '1847-1848'
 
 somi$surveyyear <- surveyyear
 
+## make sure township names have the state in front of them:
+somi <- somi %>% mutate(twp = paste0('MI_', twnrng)) 
 
 ## The az_360 columns were calculated using the quadrant and the az_x (x = 1:4), values.
 ## e.g., if the quadrant number was 1, the AZ as read from the mylar maps was used as is.
@@ -333,13 +339,8 @@ wi <- wi %>% filter(rangdir != 0) %>%   ## Single point that seems to have no da
     mutate(rng = paste0(as.character(range), rangdir)) %>%
     select(-range, -rangdir)
 
-##  Michigan's point numbers are wrong in the dataset.  Simon is not sure where the 
-##  error arose from, but we need them to be able to assign section & quartersection
-##  points.
-## Per discussion in github issue #31, the data come from two sources, so just
-## need to use value from whichever is non-empty.
-nomi <- nomi %>% mutate(newrecnum = format(pmax(recnum,recnum_c), scientific = FALSE))  ## format prevents NAs when 9-11 digits are 0s
-nomi <- nomi %>% mutate(point = as.numeric(substr(newrecnum, 9, 11)))
+## per GH issue #60, 'point' field is now available as 'pnt'
+nomi <- nomi %>% rename(point = pnt)
 
 mn <- mn %>% rename(point = tic)
 
@@ -453,7 +454,11 @@ nomi <- rbind(nomi, miss)
 
 ## >=1840 is shorthand (and unique) for 'UP, >=1840'
 ## >=1836 is shorthand (and unique) for 'north Lower, >=1836'
-nomi <- nomi %>% mutate(surveyyear = ifelse(fid %in% 0:49644, '>=1840', '>=1836'))
+up_lp <- read_csv(file.path(raw_data_dir, michigan_up_lp_file)) %>% select(FID_, Location)
+nomi <- nomi %>% left_join(up_lp, by = c('fid' = 'FID_'))
+## Per Charlie Cogbill email, some UP points were surveyed before 1840 but this is really
+## just an ad hoc approach to get the right correction factors.
+nomi <- nomi %>% mutate(surveyyear = ifelse(Location == "UP", '>=1840', '>=1836'))
 
 wi <- wi %>% mutate(twp = paste0('WI_', township)) %>% select(-township)
 mn <- mn %>% mutate(twp = paste0('MN_', twp))
@@ -473,7 +478,6 @@ wi <- wi[columns_to_keep]
 umw <- rbind(mn, wi, nomi)
 
 umw <- umw %>% rename(x = x_alb, y = y_alb)
-
 
 missingCodes <- c(8888, 9999)
 azMissingCodes <- c('8888','9999','_')
@@ -527,6 +531,8 @@ sections <- c(2, 5, 8, 11, 14, 18, 21, 24, 27, 30,
 external <- c(109:120, 97:108, 86:96, 122:126)
 
 ## illegitimate point values, preventing determination of correction factors
+if(any(!umw$point %in% 1:126))
+    warning("point values outside 1:126 found")
 umw <- umw %>% filter(point %in% 1:126)
 
 umw <- umw %>% mutate(corner = ifelse(point %in% external, 'external', 'internal'),
@@ -557,7 +563,6 @@ mw <- mw %>% mutate(L3_tree1 = ifelse(L3_tree1 == "Missing", "Unknown tree", L3_
                     L3_tree2 = ifelse(L3_tree2 == "Missing", "Unknown tree", L3_tree2),
                     L3_tree3 = ifelse(L3_tree3 == "Missing", "Unknown tree", L3_tree3),
                     L3_tree4 = ifelse(L3_tree4 == "Missing", "Unknown tree", L3_tree4))
-
 
 ## set dists to NA when there is not a tree there (NA, water, no tree) so
 ## zeroes are not interpreted as 0 distance
@@ -619,13 +624,15 @@ tmp[tmp %in% c('No tree', 'Water')] <- NA
 ntree <- apply(tmp, 1,function(x) sum(!is.na(x)))
 mw <- mw %>% mutate(point = ifelse(ntree > 2, '2nQ', 'Pair'))
 
-## TODO: check here for decimal values
-
-## most decimal distances are chains except for x.5 values
-mw <- mw %>% mutate(dist1 = convert_chains_to_links(dist1),
-                    dist2 = convert_chains_to_links(dist2),
-                    dist3 = convert_chains_to_links(dist3),
-                    dist4 = convert_chains_to_links(dist4))
+## before additional cleaning of northern Michigan datamost there were decimal distances
+## that might be chains. After cleaning, only ~230 decimal distances and all but one are >= 1.5
+## and are in the form x.5, so assuming they are links.
+if(FALSE) {
+    mw <- mw %>% mutate(dist1 = convert_chains_to_links(dist1),
+                        dist2 = convert_chains_to_links(dist2),
+                        dist3 = convert_chains_to_links(dist3),
+                        dist4 = convert_chains_to_links(dist4))
+}
 
 save(mw, file = file.path(interim_results_dir, 'cleaned_point.Rda'))
 

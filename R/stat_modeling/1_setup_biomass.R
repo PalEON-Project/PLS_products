@@ -10,13 +10,19 @@ if(shared_params_in_cell) {
 if(!'cell' %in% names(mw)) 
     mw <- mw %>% add_paleon_grid()
 
+## Can't calculate point-level biomass at points without density estimate.
+mw <- mw %>% filter(!is.na(density_for_biomass))
+## Can't calculate point-level biomass in these cases:
+mw <- mw %>% filter(!(num_trees == 1 & is.na(biomass1)))
+mw <- mw %>% filter(!(num_trees == 2 & is.na(biomass1) & is.na(biomass2)))
+
+
 taxa_conv <- read_csv(file.path(conversions_data_dir, level_3a_to_3s_conversion_file)) %>%
     rename(omit_western = "omit western")
 
 taxa <- unique(taxa_conv$level3s[taxa_conv$omit_western == "no"])
 
-## TODO: check this Chestnut conversion
-## TODO: check that I want to determine taxa here
+## Note: in FIA work we do the taxa conversion at a different point; consider that here.
 
 ## Too few of certain taxa to treat separately
 taxa_conv <- taxa_conv %>% mutate(level3s = ifelse(level3s %in% excluded_level3s, "Other hardwood", level3s)) %>% select(level3a, level3s)
