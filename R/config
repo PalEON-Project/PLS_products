@@ -93,22 +93,21 @@ n_cores=0
 use_mpi=0
 
 ## maximum degrees of freedom for spatial statistical smoothing for biomass
-k_occ_total_biomass=500
+k_occ_total_biomass=2500 # 500
 k_pot_total_biomass=3500
 k_occ_taxon_biomass=2500  
-## using somewhat lower (i.e., 2000) helps in terms of taxa where fitting df requires lower value
-k_pot_taxon_biomass=2000
+## using somewhat lower (i.e., 2000) helps in terms of taxa where fitting df requires lower value - not sure what I meant by this when noted this summer 2018
+k_pot_taxon_biomass=3500
 ## fit on "arith" or "log_arith" scale based on running CV code
-fit_scale_biomass="arith"
+fit_scale_biomass="log_arith"
 
 ## maximum degrees of freedom for spatial statistical smoothing for density
-k_occ_total_density=500
+k_occ_total_density=2500 # 500
 k_pot_total_density=3500
 k_occ_taxon_density=2500  
-## using somewhat lower (i.e., 2000) helps in terms of taxa where fitting df requires lower value
-k_pot_taxon_density=2000
+k_pot_taxon_density=3500
 ## fit on "arith" or "log_arith" scale based on running CV code
-fit_scale_density="arith"
+fit_scale_density="log_arith"
 
 ## number of quasi-Bayesian samples to obtain from biomass fitting
 n_stat_samples=250

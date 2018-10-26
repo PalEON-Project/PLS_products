@@ -6,6 +6,8 @@
 ## then the average density for occupied points (called potential density).
 ## Estimated density is the product of occupancy and potential.
 
+library(dplyr)
+
 load(file.path(interim_results_dir, 'cell_with_density_grid.Rda'))
 
 if(use_mpi) {
@@ -86,6 +88,10 @@ for(taxonIdx in seq_along(taxa_to_fit))
 ## Assess results.
 
 critArith <- critLogArith <- array(0, c(length(taxa_to_fit), length(k_occ_cv), length(k_pot_cv)))
+dimnames(critArith)[[1]] <- dimnames(critLogArith)[[1]] <- taxa_to_fit
+dimnames(critArith)[[2]] <- dimnames(critLogArith)[[2]] <- k_occ_cv
+dimnames(critArith)[[3]] <- dimnames(critLogArith)[[3]] <- k_pot_cv
+
 for(taxonIdx in seq_along(taxa_to_fit)) {
     ## extract raw data (again) for the taxon
     taxon <- taxa_to_fit[taxonIdx]

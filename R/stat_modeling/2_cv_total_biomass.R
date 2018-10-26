@@ -6,11 +6,9 @@
 ## then the average biomass for occupied points (called potential biomass).
 ## Estimated biomass is the product of occupancy and potential.
 
-## note that in cases with one tree with 0 or NA diameter and therefore missing biomass
+## Note that in cases with one tree with 0 or NA diameter and therefore missing biomass
 ## we use the biomass for the other tree as the representative value
 ## this assumes that missingness of diameter is non-informative
-## 1384 2-tree points with tree2 diam missing
-## 1317 2-tree points with tree1 diam missing
 
 library(dplyr)
 
@@ -88,6 +86,10 @@ critArith <- calc_cv_criterion(pred_occ, pred_pot_arith, cell_full$points_total,
                                y, cv_max_biomass)
 critLogArith <- calc_cv_criterion(pred_occ, pred_pot_larith, cell_full$points_total,
                                   y, cv_max_biomass)
+
+
+dimnames(critArith)[[1]] <- dimnames(critLogArith)[[1]] <- k_occ_cv
+dimnames(critArith)[[2]] <- dimnames(critLogArith)[[2]] <- k_pot_cv
 
 save(critArith, critLogArith, pred_occ, pred_pot_arith, pred_pot_larith, file = file.path(interim_results_dir,
                                                         'cv_total_biomass.Rda'))

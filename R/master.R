@@ -61,7 +61,7 @@ excluded_level3s <- c('Chestnut')
 ## values used in cross-validation
 ## caution: k values of 3000,3500 for 'occ' can take a very long time to fit
 
-k_occ_cv <- c(100,250,500,1000,1500,2000,2500)  # 3000,3500
+k_occ_cv <- c(100,250,500,1000,1500,2000,2500,3000,3500)
 k_pot_cv = c(100,250,500,1000,1500,2000,2500,3000,3500)
 
 ## The following documents the workflow to do the analyses

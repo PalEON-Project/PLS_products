@@ -1,3 +1,47 @@
+10/25/18:
+unc for arith fit for density is much lower and smoother than for logArith fit. SEs are around 15-40 and seem like they are probably too low
+
+not exactly clear how to assess coverage given data have noise in them - perhaps simulate draws from pot model with error and sample number points_occ from relevant binomial distribution as well
+
+I suppose that for a cell with many high density values the error variance is higher than for a cell with low values because each point with high density could be somewhat different if the two trees were at slightly different distances because having close trees leads to less stable estimates. So probably makes sense to use log scale with inherent heteroscedasticity built in.
+
+For FIA which uses counts of trees in fixed area, this is not really the case, I don't think. So maybe ok to use arith there.
+
+10/24/18:
+
+total density CV:
+k_occ=3500 a bit better than 2500 but just using 2500 for computational simplicity
+log_arith is better
+
+taxon density CV:
+arith is better! well for most taxa; for oak logArith better
+k_pot of 2500 and 3500 about the same; k_occ of 2500 is best (didn't compute 3000 or 3500)
+
+i=i+1
+critArith[i,,]
+critLogArith[i,,]
+
+10/22/18:
+taxon biomass CV:
+logArith better than arith
+summing over all taxa, 2500/3500 is best, so don't know if even larger k would be better
+
+for most taxa, using 2500/2000 makes little difference, but big diff for oak/pine
+
+options:
+1) try even higher k in cv to see if k_occ 3000,3500 better and if k_pot 4000 better
+2) use 2500/3500 given that is best as far as known
+
+
+10/20/18:
+test of k_occ=2500, k_pot=3500 for total shows that edf is well below these values; not entirely clear why CV indicates that 3000/3500 is best.
+
+for critLogArith, CV indicates 3000/3500 and that is better than critArith
+if look at arith vs logarith with 2500/3500, various metrics of comparing CV fits all suggest logArith better; also logArith biased low by about 3.6 while Arith biased high by about 3.7
+
+did CV up to 3500 for pot/occ for total
+only up to 2500 for occ for taxon
+
 8/7/18:
 the bam weird fits for beech seem to disappear if use fREML (default) and not GCV.Cp
 

@@ -4,7 +4,7 @@
 ## then the average density for occupied points (called potential density).
 ## Estimated density is the product of occupancy and potential.
 
-stop('need to determine k values and fit_scale for density and include info in config file')
+library(dplyr)
 
 load(file.path(interim_results_dir, 'cell_with_density_grid.Rda'))
 
@@ -16,8 +16,6 @@ if(!exists('k_occ_total_density'))
 ## note that in cases with one tree with 0 or NA diameter and therefore missing density
 ## we use the density for the other tree as the representative value
 ## this assumes that missingness of diameter is non-informative
-## 1384 2-tree points with tree2 diam missing
-## 1317 2-tree points with tree1 diam missing
 
 ## total points per cell
 cell_full <- mw %>% filter(!is.na(density)) %>%

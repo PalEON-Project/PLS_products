@@ -4,7 +4,7 @@
 ## then the average density for occupied points (called potential density).
 ## Estimated density is the product of occupancy and potential.
 
-stop('need to determine k values and fit_scale for density and include info in config file')
+library(dplyr)
 
 load(file.path(interim_results_dir, 'cell_with_density_grid.Rda'))
 

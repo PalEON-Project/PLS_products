@@ -3,15 +3,18 @@
 
 library(ncdf4)
 
-load(file.path(interim_results_dir, 'fitted_total_density.Rda'))
-load(file.path(interim_results_dir, 'fitted_taxon_density.Rda'))
+load(file.path(interim_results_dir, paste0('fitted_total_density_', fit_scale_density, '.Rda')))
+load(file.path(interim_results_dir, paste0('fitted_taxon_density_', fit_scale_density, '.Rda')))
+load(file.path(interim_results_dir, 'cell_with_density_grid.Rda')) # for grid info
 
 ## center draws on point estimates so mean of draws equal point estimate
-density_total$draws <- density_total$draws - rowMeans(density_total$draws) +
-    as.numeric(density_total$pred$mean)
-for(k in seq_along(density_taxon))
-    density_taxon[[k]]$draws <- density_taxon[[k]]$draws - rowMeans(density_taxon[[k]]$draws) +
-    as.numeric(density_taxon[[k]]$pred$mean)
+if(FALSE) {  # this can cause negative biomasses...
+    density_total$draws <- density_total$draws - rowMeans(density_total$draws) +
+        as.numeric(density_total$pred$mean)
+    for(k in seq_along(density_taxon))
+        density_taxon[[k]]$draws <- density_taxon[[k]]$draws - rowMeans(density_taxon[[k]]$draws) +
+            as.numeric(density_taxon[[k]]$pred$mean)
+}
 
 taxa <- names(density_taxon)
 taxaNames <- gsub("/", ",", taxa)  ## netCDF interprets / as 'groups'
@@ -30,9 +33,9 @@ y_grid <- y_grid[westernDomainY]
 x_res <- length(x_grid)
 y_res <- length(y_grid)
 
-make_albers_netcdf(name = 'density', longname = 'density, stems (>= 8 inches DBH) per hectare', fn = output_netcdf_name, dir = output_dir, x = x_grid, y = y_grid, taxa = c('total', taxaNames), num_samples = n_stat_samples)
+make_albers_netcdf(name = 'density', longname = 'density, stems (>= 8 inches DBH) per hectare,', units = "stems/ha", fn = output_netcdf_name, dir = output_dir, x = x_grid, y = y_grid, taxa = c('Total', taxaNames), num_samples = n_stat_samples)
 
-make_albers_netcdf(name = 'density', longname = 'density, stems (>= 8 inches DBH) per hectare', fn = output_netcdf_name_point, dir = output_dir, x = x_grid, y = y_grid, taxa = c('total', taxaNames), num_samples = 0)
+make_albers_netcdf(name = 'density', longname = 'density, stems (>= 8 inches DBH) per hectare,', units = "stems/ha", fn = output_netcdf_name_point, dir = output_dir, x = x_grid, y = y_grid, taxa = c('Total', taxaNames), num_samples = 0)
 
 output_netcdf <- nc_open(file.path(output_dir, output_netcdf_name), write = TRUE)
 output_netcdf_point <- nc_open(file.path(output_dir, output_netcdf_name_point), write = TRUE)
@@ -55,8 +58,8 @@ for(i in seq_len(nrow(locs))) {
     if(i%%1000 == 0) print(i)
 }
 
-ncvar_put(output_netcdf, 'total', full, start = c(1, 1, 1), count = c(x_res, y_res, n_stat_samples))
-ncvar_put(output_netcdf_point, 'total', full_point, start = c(1, 1), count = c(x_res, y_res))
+ncvar_put(output_netcdf, 'Total', full, start = c(1, 1, 1), count = c(x_res, y_res, n_stat_samples))
+ncvar_put(output_netcdf_point, 'Total', full_point, start = c(1, 1), count = c(x_res, y_res))
 
 for(p in seq_along(taxa)) {
     locs <- density_taxon[[p]]$locs
