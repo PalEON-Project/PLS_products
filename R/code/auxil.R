@@ -235,6 +235,28 @@ calc_biomass_taxon <- function(num_trees, biomass1, biomass2, density, L3_tree1,
     return(biomass)
 }
 
+calc_basalarea_taxon <- function(num_trees, basalarea1, basalarea2, density, L3_tree1, L3_tree2, taxon) {
+    basalarea <- rep(0, length(num_trees))
+    
+    cond <- num_trees == 1 & L3_tree1 == taxon
+    basalarea[cond] <- basalarea1[cond] * density[cond] 
+    ## assign half basalarea to taxon if either tree is the taxon
+    cond <- num_trees == 2 & L3_tree1 == taxon 
+    basalarea[cond] <- basalarea1[cond] * density[cond]  / 2  ## 2 to account for taxon represents half the density
+    ## if two trees of same taxon, the addition should handle this
+    cond <- num_trees == 2 & L3_tree2 == taxon 
+    basalarea[cond] <- basalarea[cond] +
+        basalarea2[cond] * density[cond]  / 2
+
+    ## handle case of two trees same taxon but one basal area is missing; use single basal area as the per-tree estimate
+    cond <- num_trees == 2 & L3_tree1 == taxon & L3_tree2 == taxon & is.na(basalarea1) & !is.na(basalarea2)
+    basalarea[cond] <- basalarea2[cond] * density[cond]  
+    cond <- num_trees == 2 & L3_tree1 == taxon & L3_tree2 == taxon & is.na(basalarea2) & !is.na(basalarea1)
+    basalarea[cond] <- basalarea1[cond] * density[cond]  
+        
+    return(basalarea)
+}
+
 calc_density_taxon <- function(num_trees, density, L3_tree1, L3_tree2, taxon) {
     taxon_density <- rep(0, length(num_trees))
     

@@ -1,4 +1,4 @@
-## Full workflow for PLS products for PalEON midwest region: biomass, density (not complete here), basal area (eventually)
+## Full workflow for PLS products for PalEON midwest region: biomass, density, basal area (eventually)
 ## Chris Paciorek
 ## 2018-02-15
 

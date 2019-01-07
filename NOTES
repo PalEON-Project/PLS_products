@@ -1,3 +1,88 @@
+10/28/18:
+looking at total biomass, the empirical sd (actually MAD) of biomass resids for both arith and larith scale with the predicted values:
+
+> a = cut(pra, breaks = c(-Inf, 10, 20, 40, 60, 80, 100, 120, 150, 200, 250, Inf))
+> df = data.frame(res = resa, group = a)
+> df %>% group_by(group) %>% summarize(mad_res = mad(res))
+# A tibble: 11 x 2
+   group      mad_res
+   <fct>        <dbl>
+ 1 (-Inf,10]     1.55
+ 2 (10,20]       9.44
+ 3 (20,40]      16.0 
+ 4 (40,60]      23.0 
+ 5 (60,80]      29.1 
+ 6 (80,100]     30.9 
+ 7 (100,120]    35.2 
+ 8 (120,150]    44.6 
+ 9 (150,200]    65.7 
+10 (200,250]    81.7 
+11 (250, Inf]   85.0 
+> 
+> l = cut(prl, breaks = c(-Inf, 10, 20, 40, 60, 80, 100, 120, 150, 200, 250, Inf))
+> df = data.frame(res = resl, group = l)
+> df %>% group_by(group) %>% summarize(mad_res = mad(res))
+# A tibble: 11 x 2
+   group      mad_res
+   <fct>        <dbl>
+ 1 (-Inf,10]     1.57
+ 2 (10,20]      10.4 
+ 3 (20,40]      17.8 
+ 4 (40,60]      23.8 
+ 5 (60,80]      28.0 
+ 6 (80,100]     31.3 
+ 7 (100,120]    35.5 
+ 8 (120,150]    45.2 
+ 9 (150,200]    72.8 
+10 (200,250]    74.9 
+11 (250, Inf]   78.9 
+
+This is consistent with pattern of how sd(preds) in final product scale with pt estimates except that the final sds are smaller than the sd of resids. Not surprising as the final sds should be for the unknown function not the observed values.
+
+May want to run arith fit for biomass just to see what the sd vs point relationship looks like.
+
+With preds for density, for larith, there is linear increase (as with biomass) in sd vs point estimate. With arith, there is linear increase to start and then no relationship of sd to point estimate
+
+When I look at empirical variation in residuals, that does seem to flatten off somewhat, but the pattern does match the mn vs sd pattern of fitted larith model than arith model. The sd rises more quickly for arith at beginning before totally flattening off.
+
+> a = cut(pra, breaks = c(-Inf, 10, 20, 40, 60, 80, 100, 120, 150, 200, 250, 300, Inf))
+> df = data.frame(res = resa, group = a)
+> df %>% group_by(group) %>% summarize(mad_res = mad(res))
+# A tibble: 12 x 2
+   group      mad_res
+   <fct>        <dbl>
+ 1 (-Inf,10]     1.62
+ 2 (10,20]      11.3 
+ 3 (20,40]      19.0 
+ 4 (40,60]      24.1 
+ 5 (60,80]      37.6 
+ 6 (80,100]     40.0 
+ 7 (100,120]    55.8 
+ 8 (120,150]    52.4 
+ 9 (150,200]    59.4 
+10 (200,250]    63.0 
+11 (250,300]    78.5 
+12 (300, Inf]  107.  
+> l = cut(prl, breaks = c(-Inf, 10, 20, 40, 60, 80, 100, 120, 150, 200, 250, 300, Inf))
+> df = data.frame(res = resl, group = l)
+> df %>% group_by(group) %>% summarize(mad_res = mad(res))
+# A tibble: 12 x 2
+   group      mad_res
+   <fct>        <dbl>
+ 1 (-Inf,10]     1.48
+ 2 (10,20]      13.0 
+ 3 (20,40]      17.9 
+ 4 (40,60]      28.9 
+ 5 (60,80]      38.1 
+ 6 (80,100]     47.6 
+ 7 (100,120]    57.6 
+ 8 (120,150]    54.2 
+ 9 (150,200]    60.0 
+10 (200,250]    64.7 
+11 (250,300]    78.1 
+12 (300, Inf]  104.  
+
+
 10/25/18:
 unc for arith fit for density is much lower and smoother than for logArith fit. SEs are around 15-40 and seem like they are probably too low
 
