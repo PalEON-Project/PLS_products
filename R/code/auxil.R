@@ -20,7 +20,7 @@ add_paleon_grid <- function(data) {
 
 get_angle_inil <- function(bearings, degrees) {
     ##  This function converts the bearing and degree information
-    ##  into 360-degree azimuth values
+    ##  into 360-degree azimuth values.
 
     angle <- matrix(NA, nrow(degrees), ncol(degrees))
 
@@ -72,9 +72,7 @@ get_angle_inil <- function(bearings, degrees) {
 }
 
 get_angle_umw <- function(azimuth) {
-  #  This function is used in 'step.one.clean.bind_v1.1.R', it converts the
-  #  text azimuth strings to numeric, 360 degree values.
-  #  This is the vector that will store the values.
+  #  This function converts the azimuth strings to numeric, 360 degree values.
    angle <- matrix(as.numeric(NA), nrow(azimuth), ncol(azimuth))
   
   #  This is a special case, generally where the tree is plot center.
@@ -84,10 +82,6 @@ get_angle_umw <- function(azimuth) {
     azimuth <- gsub("XX", "  ", azimuth)
     azimuth <- gsub("--", "  ", azimuth)
     
-  
-  #  This is a short function that takes cares of NAs in boolean functions, it's
-  #  just a simple wrapper for the boolean function that sets the NA values in
-  #  the vector to FALSE.
   fx.na <- function(x) { x[ is.na( x ) ] <- FALSE; x }
   
   #  Given the text azimuths in the dataset, return the quadrant values.

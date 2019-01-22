@@ -1,3 +1,12 @@
+1/8/19:
+coverage of prediction intervals for log_arith for biomass 93.2% on training data. If divide weights by 70 (approximately the number of points in most fully covered grid cells) then point prediction exactly the same up to floating point accuracy but unc a bit different. coverage then is 92.9%. See check_coverage.R. This is coverage restricted to cells with at least 60 points.
+
+If use all points, coverage is 94.0% for original and 87.7% for divide weights by 70.
+
+POT model residual variance is about 9 when use original weights, so sigma for n=70 is ~sqrt(9/70)=.36. If divide by 70 so that a cell with 70 points has weight of one then residual sd is also about .36 and this corresponds to a cell with 70 points.
+
+For arith fit, coverage is .961, surprisingly so. But intervals are wider and can be negative. Also as seen before, interval widths don't vary with estimated biomass in arith fit.
+
 10/28/18:
 looking at total biomass, the empirical sd (actually MAD) of biomass resids for both arith and larith scale with the predicted values:
 

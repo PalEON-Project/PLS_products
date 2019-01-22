@@ -66,7 +66,7 @@ output <- foreach(taxonIdx = seq_along(taxa_to_fit)) %:%
         train <- cell_full_taxon %>% filter(fold != i)
         test <- cell_full_taxon %>% filter(fold == i) %>% arrange(cell)
         
-        po <- fit(train, newdata = test, k_occ = k_occ_cv, unc = FALSE, use_bam = TRUE)
+        po <- fit(train, newdata = test, k_occ = k_occ_cv, unc = FALSE, use_bam = TRUE, bound_draws_low = TRUE)
         ppa <- fit(train, newdata = test, k_pot = k_pot_cv, type_pot = 'arith', unc = FALSE, use_bam = TRUE)
         ppl <- fit(train, newdata = test, k_pot = k_pot_cv, type_pot = 'log_arith', unc = FALSE, use_bam = TRUE)
         cat("taxon: ", taxonIdx, " ; fold: ", i, "\n", sep = "")

@@ -47,7 +47,7 @@ basalarea_taxon <- foreach(taxonIdx = seq_along(taxa_to_fit)) %dopar% {
         mutate(points_occ = ifelse(is.na(points_occ), 0 , points_occ))
     
     ## fit stats model
-    try(fit(cell_full_taxon, newdata = pred_grid_west, k_occ = k_occ_taxon_biomass, k_pot = k_pot_taxon_biomass, unc = TRUE, return_model = FALSE, type_pot = fit_scale_biomass, num_draws = n_stat_samples, save_draws = TRUE, use_bam = TRUE))
+    try(fit(cell_full_taxon, newdata = pred_grid_west, k_occ = k_occ_taxon_biomass, k_pot = k_pot_taxon_biomass, unc = TRUE, return_model = FALSE, type_pot = fit_scale_biomass, num_draws = n_stat_samples, save_draws = TRUE, use_bam = TRUE, bound_draws_low = TRUE))
 }
 
 names(basalarea_taxon) <- taxa_to_fit

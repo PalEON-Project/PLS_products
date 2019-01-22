@@ -5,9 +5,9 @@ library(mgcv)
 ## CLEANUP: gamma doesn't respond to bam with fREML default
 
 fit <- function(data, newdata, k_occ = NULL, k_pot = NULL, unc = FALSE, points_total = 'points_total',
-                points_occ = 'points_occ', weight = points_occ, avg = 'avg', geom_avg = 'geom_avg',
+                points_occ = 'points_occ', weight = points_occ, max_weight = 1, avg = 'avg', geom_avg = 'geom_avg',
                 gamma = 1, units = 'm', use_bam = FALSE, type_pot = 'arith', return_model = FALSE,
-                save_draws = FALSE, num_draws = 250, bound_draws = TRUE) {
+                save_draws = FALSE, num_draws = 250, bound_draws_low = FALSE, bound_draws_high = TRUE) {
     ## fits occ and pot components for single k values, with uncertainty if desired OR
     ## fits one or both components for one or more k values, without uncertainty
     
@@ -68,7 +68,7 @@ fit <- function(data, newdata, k_occ = NULL, k_pot = NULL, unc = FALSE, points_t
         if(type_pot == 'arith') data$z <- data[[avg]]
         if(type_pot == 'log_arith') data$z <- log(data[[avg]])
         if(type_pot == 'geom') data$z <- data[[geom_avg]]
-        data$weight <- data[[weight]]
+        data$weight <- data[[weight]] / max_weight
         
         model_pot <- pred_pot <- list()
         for(k_idx in seq_along(k_pot)) {
@@ -107,12 +107,11 @@ fit <- function(data, newdata, k_occ = NULL, k_pot = NULL, unc = FALSE, points_t
             
             ## posterior draws of (log) occupancy
             if(!is.null(k_occ)) {
-                warning("check robustness fixes here in PLS, relative to code in FIA")
                 Xp <- predict(model_occ, newdata = newdata, type="lpmatrix")
                 draws_coef <- rmvn(num_draws , coef(model_occ), model_occ$Vp) 
                 draws_linpred <- Xp %*% t(draws_coef)
                 draws_logocc <- -log(1 + exp(-draws_linpred)) # log scale to add to log pot result
-                if(bound_draws) {
+                if(bound_draws_low || bound_draws_high) {
                     draws_logocc_orig <- draws_logocc
                     ## Draws_linpred can have high variance near boundary,
                     ## where value of draws_linpred is very negative (so occ=0)
@@ -122,15 +121,18 @@ fit <- function(data, newdata, k_occ = NULL, k_pot = NULL, unc = FALSE, points_t
                     ## linpred values corresponding to very small pred_occ values.
                     ## 
                     ## Hacky fix that seems reasonable: draws bigger than 5x point estimate of occupancy
-                    ## replaced with point prediction. 
-                    log_predocc_plus5 <- log(5) + log(pred_occ)
-                    draws_logocc <- apply(draws_logocc, 2, function(x) {
-                        x[x > log_predocc_plus5] <- log(pred_occ[x > log_predocc_plus5])
-                        return(x)})
+                    ## replaced with point prediction.
+                    if(bound_draws_low) {
+                        log_predocc_plus5 <- log(5) + log(pred_occ)
+                        draws_logocc <- apply(draws_logocc, 2, function(x) {
+                            x[x > log_predocc_plus5] <- log(pred_occ[x > log_predocc_plus5])
+                            return(x)})
+                    }
                     ## address numerical issue that seems to arise
                     ## (e.g., central MI in total FIA biomass)
                     ## that produces some draws where Pr(occ)=0 but point prediction is 1
-                    draws_logocc[pred_occ > 0.999] <- 0
+                    if(bound_draws_high) 
+                        draws_logocc[pred_occ > 0.999] <- 0
                 } else draws_logocc_orig <- NULL
             } else draws_logocc <- draws_logocc_orig <- 0
             ## best to construct CIs on log scale and exponentiate endpoints
