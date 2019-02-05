@@ -5,7 +5,7 @@ library(mgcv)
 ## CLEANUP: gamma doesn't respond to bam with fREML default
 
 fit <- function(data, newdata, k_occ = NULL, k_pot = NULL, unc = FALSE, points_total = 'points_total',
-                points_occ = 'points_occ', weight = points_occ, max_weight = 1, avg = 'avg', geom_avg = 'geom_avg',
+                points_occ = 'points_occ', weight = points_occ, weight_scale = 1, avg = 'avg', geom_avg = 'geom_avg',
                 gamma = 1, units = 'm', use_bam = FALSE, type_pot = 'arith', return_model = FALSE,
                 save_draws = FALSE, num_draws = 250, bound_draws_low = FALSE, bound_draws_high = TRUE) {
     ## fits occ and pot components for single k values, with uncertainty if desired OR
@@ -68,7 +68,7 @@ fit <- function(data, newdata, k_occ = NULL, k_pot = NULL, unc = FALSE, points_t
         if(type_pot == 'arith') data$z <- data[[avg]]
         if(type_pot == 'log_arith') data$z <- log(data[[avg]])
         if(type_pot == 'geom') data$z <- data[[geom_avg]]
-        data$weight <- data[[weight]] / max_weight
+        data$weight <- data[[weight]] / weight_scale
         
         model_pot <- pred_pot <- list()
         for(k_idx in seq_along(k_pot)) {
@@ -159,7 +159,7 @@ fit <- function(data, newdata, k_occ = NULL, k_pot = NULL, unc = FALSE, points_t
     }
     if(!return_model) {
         model_occ <- NULL
-        model_pot <- NULL
+        model_pot <- sapply(model_pot, '[[', 'sig2')
     }
     return(list(locs = data.frame(x = newdata$x*scaling, y = newdata$y*scaling),
                 pred = pred, pred_occ = pred_occ, pred_occ_se = pred_occ_se,

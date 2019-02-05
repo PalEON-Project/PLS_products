@@ -270,7 +270,7 @@ wgt_mse <- function(n, y, yhat) {
     sum(n * (y - yhat)^2, na.rm = TRUE) / sum(n > 0, na.rm = TRUE)
 }
 
-calc_cv_criterion <- function(pred_occ, pred_pot, n, y, mx, obj_fun = wgt_mse) {
+calc_point_criterion <- function(pred_occ, pred_pot, n, y, mx, obj_fun = wgt_mse) {
     crit <- matrix(0, ncol(pred_occ), ncol(pred_pot))
     y[y > mx] <- mx
     for(i in seq_len(nrow(crit))) {
@@ -280,6 +280,34 @@ calc_cv_criterion <- function(pred_occ, pred_pot, n, y, mx, obj_fun = wgt_mse) {
             crit[i, j] <- obj_fun(n, y, tmp)
         }}
     return(crit)
+}
+
+calc_cov_criterion <- function(pred_occ, pred_pot, sig2, data, min_points = 60, n_draw = 250, seed = 1, type_pot = 'arith', scale = TRUE, size = 0.90) {
+    set.seed(seed)
+    if(is.null(min_points)) min_points <- 0
+    wh <- which(data$points_occ >= min_points)
+    
+    cov <- length <- log_length <- matrix(0, ncol(pred_occ), ncol(pred_pot))
+    N <- nrow(data)
+
+    if(scale) sig2 <- sig2 / data$points_occ
+    for(i in seq_len(nrow(cov))) {
+        for(j in seq_len(ncol(cov))) {
+            tmp <- matrix(0, N, n_draw)
+            for(k in seq_len(n_draw)) {
+                yocc <- rbinom(N, cell_full$points_total, exp(biomass_total1$draws_logocc[ , i]))
+                ypot <- rnorm(N, biomass_total1$draws_logpot[ , i], sqrt(sig2))
+                if(type_pot == 'log_arith') ypot <- exp(ypot)
+                tmp[ , i] <- ypot*yocc/data$points_total
+            }
+            qq <- apply(tmp, 1, quantile, c((1-size)/2, 1-(1-size)/2), na.rm = TRUE)
+            qq <- qq[, wh]
+            cov[i,j] <- mean(data$y[wh] < qq[2, ] & data$y[wh] > qq[1, ])
+            length[i, j] <- median(qq[2, ] - qq[1, ])
+            log_length[i, j] <- median(log(qq[2, ]) - log(qq[1, ]))
+        }}
+    return(list(cov = cov, length = length, log_length = log_length))
+
 }
 
 convert_chains_to_links <- function(dists) {

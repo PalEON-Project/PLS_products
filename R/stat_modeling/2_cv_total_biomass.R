@@ -55,41 +55,74 @@ folds <- rep(1:n_folds, length.out = length(cells))
 
 cell_full <- cell_full %>% inner_join(data.frame(cell = cells, fold = folds), by = c('cell'))
 
-pred_occ <- matrix(0, nrow(cell_full), length(k_occ_cv))
+pred_occ <- sig2_arith1 <- sig2_arith70 <- sig2_larith1 <- sig2_larith70 <- matrix(0, nrow(cell_full), length(k_occ_cv))
 dimnames(pred_occ)[[2]] <- k_occ_cv
-pred_pot_arith <- pred_pot_larith <- matrix(0, nrow(cell_full), length(k_pot_cv))
-dimnames(pred_pot_arith)[[2]] <- dimnames(pred_pot_larith)[[2]] <- k_pot_cv
+pred_pot_arith1 <- pred_pot_larith1 <- pred_pot_arith70 <- pred_pot_larith70 <- matrix(0, nrow(cell_full), length(k_pot_cv))
+dimnames(pred_pot_arith1)[[2]] <- dimnames(pred_pot_larith1)[[2]] <-
+    dimnames(pred_pot_arith70)[[2]] <- dimnames(pred_pot_larith70)[[2]] <- k_pot_cv
 
 n_folds <- max(cell_full$fold)
 output <- foreach(i = seq_len(n_folds)) %dopar% {
     train <- cell_full %>% filter(fold != i)
     test <- cell_full %>% filter(fold == i)
     
-    po <- fit(train, newdata = test, k_occ = k_occ_cv, unc = FALSE, use_bam = TRUE)
-    ppa <- fit(train, newdata = test, k_pot = k_pot_cv, type_pot = 'arith', unc = FALSE, use_bam = TRUE)
-    ppl <- fit(train, newdata = test, k_pot = k_pot_cv, type_pot = 'log_arith', unc = FALSE, use_bam = TRUE)
+    po <- fit(train, newdata = test, k_occ = k_occ_cv, unc = TRUE, use_bam = TRUE)
+    ppa1 <- fit(train, newdata = test, k_pot = k_pot_cv, type_pot = 'arith', weight_scale = 1, unc = TRUE, use_bam = TRUE)
+    ppa70 <- fit(train, newdata = test, k_pot = k_pot_cv, type_pot = 'arith', weight_scale = 70, unc = TRUE, use_bam = TRUE)
+    ppl1 <- fit(train, newdata = test, k_pot = k_pot_cv, type_pot = 'log_arith', weight_scale = 1, unc = TRUE, use_bam = TRUE)
+    ppl70 <- fit(train, newdata = test, k_pot = k_pot_cv, type_pot = 'log_arith', weight_scale = 70, unc = TRUE, use_bam = TRUE)
     cat("n_fold: ", i, " ", date(), "\n")
-    list(po, ppa, ppl)
+    list(po = po, ppa1 = ppa1, ppa70 = ppa70, ppl1 = ppl1, ppl70 = ppl70)
 }
+
+
 for(i in seq_len(n_folds)) {
-    pred_occ[cell_full$fold == i, ] <- output[[i]][[1]]$pred_occ
-    pred_pot_arith[cell_full$fold == i, ] <- output[[i]][[2]]$pred_pot
-    pred_pot_larith[cell_full$fold == i, ] <- output[[i]][[3]]$pred_pot
+    pred_occ[cell_full$fold == i, ] <- output[[i]]$po$pred_occ
+    pred_pot_arith1[cell_full$fold == i, ] <- output[[i]]$ppa1$pred_pot
+    pred_pot_arith70[cell_full$fold == i, ] <- output[[i]]$ppa70$pred_pot
+    pred_pot_larith1[cell_full$fold == i, ] <- output[[i]]$ppl1$pred_pot
+    pred_pot_larith70[cell_full$fold == i, ] <- output[[i]]$ppl70$pred_pot
+    sig2_arith1[cell_full$fold == i, ] <- output[[i]]$ppa1$model_pot
+    sig2_arith70[cell_full$fold == i, ] <- output[[i]]$ppa70$model_pot
+    sig2_larith1[cell_full$fold == i, ] <- output[[i]]$ppl1$model_pot
+    sig2_larith70[cell_full$fold == i, ] <- output[[i]]$ppl70$model_pot
 }
+
+
 
 ## Assess results
 
 y <- cell_full$avg*cell_full$points_occ/cell_full$points_total ## actual average biomass over all cells
 y[is.na(y)] <- 0   # cells with no points with trees (since $avg will be NA)
 
-critArith <- calc_cv_criterion(pred_occ, pred_pot_arith, cell_full$points_total,
+crit_arith1 <- calc_point_criterion(pred_occ, pred_pot_arith1, cell_full$points_total,
                                y, cv_max_biomass)
-critLogArith <- calc_cv_criterion(pred_occ, pred_pot_larith, cell_full$points_total,
+crit_larith1 <- calc_point_criterion(pred_occ, pred_pot_larith1, cell_full$points_total,
+                                  y, cv_max_biomass)
+crit_arith70 <- calc_point_criterion(pred_occ, pred_pot_arith70, cell_full$points_total,
+                               y, cv_max_biomass)
+crit_larith70 <- calc_point_criterion(pred_occ, pred_pot_larith70, cell_full$points_total,
                                   y, cv_max_biomass)
 
+cell_full$y <- y
+crit_arith1 <- c(list(point = crit_arith1),
+                 calc_cov_criterion(pred_occ, pred_pot_arith1, sig2 = sig2_arith1,
+                                    cell_full, type_pot = 'arith', scale = TRUE))
+crit_larith1 <- c(list(point = crit_larith1),
+                  calc_cov_criterion(pred_occ, pred_pot_larith1, sig2 = sig2_larith1,
+                                     cell_full, type_pot = 'log_arith', scale = TRUE))
+crit_arith70 <- c(list(point = crit_arith70),
+                  calc_cov_criterion(pred_occ, pred_pot_arith70, sig2 = sig2_arith70,
+                                     cell_full, type_pot = 'arith', scale = FALSE))
+crit_larith70 <- c(list(point = crit_larith70),
+                   calc_cov_criterion(pred_occ, pred_pot_larith70, sig2 = sig2_larith70,
+                                      cell_full, type_pot = 'log_arith', scale = FALSE))
 
-dimnames(critArith)[[1]] <- dimnames(critLogArith)[[1]] <- k_occ_cv
-dimnames(critArith)[[2]] <- dimnames(critLogArith)[[2]] <- k_pot_cv
+dimnames(crit_arith1)[[1]] <- dimnames(crit_larith1)[[1]] <-
+    dimnames(crit_arith70)[[1]] <- dimnames(crit_larith70)[[1]] <- k_occ_cv
+dimnames(crit_arith1)[[2]] <- dimnames(crit_larith1)[[2]] <-
+    dimnames(crit_arith70)[[2]] <- dimnames(crit_larith70)[[2]] <- k_pot_cv
 
-save(critArith, critLogArith, pred_occ, pred_pot_arith, pred_pot_larith, file = file.path(interim_results_dir,
+save(crit_arith1, crit_larith1, crit_arith70, crit_larith70,
+     pred_occ, pred_pot_arith1, pred_pot_larith1, pred_pot_arith70, pred_pot_larith70, file = file.path(interim_results_dir,
                                                         'cv_total_biomass.Rda'))

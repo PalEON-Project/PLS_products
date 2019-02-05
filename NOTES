@@ -1,4 +1,6 @@
 1/8/19:
+[Note on 2/5/19: looks like intervals are 90% intervals so coverage >90% actually not great.]
+
 coverage of prediction intervals for log_arith for biomass 93.2% on training data. If divide weights by 70 (approximately the number of points in most fully covered grid cells) then point prediction exactly the same up to floating point accuracy but unc a bit different. coverage then is 92.9%. See check_coverage.R. This is coverage restricted to cells with at least 60 points.
 
 If use all points, coverage is 94.0% for original and 87.7% for divide weights by 70.

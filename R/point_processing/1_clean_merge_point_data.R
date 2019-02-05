@@ -559,6 +559,9 @@ mw <- mw %>% filter(!(mw$L3_tree1 == "Missing" & !is.na(mw$L3_tree1) &
 
 ## Treat remaining missing as scattered dead trees but do not set to NA because have
 ## dist/diam in general and don't want to induce 1-tree points
+## Note that this should include various trees with taxon "D...".
+## Will also include "XX" (some of which have dist/diam) and "XC" (none of which have
+## dist/diam). Also, Missing is assigned to "XA" and "XB" but there are none of these.
 mw <- mw %>% mutate(L3_tree1 = ifelse(L3_tree1 == "Missing", "Unknown tree", L3_tree1),
                     L3_tree2 = ifelse(L3_tree2 == "Missing", "Unknown tree", L3_tree2),
                     L3_tree3 = ifelse(L3_tree3 == "Missing", "Unknown tree", L3_tree3),
