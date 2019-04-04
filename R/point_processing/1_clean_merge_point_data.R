@@ -26,6 +26,17 @@ il <- read_csv(file.path(raw_data_dir, illinois_file), guess_max = 100000)
 ind <- ind %>% mutate(point_id = seq_len(nrow(ind)), vegtype = NA)
 il <- il %>% mutate(point_id = seq_len(nrow(il)), vegtype = NA)
 
+## Remove the following corners from IN because they are 13 sets of two corners with identical tree information. 
+## Jody has checked the survey notes for each set of corners and the tree information is identical. 
+## We expect that the surveyors or the original transcribers in the General Land Office made errors in the transcription. 
+## Since we do not know which corners the tree information comes from we are removing data from both corners
+
+IN_duplicates <- c("662751","662755","R_1LJGyvH7k2ihanj","R_1HUnqzw2giTgXFr","600423","600396","82442","82457","713965","713968",
+                   "704640","704623","705088","705091","81949","81951","605089","605085","R_cZ5Z28lG2ZhD7Ex","R_3Db6wD9TJdiFlCB",
+                   "661407","661405","659856","659848","608889","603781")
+
+ind <- ind %>% filter(!entry_id %in% IN_duplicates)
+
 ## Remove the following corners from IL because they are on the IL-WI border and these IL corners are very close to adjacent WI corners.  
 ## These IL corners are less than 165 m away from the WI corners and both sets of corners have similar taxa in that most are Oaks at Level 3a
 
