@@ -37,6 +37,13 @@ IN_duplicates <- c("662751","662755","R_1LJGyvH7k2ihanj","R_1HUnqzw2giTgXFr","60
 
 ind <- ind %>% filter(!entry_id %in% IN_duplicates)
 
+## Remove the following corners from IL because they are 2 sets of two corners with identical tree information. 
+## Remove these 4 corners for the same reason as the IN duplicates above
+
+IL_duplicates <- c("648480","648496","884","820")
+
+il <- il %>% filter(!entry_id %in% IL_duplicates)
+
 ## Remove the following corners from IL because they are on the IL-WI border and these IL corners are very close to adjacent WI corners.  
 ## These IL corners are less than 165 m away from the WI corners and both sets of corners have similar taxa in that most are Oaks at Level 3a
 
