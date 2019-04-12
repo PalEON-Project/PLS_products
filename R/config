@@ -3,7 +3,7 @@
 ## this is sourced by R, but in a format that could
 ## be sourced in the shell if desired (use of '=' and without spaces)
 
-product_version=0.999
+product_version=1.0rc1
 
 use_original_R_package_versions=1
 R_version="3.5.1"  # v. 0.999 done with R 3.4.3
