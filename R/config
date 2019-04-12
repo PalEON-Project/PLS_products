@@ -6,6 +6,8 @@
 product_version=0.999
 
 use_original_R_package_versions=1
+R_version="3.5.1"  # v. 0.999 done with R 3.4.3
+checkpoint_date="2019-04-13"  # v. 0.999 done with checkpoint date of 2018-09-20)
 reinstall_pecan=0
 
 ## directory locations: these default to ../data/{points,conversions,allom}, code, and ../output in master.R
@@ -16,9 +18,12 @@ code_dir=""
 output_dir=""
 interim_results_dir=""
 
-## PEcAn versions as of 2018-09-19
-pecan_base_logger_commit="ad3b0cb"
-pecan_modules_allometry_commit="ad3b0cb"
+## PEcAn versions (as of 2019-04-13)
+pecan_base_logger_commit="f2533d6"
+pecan_modules_allometry_commit="459ce0d"
+## PEcAn versions (as of 2018-09-19)
+## pecan_base_logger_commit="ad3b0cb"
+## pecan_modules_allometry_commit="ad3b0cb"
 ## PEcAn package versions (as of 2018-02-10)
 ## pecan_base_logger_commit="3d6cbba"
 ## pecan_modules_allometry_commit="7064209"
@@ -69,7 +74,7 @@ links_per_chain=100
 ## sanity/estimation bounds
 diameter_cutoff_inches=8
 biomass_max_kg=15000
-max_distance_surveyed=150  # links
+max_distance_surveyed=500  # links
 max_density=10000  # stems/ha (one tree per square meter)
 
 ## allometric scaling and uncertainty parameters

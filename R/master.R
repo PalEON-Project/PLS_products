@@ -15,9 +15,7 @@ if(use_original_R_package_versions) {
     ## work-around is to avoid wget as download method
     if(options('download.file.method') == 'wget')
         options('download.file.method' = NULL)
-    ## Note that analyses done in 2018 done in R 3.4.3
-    R_version <- "3.4.3"
-    checkpoint::checkpoint("2018-09-20", R.version = R_version)
+    checkpoint::checkpoint(checkpoint_date, R.version = R_version)
     if(reinstall_pecan) {
         install_github("PecanProject/pecan",subdir="base/logger", ref = pecan_base_logger_commit)
         install_github("PecanProject/pecan",subdir="modules/allometry", ref = pecan_modules_allometry_commit)
