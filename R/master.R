@@ -2,13 +2,10 @@
 ## Chris Paciorek
 ## 2018-02-15
 
-library(assertthat)
-library(devtools)
-
 ## get configuration variables
 source('config')
 
-## setup R packages (with version control) 
+## set up R packages (with version control)
 
 if(use_original_R_package_versions) {  
     ## bug in checkpoint: errors out with 'arguments imply differing number of rows':
@@ -16,11 +13,20 @@ if(use_original_R_package_versions) {
     if(options('download.file.method') == 'wget')
         options('download.file.method' = NULL)
     checkpoint::checkpoint(checkpoint_date, R.version = R_version)
-    if(reinstall_pecan) {
-        install_github("PecanProject/pecan",subdir="base/logger", ref = pecan_base_logger_commit)
-        install_github("PecanProject/pecan",subdir="modules/allometry", ref = pecan_modules_allometry_commit)
-    }
+    ## devtools won't reinstall if not needed
+    devtools::install_github("PecanProject/pecan",subdir="base/logger", ref = pecan_base_logger_commit)
+    devtools::install_github("PecanProject/pecan",subdir="modules/allometry", ref = pecan_modules_allometry_commit)
 }
+
+## These packages are needed by PEcAn.allometry so fake-loading here to force checkpoint to install them (checkpoint scans but doesn't run code...).
+
+if(FALSE) {
+    library(MCMCpack)
+    library(mvtnorm)
+    library(coda)
+    library(XML)
+}
+
 
 ## geographic subsetting
 
