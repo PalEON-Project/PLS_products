@@ -32,6 +32,7 @@ mw <- mw %>% filter(!(num_trees == 2 & (is.na(dist1) | is.na(dist2))))
 ## doing this here as it's simplest to make use of the num_trees field
 ## assuming same vegtype codes as in MN, we should exclude L,M,R,S
 ## however there are codes that are the numbers 2,3,4,5,7,8; not sure what these mean
+warning("count and report how many excluded")
 waterTypes <- c('L', 'M', 'S', 'R', 'A')
 mw <- mw %>% filter(!(state == 'WI' & num_trees == 1 & vegtype %in% waterTypes)) %>%
     select(-vegtype)

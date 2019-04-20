@@ -1,7 +1,6 @@
-## Clean all the data for Southern MI, Upper Midwest, and Indiana + Illinois separately,
+## Clean all the data for southern MI, Upper Midwest (Minnesota, Wisconsin, northern Michigan),
+## and {Indiana + Illinois + Detroit} separately,
 ## then combine and ensure that trees are ordered by distance.
-
-## TODO: add assertions at various places
 
 ## Run time for this file: approximately 1 minute
 
@@ -21,7 +20,14 @@ final_columns <- c("x","y","twp","surveyyear",
 
 ## -------------------------DATA CLEANING: IN + IL + Detroit area ----------------------------------------------
 
-## Detroit area was re-entered by ND so in same format as IL/IN
+## Detroit area was re-entered by Notre Dame so in same format as IL/IN
+
+if(!file.exists(file.path(raw_data_dir, indiana_file))) 
+    unzip(file.path(raw_data_dir, indiana_zipfile), exdir = raw_data_dir)
+if(!file.exists(file.path(raw_data_dir, illinois_file))) 
+    unzip(file.path(raw_data_dir, illinois_zipfile), exdir = raw_data_dir)
+if(!file.exists(file.path(raw_data_dir, detroit_file))) 
+    unzip(file.path(raw_data_dir, detroit_zipfile), exdir = raw_data_dir)
 
 ind <- read_csv(file.path(raw_data_dir, indiana_file), guess_max = 100000)
 il <- read_csv(file.path(raw_data_dir, illinois_file), guess_max = 100000)
@@ -32,6 +38,12 @@ il <- il %>% mutate(point_id = seq_len(nrow(il)), vegtype = NA)
 ## 'state' needs to be 'Detroit' so don't have point_id values that overlap with point_id
 ## values for other parts of Michigan
 det <- det %>% mutate(point_id = seq_len(nrow(det)), vegtype = NA, state = "Detroit")
+
+## If all NAs, read in as logical and this causes problems with joining to spec_codes later.
+if(class(det$L1_tree3) == "logical")
+    det <- det %>% mutate(L1_tree3 = as.character(L1_tree3))
+if(class(det$L1_tree4) == "logical")
+    det <- det %>% mutate(L1_tree4 = as.character(L1_tree4))
 
 ## Remove the following corners from IN because they are 13 sets of two corners with identical tree information. 
 ## Jody has checked the survey notes for each set of corners and the tree information is identical. 
@@ -58,22 +70,23 @@ IL_WI_overlap_points <- c("642067","642022","642315","642443","641958","642391",
 
 il <- il %>% filter(!entry_id %in% IL_WI_overlap_points)
 
-assert_that(!sum(is.na(ind$L1_tree1)) && !sum(is.na(il$L1_tree1) && !sum(is.na(det$L1_tree1)),
+assert_that(!sum(is.na(ind$L1_tree1)) && !sum(is.na(il$L1_tree1)) && !sum(is.na(det$L1_tree1)),
             msg = "Missing values in taxon for first tree in IN or IL or Detroit.")
 
 assert_that(!sum(is.na(ind$x)) && !sum(is.na(ind$y)) &&
             !sum(is.na(il$x)) && !sum(is.na(il$y)) &&
-            !sum(is.na(det$x)) && !sum(is.na(det$y))),
+            !sum(is.na(det$x)) && !sum(is.na(det$y)),
     msg = "Missing locations for points in IN or IL or Detroit.")
 
-assert_that(!sum(ind$L1_tree2 == "No data", na.rm = TRUE) &&
-            !sum(il$L1_tree2 == "No data", na.rm = TRUE) &&
-            !sum(det$L1_tree2 == "No data", na.rm = TRUE),
+nodata_flags <- c("No data", "no data")
+wet_flags <- c('water','wet','Water','Wet')
+
+
+assert_that(!sum(ind$L1_tree2 %in% nodata_flags, na.rm = TRUE) &&
+            !sum(il$L1_tree2 %in% nodata_flags, na.rm = TRUE) &&
+            !sum(det$L1_tree2 %in% nodata_flags, na.rm = TRUE),
             msg = "'No data' found for second tree in IN or IL or Detroit; this case not handled by the code.")
 
-warning("waiting on Jody to check on GH issue #68")
-
-wet_flags <- c('water','wet','Water','Wet')
 
 cat("Found ", sum(ind$L1_tree1 %in% wet_flags), " wet corners in Indiana.\n",
     sep = '')
@@ -81,17 +94,25 @@ cat("Found ", sum(il$L1_tree1 %in% wet_flags), " wet corners in Illinois.\n",
     sep = '')
 cat("Found ", sum(det$L1_tree1 %in% wet_flags), " wet corners in Detroit.\n",
     sep = '')
+cat("Found ", sum(ind$L1_tree1 %in% nodata_flags), " 'no data' corners in Indiana.\n",
+    sep = '')
+cat("Found ", sum(il$L1_tree1 %in% nodata_flags), " 'no data' corners in Illinois.\n",
+    sep = '')
+cat("Found ", sum(det$L1_tree1 %in% nodata_flags), " 'no data' corners in Detroit.\n",
+    sep = '')
 
 ## Our density/biomass calculations are on a per-land-area basis, excluding water area
-ind <- ind %>% filter(!(L1_tree1 %in% c('No data', 'no data', wet_flags)))
-il <- il %>% filter(!(L1_tree1 %in% c('No data', 'no data', wet_flags)))
-det <- det %>% filter(!(L1_tree1 %in% c('No data', 'no data', wet_flags)))
+ind <- ind %>% filter(!(L1_tree1 %in% c(nodata_flags, wet_flags)))
+il <- il %>% filter(!(L1_tree1 %in% c(nodata_flags, wet_flags)))
+det <- det %>% filter(!(L1_tree1 %in% c(nodata_flags, wet_flags)))
 
 cat("Using ", nrow(ind), " corners in Indiana.\n", sep = '')
 cat("Using ", nrow(il), " corners in Illinois.\n", sep = '')
 cat("Using ", nrow(det), " corners in Detroit.\n", sep = '')
 
 ## Converting L1 (survey abbreviation) to L3 (Paleon nomenclature) taxa; currently this overwrites existing L3 in Indiana and Detroit (for Illinois it has already been removed) but ensuring use of current taxon conversion file; in future L3 will not be in the input files and will solely be created here.
+
+warning("waiting on Jody for issue #71 to have 'No tree' in conversion file so NAs not introduced")
 
 ## Indiana conversion
 spec_codes <- read_csv(file.path(conversions_data_dir, taxa_conversion_file), guess_max = 2000) %>% 
@@ -115,7 +136,7 @@ spec_codes <- read_csv(file.path(conversions_data_dir, taxa_conversion_file), gu
     filter(domain == illinois_conversion_domain) %>%
     select(level1, level3a) 
 
-il <- il %>% 
+il <- il %>% select(-L3_tree1, -L3_tree2, -L3_tree3, -L3_tree4) %>% 
     left_join(spec_codes, by = c('L1_tree1' = 'level1')) %>% rename(L3_tree1 = level3a) %>%
     left_join(spec_codes, by = c('L1_tree2' = 'level1')) %>% rename(L3_tree2 = level3a) %>%
     left_join(spec_codes, by = c('L1_tree3' = 'level1')) %>% rename(L3_tree3 = level3a) %>%
@@ -131,6 +152,7 @@ assert_that(sum(is.na(il$L3_tree1)) == sum(is.na(il$L1_tree1)) &&
 spec_codes <- read_csv(file.path(conversions_data_dir, taxa_conversion_file), guess_max = 2000) %>% 
     filter(domain == detroit_conversion_domain) %>%
     select(level1, level3a)
+
 
 det <- det %>% select(-L3_tree1, -L3_tree2, -L3_tree3, -L3_tree4) %>%  ## so we can replace these columns
     left_join(spec_codes, by = c('L1_tree1' = 'level1')) %>% rename(L3_tree1 = level3a) %>%
@@ -177,7 +199,20 @@ det$bearing2 <- paste(det$bearing2, det$bearingdir2, sep = '_')
 det$bearing3 <- paste(det$bearing3, det$bearingdir3, sep = '_')
 det$bearing4 <- paste(det$bearing4, det$bearingdir4, sep = '_')
 
-columns_to_keep <- c("x","y","twp","year",
+## create a survey year variable that corresponds to survey year correction factors
+## for IL/IN, '1825+' vs. '< 1825' and state uniquely defines correction factor - don't need region info 
+## inil <- inil %>% mutate(surveyyear = ifelse(year >= 1825, '>=1825', '<=1824'))
+
+ind <- ind %>% mutate(surveyyear = ifelse(year >= 1825, '>=1825', '<=1824'))
+det <- det %>% mutate(surveyyear = ifelse(year >= 1825, '>=1825', '<=1824'))
+assert_that(all(det$surveyyear == "<=1824"), msg = "Found Detroit data with year >1824.")
+
+## As of April 2019, we now split IL into three sets
+il <- il %>% mutate(surveyyear = ifelse(year <= 1810, '<=1810',
+                                            ifelse(year >= 1838, ">=1838", ">1810  <1838")))
+
+
+columns_to_keep <- c("x","y","twp","surveyyear",
                      "L1_tree1", "L1_tree2", "L1_tree3", "L1_tree4",
                      "L3_tree1", "L3_tree2", "L3_tree3", "L3_tree4",
                      "bearing1", "bearing2", "bearing3", "bearing4",
@@ -190,12 +225,9 @@ ind <- ind[columns_to_keep]
 il <- il[columns_to_keep]
 det <- det[columns_to_keep]
 
-warning("can I bind detroit to in/il?")
+inildet <- rbind(ind, il, det)
 
-inil <- rbind(ind, il)
-
-inil <- inil %>% rename(diam1 = diameter1, diam2 = diameter2, diam3 = diameter3, diam4 = diameter4)
-det <- det %>% rename(diam1 = diameter1, diam2 = diameter2, diam3 = diameter3, diam4 = diameter4)
+inildet <- inildet %>% rename(diam1 = diameter1, diam2 = diameter2, diam3 = diameter3, diam4 = diameter4)
 
 ## Change 88888/99999 to NA but not in in bearing columns because an NA plus a degrees of 0 means a cardinal direction while 88888/99999 is unknown
 ## 88888/99999 in taxa have been dealt with in L1->L3 conversion
@@ -203,65 +235,37 @@ cols <- c("degrees1", "degrees2", "degrees3","degrees4",
           "dist1", "dist2", "dist3", "dist4",
           "diam1", "diam2", "diam3", "diam4")
 
-inil[ , cols] <- sapply(inil[ , cols], convert_to_NA, missingCodes = c(88888,99999))
-det[ , cols] <- sapply(det[ , cols], convert_to_NA, missingCodes = c(88888,99999))
+inildet[ , cols] <- sapply(inildet[ , cols], convert_to_NA, missingCodes = c(88888,99999))
 
-
-notree <- inil %>% filter(L1_tree1 == 'No tree')
+notree <- inildet %>% filter(L1_tree1 %in% c('No tree', 'no tree'))
 assert_that(sum(is.na(notree$dist1) & is.na(notree$dist2) & is.na(notree$dist3) & is.na(notree$dist4) &
        is.na(notree$diam1) & is.na(notree$diam2) & is.na(notree$diam3) & is.na(notree$diam4))
        == nrow(notree),
-    msg = "Found non-NA distances or diameters for no tree points in IN or IL.")
-
-notree <- det %>% filter(L1_tree1 == 'No tree')
-assert_that(sum(is.na(notree$dist1) & is.na(notree$dist2) & is.na(notree$dist3) & is.na(notree$dist4) &
-       is.na(notree$diam1) & is.na(notree$diam2) & is.na(notree$diam3) & is.na(notree$diam4))
-       == nrow(notree),
-    msg = "Found non-NA distances or diameters for no tree points in Detroit.")
-
-## create a survey year variable that corresponds to survey year correction factors
+    msg = "Found non-NA distances or diameters for no tree points in IN or IL or Detroit.")
 
 ## We have some corners in IN & IL that are missing years. Based on exploratory analysis of their locations
 ## it is safe to assume these points were surveyed at a similar time as the points around them.
 ## This requires a bit over 1 GB RAM.
 
-warning("check for missing years in Detroit data")
 
-distances <- rdist(inil[inil$year == 9999, c('x', 'y')],
-              inil[inil$year != 9999, c('x', 'y')])
+distances <- rdist(inildet[inildet$year == 9999, c('x', 'y')],
+              inildet[inildet$year != 9999, c('x', 'y')])
 closest <- apply(distances, 1, which.min)
-inil$year[inil$year == 9999] <- inil$year[inil$year != 9999][closest]
-assert_that(!sum(is.na(inil$year)) && min(inil$year) >= 1799 && max(inil$year) <= 1849,
+inildet$year[inildet$year == 9999] <- inildet$year[inildet$year != 9999][closest]
+assert_that(!sum(is.na(inildet$year)) && min(inildet$year) >= 1799 && max(inildet$year) <= 1849,
     msg = "Unexpected missing year or year outside 1799-1849 range in IN or IL.")
 rm(distances)
 
-## create a survey year variable that corresponds to survey year correction factors
-## for IL/IN, '1825+' vs. '< 1825' and state uniquely defines correction factor - don't need region info 
-## inil <- inil %>% mutate(surveyyear = ifelse(year >= 1825, '>=1825', '<=1824'))
-
-## As of April 2019, we now split into three sets
-inil <- inil %>% mutate(surveyyear = ifelse(year <= 1810, '<=1810',
-                                            ifelse(year >= 1838, ">=1838", ">1810  <1838")))
-
-warning("need to assign year to get (presumably) E of meridian corr factors for Detroit")
 
 
-inil[ , paste0('az', 1:4)] <- get_angle_inil(as.matrix(inil[ , paste0('bearing', 1:4)]),
-                           as.matrix(inil[ , paste0('degrees', 1:4)]))
+inildet[ , paste0('az', 1:4)] <- get_angle_inil(as.matrix(inildet[ , paste0('bearing', 1:4)]),
+                           as.matrix(inildet[ , paste0('degrees', 1:4)]))
 
-assert_that(max(inil[ , paste0('az', 1:4)], na.rm = TRUE) < 360 &&
-            min(inil[ , paste0('az', 1:4)], na.rm = TRUE) >= 0,
-    msg = "Found azimuths outside of 0-359 in IN/IL.")
+assert_that(max(inildet[ , paste0('az', 1:4)], na.rm = TRUE) < 360 &&
+            min(inildet[ , paste0('az', 1:4)], na.rm = TRUE) >= 0,
+    msg = "Found azimuths outside of 0-359 in IN/IL/Detroit.")
 
 
-det[ , paste0('az', 1:4)] <- get_angle_det(as.matrix(det[ , paste0('bearing', 1:4)]),
-                           as.matrix(det[ , paste0('degrees', 1:4)]))
-
-assert_that(max(det[ , paste0('az', 1:4)], na.rm = TRUE) < 360 &&
-            min(det[ , paste0('az', 1:4)], na.rm = TRUE) >= 0,
-    msg = "Found azimuths outside of 0-359 in Detroit.")
-
-##  Indiana and Illinois data have same correction factors for the whole state
 ##  Correction factors vary depending on which type of corner you are at
                        
 extsec <- c(100100,200100, 300100, 400100, 500100, 600100, 700100,
@@ -289,20 +293,19 @@ intqtr <- c(140200, 240200, 340200, 440200, 540200, 640200,
             200540, 300540, 400540, 500540, 600540,
             200640, 300640, 400640, 500640, 600640)
 
-inil <- inil %>% mutate(sectioncorner = ifelse(inil$cornerid %in% intsec | inil$cornerid %in% extsec, 
+inildet <- inildet %>% mutate(sectioncorner = ifelse(inildet$cornerid %in% intsec | inildet$cornerid %in% extsec, 
                                                'section', 'quartersection'), 
-                        corner = ifelse(inil$cornerid %in% intsec | inil$cornerid %in% intqtr, 
+                        corner = ifelse(inildet$cornerid %in% intsec | inildet$cornerid %in% intqtr, 
                                         'internal', 'external'))
 
-inil <- inil[final_columns]
-det <- det[final_columns]
+warning("check distriution of quartersection points")
+
+inildet <- inildet[final_columns]
 
 ## ----------------------------------DATA CLEANING: SOUTHERN MI --------------------------------------------------
 
 somi <- read_csv(file.path(raw_data_dir, southern_michigan_file), guess_max = 100000)
 somi <- somi %>% mutate(point_id = seq_len(nrow(somi)), vegtype = NA, state = "SoMI")
-
-warning("here in CJP April reworking")
 
 ## Per GH issue #59 we are not using Isle Royale at this point.
 
@@ -364,8 +367,8 @@ if(sum(is.na(somi$L3_tree1)) != sum(is.na(somi$L1_tree1)) ||
     cat("Apparently some L1 taxa are missing from the southern Michigan L1 to L3 conversion table.\n")
 
 ## determine subdomain for use with correction factors
-if(nrow(somi) != length(grep('[EW]', somi$range)))
-    cat("Can't assign surveyyear for some southern Michigan sites.\n")
+assert_that(nrow(somi) == length(grep('[EW]', somi$range)),
+    msg = "Can't assign surveyyear for some southern Michigan sites.")
 ## shorthand (and unique) for 'SE - E of central Meridian S of tension'
 surveyyear <- rep('<=1824', nrow(somi))  
 ## shorthand (and unique) for 'SW - W of central Meridian S of tension'
@@ -395,11 +398,20 @@ somi <- somi %>% mutate(corner = ifelse(sec_corner == "Extsec", 'external', 'int
 
 somi <- somi %>% rename(x = point_x, y = point_y)
 
+## Per issue 49, quarter-section points in southern Michigan are undersampled and sampling
+## appears to vary with forest type/density, so removing them.
+
+count <- somi %>% filter(sectioncorner == 'quartersection') %>% summarize(count = n())
+cat("Removing all", unlist(count), "quarter section points from southern Michigan outside Detroit.\n")
+somi <- somi %>% filter(sectioncorner == 'section')
+
+cat("Using ", nrow(somi), " corners in southern Michigan (not counting Detroit).\n", sep = '')
+
 somi <- somi[final_columns]
 
-## ----------------------------------DATA CLEANING: UMW -------------------------------------------------------
+## ----------------------------------DATA CLEANING: Upper Midwest -------------------------------------------------
 
-## data cleaning modified from Simon Goring's witness tree code
+## Data cleaning modified from Simon Goring's witness tree code
 ## (https://github.com/PalEON-Project/WitnessTrees/blob/master/R/process_raw/step.one.clean.bind_v1.4.R)
 
 ##  Original warning from Simon Goring's processing:
@@ -424,8 +436,8 @@ mn <- read_csv(file.path(raw_data_dir, minnesota_file), guess_max = 100000) %>% 
 nomi <- read_csv(file.path(raw_data_dir, northern_michigan_file), guess_max = 100000) %>% mutate(state = 'NoMI')
 
 wi <- wi %>% mutate(point_id = seq_len(nrow(wi)))
-nomi <- nomi %>% mutate(point_id = seq_len(nrow(nomi)), vegtype = NA)
 mn <- mn %>% mutate(point_id = seq_len(nrow(mn)))
+nomi <- nomi %>% mutate(point_id = seq_len(nrow(nomi)), vegtype = NA)
 
 names(wi) <- tolower(names(wi))
 names(mn) <- tolower(names(mn))
@@ -437,8 +449,8 @@ nomi <- nomi %>% rename(diam1 = dbh1, diam2 = dbh2, diam3 = dbh3, diam4 = dbh4,
                         sp1 = spp1, sp2 = spp2, sp3 = spp3, sp4 = spp4,
                         az1 = azimuth, az2 = azimuth2, az3 = azimuth3, az4 = azimuth4)
 
-if(any(!wi$rangdir %in% c(0, 2, 4)))
-    stop("Unexpected 'rangdir' values found in Wisconsin")
+assert_that(all(wi$rangdir %in% c(0, 2, 4)), 
+    msg = "Unexpected 'rangdir' values found in Wisconsin.")
 
 ##  The wisconsin Range is set as a single value, the 'E' and 'W' codes are in
 ##  RANGDIR.  Looking at the data it also looks like there are a few ranges
@@ -474,34 +486,39 @@ mn <- mn %>% mutate(sp1 = ifelse(sp1 == 'BE', 'IR', sp1),
 ##  'R' - River
 waterTypes <- c('L', 'M', 'S', 'R', 'A')
 
-if(sum(mn$vegtype %in% waterTypes & mn$sp1 == '_' & (mn$sp2 != '_' | mn$sp3 != '_' | mn$sp4 != '_')))
-    cat("MN water corners have trees with species info.\n")
+assert_that(sum(mn$vegtype %in% waterTypes & mn$sp1 == '_' & (mn$sp2 != '_' | mn$sp3 != '_' | mn$sp4 != '_')) == 0,
+            msg = "MN water corners have trees with species info.")
 
+## '_' values in areas with water tagged as QQ to follow WI labelling
 mn <- mn %>% mutate(sp1 = ifelse(vegtype %in% waterTypes & sp1 == '_', 'QQ', sp1),
                     sp2 = ifelse(vegtype %in% waterTypes & sp2 == '_', 'QQ', sp2),
                     sp3 = ifelse(vegtype %in% waterTypes & sp3 == '_', 'QQ', sp3),
                     sp4 = ifelse(vegtype %in% waterTypes & sp4 == '_', 'QQ', sp4))
 
-## a few of these cases have non-missing dist&diam; should check on these
+## other '_' values treated as NA; a very small number of these having non-missing distance or diameter
 mn <- mn %>% mutate(sp1 = convert_to_NA(sp1, '_'),
               sp2 = convert_to_NA(sp2, '_'),
               sp3 = convert_to_NA(sp3, '_'),
               sp4 = convert_to_NA(sp4, '_'))
 
-## exclude water points -- all water as well as points with 1 tree, per issue #35
+## exclude water points -- all water as well as points with 1 tree are remaining water, per issue #35
 numQQ <- apply(mn[ , paste0('sp', 1:4)], 1, function(x) sum(x == 'QQ', na.rm = TRUE))
+cat("Found ", sum(numQQ > 2), " wet corners in Minnesota.\n", sep = '')
 mn <- mn %>% filter(numQQ <= 2) 
 
 ## Next exclude no-tree points with unclear vegtype values
 
-## these points occur mostly in northern Minnesota (Boundary Waters) as well as in
-## Many of them are in east-west straight lines, suggesting not usable
+## these points occur mostly in northern Minnesota (Boundary Waters) or
+## are in east-west straight lines, suggesting not usable
+nr <- nrow(mn)
 mn <- mn %>% filter(!(is.na(sp1) & is.na(sp2) & is.na(sp3) & is.na(sp4) & vegtype == '_'))
+cat("Excluding ", nr - nrow(mn), " points with missing taxa and missing ecotype.\n")
 
 ## forest, grove, bottom, pine grove seem inconsistent with lack of trees, so exclude these points
 forestedTypes <- c('F', 'G', 'H', 'J')
+nr <- nrow(mn)
 mn <- mn %>% filter(!(is.na(sp1) & is.na(sp2) & is.na(sp3) & is.na(sp4) & vegtype %in% forestedTypes))
-
+cat("Excluding ", nr - nrow(mn), " points with missing taxon in forested areas.\n")
 
 mn_survey <- read_csv(file.path(raw_data_dir, minnesota_survey_file), guess_max = 10000)
 mn_survey <- mn_survey %>% mutate(TOWN = paste0('T', formatC(TOWN, width=3, flag='0'), 'N'),
@@ -511,53 +528,72 @@ names(mn_survey) <- tolower(names(mn_survey))
 
 mn <- mn %>% left_join(mn_survey, by = c('twp' = 'town', 'rng' = 'rang'))
 
-## two points with twp/rng not in survey file
+## two points with twp/rng not in survey file so need to estimate year based on closest points
 distances <- rdist(mn[is.na(mn$year), c('x_alb','y_alb')],
                    mn[!is.na(mn$year), c('x_alb','y_alb')])
 closest <- apply(distances, 1, which.min)
 mn$year[is.na(mn$year)] <- mn$year[!is.na(mn$year)][closest]
 
-if(sum(is.na(mn$year)) || min(mn$year < 1847) || max(mn$year > 1907))
-    cat("Unexpected missing year or year outside 1847-1907 range")
+assert_that(sum(is.na(mn$year)) == 0 && min(mn$year) >= 1847 && max(mn$year) <= 1907,
+    msg = "Unexpected missing year or year outside 1847-1907 range.")
 
 ## '<=1853' vs. '>=1854' plus state uniquely defines correction factors without need for region info
 mn <- mn %>% mutate(surveyyear = ifelse(year <= 1853, "<=1853", ">=1854"))
 
 ## requires about 1 GB RAM
+cat("Found ", sum(wi$year == 0), " points without year in Wisconsin.\n")
 distances <- rdist(wi[wi$year == 0, c('x_alb','y_alb')],
                    wi[wi$year != 0, c('x_alb','y_alb')])
 closest <- apply(distances, 1, which.min)
 wi$year[wi$year == 0] <- wi$year[wi$year != 0][closest]
 rm(distances)
 
-if(sum(is.na(wi$year)) || min(wi$year < 1832) || max(wi$year > 1891))
-    cat("Unexpected missing year or year outside 1847-1907 range")
+assert_that(sum(is.na(wi$year)) == 0 && min(wi$year) >= 1832 && max(wi$year) <= 1891,
+    msg = "Unexpected missing year or year outside 1847-1907 range.")
 
 ## '<=1845' vs. '>=1846' plus state uniquely defines correction factors without need for region info
 wi <- wi %>% mutate(surveyyear = ifelse(year <= 1845, "<=1845", ">=1846"))
 
-## 4088 cases; in essentially all of them, no info on trees 2-4, so assume these are fully water
+## In essentially all of these cases, no info on trees 2-4,
+## (and in remaining cases, have '0', 'NL' or 'NO' indicating no trees/information)
+## so assume these are fully water
+notree_vals <- c('0','NO','NL')
+assert_that(sum(is.na(wi$sp2[wi$sp1 == 'QQ'])) + sum(wi$sp2[wi$sp1 == 'QQ'] %in% notree_vals) ==
+            sum(wi$sp1 == 'QQ'), msg = "Found tree taxa in Wisconsin water points.")
+assert_that(sum(is.na(wi$sp3[wi$sp1 == 'QQ'])) + sum(wi$sp3[wi$sp1 == 'QQ'] %in% notree_vals) ==
+            sum(wi$sp1 == 'QQ'), msg = "Found tree taxa in Wisconsin water points.")
+assert_that(sum(is.na(wi$sp4[wi$sp1 == 'QQ'])) + sum(wi$sp4[wi$sp1 == 'QQ'] %in% notree_vals) ==
+            sum(wi$sp1 == 'QQ'), msg = "Found tree taxa in Wisconsin water points.")
+cat("Found ", sum(wi$sp1 == 'QQ'), " water points in Wisconsin.\n")
 wi <- wi %>% filter(sp1 != 'QQ')
 
-## based on parsing notes field, do include some points that seem to be no-tree points
+## based on parsing notes field, we do include some points that seem to be no-tree points
+
 ## (non-water and non-"tree is point/corner/post")
 miss <- nomi %>% filter(is.na(sp1) & is.na(sp2) & is.na(sp3) & is.na(sp4))
 nomi <- nomi %>% filter(!(is.na(sp1) & is.na(sp2) & is.na(sp3) & is.na(sp4)))
 
+cat("Attempting to determine status of ", nrow(miss), " points in northern Michigan with all taxa missing.\n")
+
 ## points without any taxa and no notes are ambiguous so remove
+cat("Omitting ", sum(is.na(miss$notes)), " points in northern Michigan with no notes.\n")
 miss <- miss %>% filter(!is.na(notes))
 ## water points
 waterText <- c("(MARSH|POND|LAKE|WATER|RIVER|SWAMP|BROOK|STREAM|LK MICHIGAN)")
+cat("Omitting ", sum(grepl(waterText, miss$notes, ignore.case = TRUE)), " points in northern Michigan with indications of water and no taxa info.\n")
 miss <- miss %>% filter(!grepl(waterText, notes, ignore.case = TRUE))
 ## points where tree is the corner so ambiguous what density would be
 ## some of these might be trees at previous points, but can't determine which
 treeAsPostText <- c("(IS POST|IS CORNER|IS QUARTER|IS SECTION|AS CORNER|UPON CORNER|AS 1/4|IS 1/4|FOR 1/4|FOR CORNER|IS PSOT|ISPOST|AS POST|IS A QUARTER|IN CORNER|IS THE QUARTER CORNER|IS A QAURTER CORNER|IS A SECTION|A QUARTER CORNER|IS THE SECTION CORNER|FOR QUARTER|IS THE QAURTER CORNER)")
+cat("Omitting ", sum(grepl(treeAsPostText, miss$notes, ignore.case = TRUE)), " points in northern Michigan with corner as post and no taxa info.\n")
 miss <- miss %>% filter(!grepl(treeAsPostText, notes, ignore.case = TRUE))
 ## indications that data lost or not noted
 missingDataText <- c("(THEN LOST|INFORMATION NOT GIVEN|NOT IN NOTES|NO INFORMATION|RANDOM NOTES|OMITTED|OMMITTED|CUT OFF|MICROFILM|TREE IS DEAD|TA, RP, PS, WP|PS, RP|TRAIL COURSE)")
+cat("Omitting ", sum(grepl(missingDataText, miss$notes, ignore.case = TRUE)), " points in northern Michigan with corner as post and no taxa info.\n")
 miss <- miss %>% filter(!grepl(missingDataText, notes, ignore.case = TRUE))
 ## Charlie's checking indicates these are mostly cases where tree was the corner but surveyor didn't bother to note other trees; density here is ambiguous
 noOtherTreeText <- c("NO OTHER")
+cat("Omitting ", sum(grepl(noOtherTreeText, miss$notes, ignore.case = TRUE)), " points in northern Michigan marked 'NO OTHER'.\n")
 miss <- miss %>% filter(!grepl(noOtherTreeText, notes, ignore.case = TRUE))
 
 ## otherwise, notes generally say 'no witness trees', 'no trees convenient', 'no bearing trees', 'no other tree data', 'no trees'; assumed to indicate no-tree points
@@ -585,6 +621,11 @@ columns_to_keep <- c("point", "twp", "rng", "surveyyear",
 mn <- mn[columns_to_keep] 
 nomi <- nomi[columns_to_keep]
 wi <- wi[columns_to_keep]
+
+cat("Using ", nrow(mn), " corners in Minnesota.\n", sep = '')
+cat("Using ", nrow(wi), " corners in Wisconsin, but some will excluded later as water points.\n", sep = '')
+cat("Using ", nrow(nomi), " corners in northern Michigan.\n", sep = '')
+
 
 umw <- rbind(mn, wi, nomi)
 
@@ -614,7 +655,7 @@ umw <- umw %>% mutate(dist1 = convert_to_NA(dist1, missingCodes),
 ##  1186 cases left as NA after this processing - cases like 'N85', 'W45E'
 umw[ , paste0('az', 1:4)] <- get_angle_umw(as.matrix(umw[ , paste0('az', 1:4)]))
 
-spec_codes <- read_csv(file.path(conversions_data_dir, taxa_conversion_file), guess_max = 1000) %>% 
+spec_codes <- read_csv(file.path(conversions_data_dir, taxa_conversion_file), guess_max = 2000) %>% 
     filter(domain == upper_midwest_conversion_domain) %>%
     select(level1, level3a) 
 
@@ -642,8 +683,8 @@ sections <- c(2, 5, 8, 11, 14, 18, 21, 24, 27, 30,
 external <- c(109:120, 97:108, 86:96, 122:126)
 
 ## illegitimate point values, preventing determination of correction factors
-if(any(!umw$point %in% 1:126))
-    warning("point values outside 1:126 found")
+assert_that(all(umw$point %in% 1:126),
+    msg = "upper Midwest point values outside 1:126 found.")
 umw <- umw %>% filter(point %in% 1:126)
 
 umw <- umw %>% mutate(corner = ifelse(point %in% external, 'external', 'internal'),
@@ -653,7 +694,9 @@ umw <- umw[final_columns]
 
 ## --------------- Combine regions and do further cleaning ------------------------------
 
-mw <- rbind(umw, inil, somi)
+mw <- rbind(umw, inildet, somi)
+
+stop()
 
 ##  At this point we need to make sure that the species are ordered by distance
 ##  so that trees one and two are actually the closest two trees.
