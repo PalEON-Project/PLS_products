@@ -199,6 +199,25 @@ det$bearing2 <- paste(det$bearing2, det$bearingdir2, sep = '_')
 det$bearing3 <- paste(det$bearing3, det$bearingdir3, sep = '_')
 det$bearing4 <- paste(det$bearing4, det$bearingdir4, sep = '_')
 
+## We have some corners in IN & IL that are missing years. Based on exploratory analysis of their locations
+## it is safe to assume these points were surveyed at a similar time as the points around them.
+
+distances <- rdist(ind[ind$year == 9999, c('x', 'y')],
+              ind[ind$year != 9999, c('x', 'y')])
+closest <- apply(distances, 1, which.min)
+ind$year[ind$year == 9999] <- ind$year[ind$year != 9999][closest]
+assert_that(!sum(is.na(ind$year)) && min(ind$year) >= 1799 && max(ind$year) <= 1849,
+    msg = "Unexpected missing year or year outside 1799-1849 range in IN.")
+rm(distances)
+
+distances <- rdist(il[il$year == 9999, c('x', 'y')],
+              il[il$year != 9999, c('x', 'y')])
+closest <- apply(distances, 1, which.min)
+il$year[il$year == 9999] <- il$year[il$year != 9999][closest]
+assert_that(!sum(is.na(il$year)) && min(il$year) >= 1799 && max(il$year) <= 1849,
+    msg = "Unexpected missing year or year outside 1799-1849 range in IL.")
+rm(distances)
+
 ## create a survey year variable that corresponds to survey year correction factors
 ## for IL/IN, '1825+' vs. '< 1825' and state uniquely defines correction factor - don't need region info 
 ## inil <- inil %>% mutate(surveyyear = ifelse(year >= 1825, '>=1825', '<=1824'))
@@ -243,20 +262,6 @@ assert_that(sum(is.na(notree$dist1) & is.na(notree$dist2) & is.na(notree$dist3) 
        == nrow(notree),
     msg = "Found non-NA distances or diameters for no tree points in IN or IL or Detroit.")
 
-## We have some corners in IN & IL that are missing years. Based on exploratory analysis of their locations
-## it is safe to assume these points were surveyed at a similar time as the points around them.
-## This requires a bit over 1 GB RAM.
-
-
-distances <- rdist(inildet[inildet$year == 9999, c('x', 'y')],
-              inildet[inildet$year != 9999, c('x', 'y')])
-closest <- apply(distances, 1, which.min)
-inildet$year[inildet$year == 9999] <- inildet$year[inildet$year != 9999][closest]
-assert_that(!sum(is.na(inildet$year)) && min(inildet$year) >= 1799 && max(inildet$year) <= 1849,
-    msg = "Unexpected missing year or year outside 1799-1849 range in IN or IL.")
-rm(distances)
-
-
 
 inildet[ , paste0('az', 1:4)] <- get_angle_inil(as.matrix(inildet[ , paste0('bearing', 1:4)]),
                            as.matrix(inildet[ , paste0('degrees', 1:4)]))
@@ -298,8 +303,6 @@ inildet <- inildet %>% mutate(sectioncorner = ifelse(inildet$cornerid %in% intse
                         corner = ifelse(inildet$cornerid %in% intsec | inildet$cornerid %in% intqtr, 
                                         'internal', 'external'))
 
-warning("check distriution of quartersection points")
-
 inildet <- inildet[final_columns]
 
 ## ----------------------------------DATA CLEANING: SOUTHERN MI --------------------------------------------------
@@ -325,7 +328,7 @@ if(FALSE) {
 ##  converting level 1 species to level 3 species
 
 ## actual so MI points
-spec_codes <- read_csv(file.path(conversions_data_dir, taxa_conversion_file), guess_max = 1000) %>% 
+spec_codes <- read_csv(file.path(conversions_data_dir, taxa_conversion_file), guess_max = 2000) %>% 
     filter(domain == southern_michigan_conversion_domain) %>%
     select(level1, level3a) 
 
@@ -504,7 +507,9 @@ mn <- mn %>% mutate(sp1 = convert_to_NA(sp1, '_'),
 ## exclude water points -- all water as well as points with 1 tree are remaining water, per issue #35
 numQQ <- apply(mn[ , paste0('sp', 1:4)], 1, function(x) sum(x == 'QQ', na.rm = TRUE))
 cat("Found ", sum(numQQ > 2), " wet corners in Minnesota.\n", sep = '')
-mn <- mn %>% filter(numQQ <= 2) 
+mn <- mn %>% filter(numQQ <= 2)
+
+cat("Keeping ", sum(numQQ %in% c(1,2)), " corners in possibly wet areas with at least two trees.\n")
 
 ## Next exclude no-tree points with unclear vegtype values
 
@@ -512,13 +517,13 @@ mn <- mn %>% filter(numQQ <= 2)
 ## are in east-west straight lines, suggesting not usable
 nr <- nrow(mn)
 mn <- mn %>% filter(!(is.na(sp1) & is.na(sp2) & is.na(sp3) & is.na(sp4) & vegtype == '_'))
-cat("Excluding ", nr - nrow(mn), " points with missing taxa and missing ecotype.\n")
+cat("Excluding ", nr - nrow(mn), " points with missing taxa and missing ecotype in Minnesota.\n")
 
 ## forest, grove, bottom, pine grove seem inconsistent with lack of trees, so exclude these points
 forestedTypes <- c('F', 'G', 'H', 'J')
 nr <- nrow(mn)
 mn <- mn %>% filter(!(is.na(sp1) & is.na(sp2) & is.na(sp3) & is.na(sp4) & vegtype %in% forestedTypes))
-cat("Excluding ", nr - nrow(mn), " points with missing taxon in forested areas.\n")
+cat("Excluding ", nr - nrow(mn), " points with missing taxon in forested areas in Minnesota.\n")
 
 mn_survey <- read_csv(file.path(raw_data_dir, minnesota_survey_file), guess_max = 10000)
 mn_survey <- mn_survey %>% mutate(TOWN = paste0('T', formatC(TOWN, width=3, flag='0'), 'N'),
@@ -671,6 +676,15 @@ if(sum(is.na(umw$L3_tree1)) != sum(is.na(umw$L1_tree1)) ||
    sum(is.na(umw$L3_tree4)) != sum(is.na(umw$L1_tree4)))
     cat("Apparently some L1 taxa are missing from the UMW L1 to L3 conversion table.\n")
 
+## These are points in WI marked as XA/XB/XC where no corner data present.
+miss <- umw %>% filter(umw$L3_tree1 %in% nodata_flags)
+nr <- nrow(miss)
+assert_that(sum(is.na(miss$L3_tree2) | miss$L3_tree2 == "No tree") == nr &&
+            sum(is.na(miss$L3_tree3) | miss$L3_tree3 == "No tree") == nr &&
+            sum(is.na(miss$L3_tree4) | miss$L3_tree4 == "No tree") == nr, msg = "Strange missing corners in Wisconsin")
+cat("Excluding ", nr, " points with no data in Wisconsin.\n")
+umw <- umw %>% filter(!umw$L3_tree1 %in% nodata_flags)
+
 #  Points within a township are either sections or quartersections.  This
 #  is the list of points that are sections.  All others are quarter-sections.
 sections <- c(2, 5, 8, 11, 14, 18, 21, 24, 27, 30,
@@ -696,42 +710,34 @@ umw <- umw[final_columns]
 
 mw <- rbind(umw, inildet, somi)
 
-stop()
-
 ##  At this point we need to make sure that the species are ordered by distance
 ##  so that trees one and two are actually the closest two trees.
 
-## Missing trees occur in UMW and seem to be dead trees.
+taxa <- c(mw$L3_tree1, mw$L3_tree2, mw$L3_tree3, mw$L3_tree4)
+assert_that(sum(taxa %in% nodata_flags) == 0, msg = "'No data' points still in combined data.")
 
-## Most cases of "Missing" are in three clumps SW of Green Bay and have no taxa for other
-## three trees and 0 dist and diam; throw these points out as they were not surveyed
-## (Menominee lands), though the middle clump does not seem to have the 'XC' code one would expect
-mw <- mw %>% filter(!(mw$L3_tree1 == "Missing" & !is.na(mw$L3_tree1) & 
-                      is.na(mw$L3_tree2) & is.na(mw$L3_tree3) & is.na(mw$L3_tree4) &
-                      mw$dist1 == 0 & mw$dist2 == 0 & mw$dist3 == 0 & mw$dist4 == 0))
+## 'Missing' means either dead or the XX flag, which is indeterminate.
+## Almost all points with dead trees do not have data on two live trees.
+## There are relatively few points with dead trees, so just exclude them.
+## It's hard to use filter() in this case becauase want to keep all the NAs.
+nr <- nrow(mw)
 
+wh <- mw$L3_tree1 == "Missing" | mw$L3_tree2 == "Missing" |
+    mw$L3_tree3 == "Missing" | mw$L3_tree4 == "Missing"
+wh[is.na(wh)] <- FALSE
+mw <- mw[!wh, ]
+cat("Removing ", nr-nrow(mw), " points with any 'Dead' or indeterminable trees as these points generally don't have two live trees for calculation.\n")
 
-## Treat remaining missing as scattered dead trees but do not set to NA because have
-## dist/diam in general and don't want to induce 1-tree points
-## Note that this should include various trees with taxon "D...".
-## Will also include "XX" (some of which have dist/diam) and "XC" (none of which have
-## dist/diam). Also, Missing is assigned to "XA" and "XB" but there are none of these.
-mw <- mw %>% mutate(L3_tree1 = ifelse(L3_tree1 == "Missing", "Unknown tree", L3_tree1),
-                    L3_tree2 = ifelse(L3_tree2 == "Missing", "Unknown tree", L3_tree2),
-                    L3_tree3 = ifelse(L3_tree3 == "Missing", "Unknown tree", L3_tree3),
-                    L3_tree4 = ifelse(L3_tree4 == "Missing", "Unknown tree", L3_tree4))
-
-## set dists to NA when there is not a tree there (NA, water, no tree) so
-## zeroes are not interpreted as 0 distance
 nontree_codes <- c("Water", "No tree")
+
+## set dists and azimuths to NA when there is not a tree there (NA, water, no tree) so
+## zeroes are not interpreted as 0 distance or as being in same quad
+
 mw <- mw %>% mutate(dist1 = ifelse(is.na(L3_tree1) | L3_tree1 %in% nontree_codes, NA, dist1),
                     dist2 = ifelse(is.na(L3_tree2) | L3_tree2 %in% nontree_codes, NA, dist2),
                     dist3 = ifelse(is.na(L3_tree3) | L3_tree3 %in% nontree_codes, NA, dist3),
                     dist4 = ifelse(is.na(L3_tree4) | L3_tree4 %in% nontree_codes, NA, dist4))
 
-## set azimuths to NA when there is not a tree there (NA, water, no tree) so
-## zeroes are not interpreted as being in same quad
-nontree_codes <- c("Water", "No tree")
 mw <- mw %>% mutate(az1 = ifelse(is.na(L3_tree1) | L3_tree1 %in% nontree_codes, NA, az1),
                     az2 = ifelse(is.na(L3_tree2) | L3_tree2 %in% nontree_codes, NA, az2),
                     az3 = ifelse(is.na(L3_tree3) | L3_tree3 %in% nontree_codes, NA, az3),
@@ -770,16 +776,25 @@ mw <- mw %>%
     reorder_col_blocks('L1_tree', ords) %>% 
     reorder_col_blocks('L3_tree', ords) %>% 
     reorder_col_blocks('diam', ords) %>% 
-    reorder_col_blocks('az', ords) 
+    reorder_col_blocks('az', ords)
+
+assert_that(all(mw$dist1 <= mw$dist2, na.rm = TRUE) &&
+            all(mw$dist2 <= mw$dist3, na.rm = TRUE) &&
+            all(mw$dist3 <= mw$dist4, na.rm = TRUE),
+            msg = "Distances not reordered correctly.")
 
 ## determine Pair (points where only two trees surveyed) vs 2nQ (four trees surveyed)
 ## used for correction factors (see issue #42)
 ## it would be rare to only find two trees if looking for four,
 ## and if we have zero or one tree, we don't use correction factors anyway
 tmp <- as.matrix(mw[ , paste0('L3_tree', 1:4)])
+assert_that(length(unique(c(tmp))) == 38,
+            msg = "Unexpected level 3a taxa found")
+
 tmp[tmp %in% c('No tree', 'Water')] <- NA
 ntree <- apply(tmp, 1,function(x) sum(!is.na(x)))
 mw <- mw %>% mutate(point = ifelse(ntree > 2, '2nQ', 'Pair'))
+
 
 ## before additional cleaning of northern Michigan datamost there were decimal distances
 ## that might be chains. After cleaning, only ~230 decimal distances and all but one are >= 1.5

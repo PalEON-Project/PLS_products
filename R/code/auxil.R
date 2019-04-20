@@ -37,8 +37,8 @@ get_angle_inil <- function(bearings, degrees) {
     west <- bearings %in% card_west & degrees == 0
 
     if(any(bearings %in% c(card_north, card_south, card_east, card_west) & degrees != 0))
-        stop("get_angle_inil: Found non-zero degrees for cardinal bearings.")
-    
+        warning("get_angle_inil: Found non-zero degrees for cardinal bearings.")
+        
     ## set the unidirectional angles to a degrees 360 
     angle[ north ] <- 0
     angle[ south ] <- 180
@@ -149,6 +149,7 @@ calc_stem_density <- function(data, corr_factors, use_phi =  TRUE) {
 
     corr <- data %>% dplyr::select(state, surveyyear, corner, sectioncorner, point) %>%
         mutate(state = ifelse(grepl("MI", state), "MI", state)) %>%   ## convert soMI, noMI, noMI_extra to MI
+        mutate(state = ifelse(grepl("Detroit", state), "MI", state)) %>%   ## convert soMI, noMI, noMI_extra to MI
         left_join(corr_factors, by = c('state' = 'state', 'surveyyear' = 'year',
                                        'corner' = 'corner',
                                        'sectioncorner' = 'sectioncorner',
@@ -176,10 +177,6 @@ calc_stem_density <- function(data, corr_factors, use_phi =  TRUE) {
     
     density[data$num_trees == 0] <- 0
 
-    ## We use points where first tree (but not also second tree) has distance of 0
-    to_calc <- data$num_trees == 2 & (!(data$dist1 == 0 & data$dist2 == 0))
-    sub <- data[to_calc, ]
-
     diam <- sub$diam1
     diam[is.na(diam)] <- 10
     ## distance in meters: distance plus one-half diameter of tree
@@ -200,6 +197,7 @@ calc_stem_density <- function(data, corr_factors, use_phi =  TRUE) {
 
     density[to_calc] <- morisita
 
+    cat("Found ",
     density[same_quad] <- NA
 
     density[density > max_density] <- max_density
