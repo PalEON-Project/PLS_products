@@ -16,11 +16,14 @@ if(!exists('k_occ_total_biomass'))
 ## note that in cases with one tree with 0 or NA diameter and therefore missing biomass
 ## we use the biomass for the other tree as the representative value
 ## this assumes that missingness of diameter is non-informative
-## 1384 2-tree points with tree2 diam missing
-## 1317 2-tree points with tree1 diam missing
+cat("Found ", sum(mw$num_trees == 2 & (is.na(mw$biomass1) | is.na(mw$biomass2) |
+                  mw$biomass1 == 0 | mw$biomass2 == 0)), " two-tree points with one tree missing biomass\n.")
 
 biomass_avg <- mw %>% dplyr::select(biomass1, biomass2) %>% as.matrix(.) %>%
     apply(1, mean, na.rm = TRUE)
+
+assert_that(sum(mw$num_trees==1 & is.na(mw$biomass1)) == 0,
+            msg = "found 1-tree points with NA biomass")
 
 ## add total point-level biomass to dataset
 mw <- mw %>% mutate(biomass = ifelse(num_trees == 0, 0,

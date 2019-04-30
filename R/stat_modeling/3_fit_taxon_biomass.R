@@ -30,12 +30,15 @@ biomass_taxon <- foreach(taxonIdx = seq_along(taxa_to_fit)) %dopar% {
     taxon <- taxa_to_fit[taxonIdx]
     ## add taxon-specific point-level biomass to dataset
     tmp <- mw %>% mutate(biomass_focal = calc_biomass_taxon(num_trees, biomass1, biomass2, density_for_biomass, L3s_tree1, L3s_tree2, taxon))
+
+    assert_that(sum(is.na(tmp$biomass_focal)) == 0,
+                msg = paste0("Found missing biomass values for taxon ", taxon))
     
     ## add total point-level biomass to dataset
-    cell_full_taxon <- tmp %>% filter(!(is.na(biomass_focal))) %>% group_by(cell) %>% summarize(points_total = n())
+    cell_full_taxon <- tmp %>% group_by(cell) %>% summarize(points_total = n())
     
     ## biomass stats averaged over occupied points
-    cell_occ <- tmp %>% filter(!is.na(biomass_focal) & biomass_focal > 0) %>% 
+    cell_occ <- tmp %>% filter(biomass_focal > 0) %>% 
         group_by(cell) %>%
     summarize(avg = mean(biomass_focal),
               geom_avg = mean(log(biomass_focal)),

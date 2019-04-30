@@ -149,7 +149,7 @@ calc_stem_density <- function(data, corr_factors, use_phi =  TRUE) {
 
     corr <- data %>% dplyr::select(state, surveyyear, corner, sectioncorner, point) %>%
         mutate(state = ifelse(grepl("MI", state), "MI", state)) %>%   ## convert soMI, noMI, noMI_extra to MI
-        mutate(state = ifelse(grepl("Detroit", state), "MI", state)) %>%   ## convert soMI, noMI, noMI_extra to MI
+        mutate(state = ifelse(grepl("Detroit", state), "MI", state)) %>%   
         left_join(corr_factors, by = c('state' = 'state', 'surveyyear' = 'year',
                                        'corner' = 'corner',
                                        'sectioncorner' = 'sectioncorner',
@@ -177,6 +177,9 @@ calc_stem_density <- function(data, corr_factors, use_phi =  TRUE) {
     
     density[data$num_trees == 0] <- 0
 
+    to_calc <- data$num_trees == 2
+    sub <- data[to_calc, ]
+
     diam <- sub$diam1
     diam[is.na(diam)] <- 10
     ## distance in meters: distance plus one-half diameter of tree
@@ -197,7 +200,7 @@ calc_stem_density <- function(data, corr_factors, use_phi =  TRUE) {
 
     density[to_calc] <- morisita
 
-    cat("Found ",
+    cat("Found ", sum(same_quad), " corners with trees in same quadrant.\n")
     density[same_quad] <- NA
 
     density[density > max_density] <- max_density

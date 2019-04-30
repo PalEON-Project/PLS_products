@@ -6,6 +6,7 @@ library(dplyr)
 library(readr)
 library(PEcAn.allometry)
 library(PEcAn.logger)
+library(assertthat)
 
 load(file.path(interim_results_dir, 'point_with_density.Rda'))
 
@@ -37,12 +38,14 @@ mw <- mw %>% left_join(taxa_conversion, by = c("L3_tree1" = "level3a")) %>%
 ## Treat Unknown tree as generic hardwood.
 ## Even if we want to omit Unknown tree, we need a placeholder so that NA
 ## (from Unknown tree) values don't cause problems in allometry fitting
+assert_that(sum(is.na(mw$pecan1) & !is.na(mw$L3_tree1) & mw$L3_tree1 != "No tree") ==
+            sum(mw$L3_tree1 == "Unknown tree", na.rm = TRUE),
+            msg = "Not all unknown pecan1 values are unknown tree")
+assert_that(sum(is.na(mw$pecan2) & !is.na(mw$L3_tree2) & mw$L3_tree2 != "No tree") ==
+            sum(mw$L3_tree2 == "Unknown tree", na.rm = TRUE),
+            msg = "Not all unknown pecan1 values are unknown tree")
 mw <- mw %>% mutate(pecan1 = ifelse(is.na(pecan1), '318,802,541,731', pecan1),
                     pecan2 = ifelse(is.na(pecan2), '318,802,541,731', pecan2))
-
-
-assert_that(sum(is.na(mw$pecan1)) == 0, msg = "missing allometries")
-assert_that(sum(is.na(mw$pecan2)) == 0, msg = "missing allometries")
 
 ## Fit allometry models for all taxa
 unique_pecan_allom <- unique(c(mw$pecan1, mw$pecan2))
@@ -158,12 +161,13 @@ if(!shared_params_in_cell) {
 }
 cat("Note: currently using point estimate for individual tree biomass.\n")
 
+stop()
 assert_that(min(mw$biomass1, na.rm = TRUE) >= 0 & min(mw$biomass2, na.rm = TRUE) >= 0 &
             max(mw$biomass1, na.rm = TRUE) < 1e6 & max(mw$biomass2, na.rm = TRUE) < 1e6,
             msg = "extreme biomass values")
 
 ## We considered setting biomass for 'Unknown tree' to NA, but for now we do estimate biomass
-## by using generic hardwood allometry.
+## by using generic hardwood allometry (approximately 80% of trees in database are hardwoods).
 ## There are 388 Unknown tree in tree1 and 362 in tree2.
 if(FALSE) {
     ## This needs to be done because we set a default allometry for 'Unknown tree' above and want

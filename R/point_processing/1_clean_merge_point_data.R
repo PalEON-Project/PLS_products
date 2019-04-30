@@ -70,6 +70,11 @@ IL_WI_overlap_points <- c("642067","642022","642315","642443","641958","642391",
 
 il <- il %>% filter(!entry_id %in% IL_WI_overlap_points)
 
+cat("Starting with ", nrow(ind), " corners in Indiana.\n", sep = '')
+cat("Starting with ", nrow(il), " corners in Illinois.\n", sep = '')
+cat("Starting with ", nrow(det), " corners in Detroit area.\n", sep = '')
+
+
 assert_that(!sum(is.na(ind$L1_tree1)) && !sum(is.na(il$L1_tree1)) && !sum(is.na(det$L1_tree1)),
             msg = "Missing values in taxon for first tree in IN or IL or Detroit.")
 
@@ -106,9 +111,6 @@ ind <- ind %>% filter(!(L1_tree1 %in% c(nodata_flags, wet_flags)))
 il <- il %>% filter(!(L1_tree1 %in% c(nodata_flags, wet_flags)))
 det <- det %>% filter(!(L1_tree1 %in% c(nodata_flags, wet_flags)))
 
-cat("Using ", nrow(ind), " corners in Indiana.\n", sep = '')
-cat("Using ", nrow(il), " corners in Illinois.\n", sep = '')
-cat("Using ", nrow(det), " corners in Detroit.\n", sep = '')
 
 ## Converting L1 (survey abbreviation) to L3 (Paleon nomenclature) taxa; currently this overwrites existing L3 in Indiana and Detroit (for Illinois it has already been removed) but ensuring use of current taxon conversion file; in future L3 will not be in the input files and will solely be created here.
 
@@ -310,6 +312,8 @@ inildet <- inildet[final_columns]
 somi <- read_csv(file.path(raw_data_dir, southern_michigan_file), guess_max = 100000)
 somi <- somi %>% mutate(point_id = seq_len(nrow(somi)), vegtype = NA, state = "SoMI")
 
+cat("Starting with ", nrow(somi), " corners in southern Michigan (not counting Detroit).\n", sep = '')
+
 ## Per GH issue #59 we are not using Isle Royale at this point.
 
 if(FALSE) {
@@ -403,12 +407,11 @@ somi <- somi %>% rename(x = point_x, y = point_y)
 
 ## Per issue 49, quarter-section points in southern Michigan are undersampled and sampling
 ## appears to vary with forest type/density, so removing them.
-
-count <- somi %>% filter(sectioncorner == 'quartersection') %>% summarize(count = n())
-cat("Removing all", unlist(count), "quarter section points from southern Michigan outside Detroit.\n")
-somi <- somi %>% filter(sectioncorner == 'section')
-
-cat("Using ", nrow(somi), " corners in southern Michigan (not counting Detroit).\n", sep = '')
+if(omit_southern_michigan_quarter_sections) {
+    nr <- nrow(somi)
+    somi <- somi %>% filter(sectioncorner == 'section')
+    cat("Removing all", nr - nrow(somi), "quarter section points from southern Michigan outside Detroit.\n")
+}
 
 somi <- somi[final_columns]
 
@@ -437,6 +440,10 @@ if(!file.exists(file.path(raw_data_dir, northern_michigan_file)))
 wi <- read_csv(file.path(raw_data_dir, wisconsin_file), guess_max = 100000) %>% mutate(state = 'WI')
 mn <- read_csv(file.path(raw_data_dir, minnesota_file), guess_max = 100000) %>% mutate(state = 'MN')
 nomi <- read_csv(file.path(raw_data_dir, northern_michigan_file), guess_max = 100000) %>% mutate(state = 'NoMI')
+
+cat("Starting with ", nrow(mn), " corners in Minnesota.\n", sep = '')
+cat("Starting with ", nrow(wi), " corners in Wisconsin.\n", sep = '')
+cat("Starting with ", nrow(nomi), " corners in northern Michigan.\n", sep = '')
 
 wi <- wi %>% mutate(point_id = seq_len(nrow(wi)))
 mn <- mn %>% mutate(point_id = seq_len(nrow(mn)))
@@ -484,7 +491,7 @@ mn <- mn %>% mutate(sp1 = ifelse(sp1 == 'BE', 'IR', sp1),
 ##  Almendinger references the following land cover codes that are likely to have water:
 ##  'A' - Creek (unlikely to be exclusively water)
 ##  'M' - Marsh
-##  'S' - Swamp (Charlie notes this meant wetland and not necessarily forested)
+##  'S' - Swamp (Charlie notes this meant wetland and not necessarily forested; but note that most of these points do have two trees)
 ##  'L' - Lake
 ##  'R' - River
 waterTypes <- c('L', 'M', 'S', 'R', 'A')
@@ -573,7 +580,6 @@ cat("Found ", sum(wi$sp1 == 'QQ'), " water points in Wisconsin.\n")
 wi <- wi %>% filter(sp1 != 'QQ')
 
 ## based on parsing notes field, we do include some points that seem to be no-tree points
-
 ## (non-water and non-"tree is point/corner/post")
 miss <- nomi %>% filter(is.na(sp1) & is.na(sp2) & is.na(sp3) & is.na(sp4))
 nomi <- nomi %>% filter(!(is.na(sp1) & is.na(sp2) & is.na(sp3) & is.na(sp4)))
@@ -594,7 +600,7 @@ cat("Omitting ", sum(grepl(treeAsPostText, miss$notes, ignore.case = TRUE)), " p
 miss <- miss %>% filter(!grepl(treeAsPostText, notes, ignore.case = TRUE))
 ## indications that data lost or not noted
 missingDataText <- c("(THEN LOST|INFORMATION NOT GIVEN|NOT IN NOTES|NO INFORMATION|RANDOM NOTES|OMITTED|OMMITTED|CUT OFF|MICROFILM|TREE IS DEAD|TA, RP, PS, WP|PS, RP|TRAIL COURSE)")
-cat("Omitting ", sum(grepl(missingDataText, miss$notes, ignore.case = TRUE)), " points in northern Michigan with corner as post and no taxa info.\n")
+cat("Omitting ", sum(grepl(missingDataText, miss$notes, ignore.case = TRUE)), " points in northern Michigan with notes indicating missing data.\n")
 miss <- miss %>% filter(!grepl(missingDataText, notes, ignore.case = TRUE))
 ## Charlie's checking indicates these are mostly cases where tree was the corner but surveyor didn't bother to note other trees; density here is ambiguous
 noOtherTreeText <- c("NO OTHER")
@@ -626,11 +632,6 @@ columns_to_keep <- c("point", "twp", "rng", "surveyyear",
 mn <- mn[columns_to_keep] 
 nomi <- nomi[columns_to_keep]
 wi <- wi[columns_to_keep]
-
-cat("Using ", nrow(mn), " corners in Minnesota.\n", sep = '')
-cat("Using ", nrow(wi), " corners in Wisconsin, but some will excluded later as water points.\n", sep = '')
-cat("Using ", nrow(nomi), " corners in northern Michigan.\n", sep = '')
-
 
 umw <- rbind(mn, wi, nomi)
 
@@ -726,7 +727,7 @@ wh <- mw$L3_tree1 == "Missing" | mw$L3_tree2 == "Missing" |
     mw$L3_tree3 == "Missing" | mw$L3_tree4 == "Missing"
 wh[is.na(wh)] <- FALSE
 mw <- mw[!wh, ]
-cat("Removing ", nr-nrow(mw), " points with any 'Dead' or indeterminable trees as these points generally don't have two live trees for calculation.\n")
+cat("Removing ", nr-nrow(mw), " points with any 'Dead' or indeterminable trees from MN/WI/northern Michigan as these points generally don't have two live trees for calculation.\n")
 
 nontree_codes <- c("Water", "No tree")
 
@@ -794,6 +795,10 @@ assert_that(length(unique(c(tmp))) == 38,
 tmp[tmp %in% c('No tree', 'Water')] <- NA
 ntree <- apply(tmp, 1,function(x) sum(!is.na(x)))
 mw <- mw %>% mutate(point = ifelse(ntree > 2, '2nQ', 'Pair'))
+
+nr <- nrow(mw)
+mw <- mw %>% filter(!(state == "SoMI" & point == "2nQ"))
+cat("Excluding ", nr-nrow(mw), " southern Michigan points with three or more trees as inconsistent with sampling design.\n")
 
 
 ## before additional cleaning of northern Michigan datamost there were decimal distances

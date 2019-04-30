@@ -10,11 +10,20 @@ if(shared_params_in_cell) {
 if(!'cell' %in% names(mw)) 
     mw <- mw %>% add_paleon_grid()
 
+nr = nrow(mw)
+
 ## Can't calculate point-level biomass at points without density estimate.
 mw <- mw %>% filter(!is.na(density_for_biomass))
-## Can't calculate point-level biomass in these cases:
+cat("Excluding ", nr - nrow(mw), " points with missing density for biomass.")
+## Can't calculate point-level biomass (though it would be low).
+nr = nrow(mw)
 mw <- mw %>% filter(!(num_trees == 1 & is.na(biomass1)))
-mw <- mw %>% filter(!(num_trees == 2 & is.na(biomass1) & is.na(biomass2)))
+cat("Excluding ", nr - nrow(mw), " one-tree points with missing biomass.")
+## Could calculate for case with only one missing biomass, but it gets
+## complicated to do in an unbiased way so exclude.
+nr = nrow(mw)
+mw <- mw %>% filter(!(num_trees == 2 & (is.na(biomass1) | is.na(biomass2))))
+cat("Excluding ", nr - nrow(mw), " two-tree points with at least one missing biomass.")
 
 
 taxa_conv <- read_csv(file.path(conversions_data_dir, level_3a_to_3s_conversion_file)) %>%

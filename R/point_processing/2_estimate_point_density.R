@@ -6,13 +6,13 @@
 
 library(readr)
 library(dplyr)
+library(assertthat)
 
 load(file.path(interim_results_dir, 'cleaned_point.Rda'))
 
 ## determine number of trees per point
 
 num_trees <- rep(2, nrow(mw))
-## only 1 NA in L3_tree1; check back on where it came from
 num_trees[is.na(mw$L3_tree1) | mw$L3_tree1 == "No tree"] <- 0
 num_trees[!is.na(mw$L3_tree1) & mw$L3_tree1 != "No tree" & (mw$L3_tree2 == "No tree" | is.na(mw$L3_tree2))] <- 1
 
@@ -22,7 +22,6 @@ mw <- mw %>% mutate(num_trees = num_trees)
 
 ## remove 1-tree 0-distance (or unknown distance) points as unclear what to use for density
 ## there are clusters of such points in LP of MI, southern IL and southern IN, and around Green Bay
-## 3340 points
 nr <- nrow(mw)
 mw <- mw %>% filter(!(num_trees == 1 & (is.na(dist1) | dist1 == 0)))
 cat("Excluded ", nr - nrow(mw), " points with one tree at zero or missing distance.\n")
@@ -40,7 +39,6 @@ cat("Excluded ", nr - nrow(mw), " points with two trees and two distances equal 
 ## Remove one-tree WI points with indications of water;
 ## doing this here as it's simplest to make use of the num_trees field
 ## assuming same vegtype codes as in MN, we should exclude L,M,R,S
-## however there are codes that are the numbers 2,3,4,5,7,8; not sure what these mean
 waterTypes <- c('L', 'M', 'S', 'R', 'A')
 nr <- nrow(mw)
 mw <- mw %>% filter(!(state == 'WI' & num_trees %in% c(0,1) & vegtype %in% waterTypes)) %>%
@@ -65,6 +63,12 @@ assert_that(nrow(tmp) < 500,
 ## keep 2-tree points regardless of distances and truncate density (at say 1000 for now)
 ## use 2-tree points with small or NA diameter trees for density calculation,
 
+## Treat all 2nQ points in southern Michigan as Pair as that is what we think
+## the sampling scheme was and we don't have correction factors for 2nQ in this area.
+assert_that(nrow(mw[mw$state == "SoMI" & mw$point == "2nQ",]) < 50,
+            msg = "more than 50 2nQ points in southern Michigan")
+mw <- mw %>% mutate(point = ifelse(state == "SoMI" & point == "2nQ", "Pair", point))
+
 ## Correction factors to account for surveyor sampling 'design'
 corr_factors <- read_csv(file.path(conversions_data_dir, correction_factors_file),
                          na = c("", "NA", "na"))
@@ -78,10 +82,11 @@ corr_factors <- corr_factors %>% left_join(names_df, by = c('state' = 'state')) 
 ## per issue #39, we will omit phi (veil line) correction when computing point biomass
 ## as we include biomass of trees below the veil line
 ## therefore compute two density estimates here
+
 mw <- mw %>% mutate(density = calc_stem_density(mw, corr_factors),
                     density_for_biomass = calc_stem_density(mw, corr_factors, use_phi = FALSE))
 
-print(table(mw$state))
+print(table(mw$state[!is.na(mw$density)]))
 
 save(mw, file = file.path(interim_results_dir, 'point_with_density.Rda'))
 
