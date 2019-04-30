@@ -67,7 +67,7 @@ michigan_special_township_file="NETwns_EMeridian_southernMI.csv"
 
 ## quarter section data available skewed to savanna locations,
 ## possibly even at level of points, not just large areas
-omit_so_michigan_quarter_sections=1
+omit_southern_michigan_quarter_sections=1
 
 ## unit conversions
 cm_per_inch=2.54
