@@ -10,6 +10,8 @@
 
 library(dplyr)
 
+stop("check memory use when saving all these draws")
+
 load(file.path(interim_results_dir, 'cell_with_biomass_grid.Rda'))
 
 if(use_mpi) {
@@ -66,33 +68,67 @@ output <- foreach(taxonIdx = seq_along(taxa_to_fit)) %:%
         train <- cell_full_taxon %>% filter(fold != i)
         test <- cell_full_taxon %>% filter(fold == i) %>% arrange(cell)
         
-        po <- fit(train, newdata = test, k_occ = k_occ_cv, unc = FALSE, use_bam = TRUE, bound_draws_low = TRUE)
-        ppa <- fit(train, newdata = test, k_pot = k_pot_cv, type_pot = 'arith', unc = FALSE, use_bam = TRUE)
-        ppl <- fit(train, newdata = test, k_pot = k_pot_cv, type_pot = 'log_arith', unc = FALSE, use_bam = TRUE)
+        po <- fit(train, newdata = test, k_occ = k_occ_cv, unc = TRUE, use_bam = TRUE, bound_draws_low = TRUE, save_draws = TRUE, num_draws = n_stat_samples)
+        ppa1 <- fit(train, newdata = test, k_pot = k_pot_cv, type_pot = 'arith', weight_scale = 1, unc = TRUE, use_bam = TRUE, save_draws = TRUE, num_draws = n_stat_samples)
+        ppl1 <- fit(train, newdata = test, k_pot = k_pot_cv, type_pot = 'log_arith', weight_scale = 1, unc = TRUE, use_bam = TRUE, save_draws = TRUE, num_draws = n_stat_samples)
+        ppa70 <- fit(train, newdata = test, k_pot = k_pot_cv, type_pot = 'arith', weight_scale = 70, unc = TRUE, use_bam = TRUE, save_draws = TRUE, num_draws = n_stat_samples)
+        ppl70 <- fit(train, newdata = test, k_pot = k_pot_cv, type_pot = 'log_arith', weight_scale = 70, unc = TRUE, use_bam = TRUE, save_draws = TRUE, num_draws = n_stat_samples)
         cat("taxon: ", taxonIdx, " ; fold: ", i, "\n", sep = "")
-        list(po$pred_occ, ppa$pred_pot, ppl$pred_pot)
+        list(po = po, ppa1 = ppa1, ppl1 = ppl1, ppa70 = ppa70, ppl70 = ppl70)
     }
 
 pred_occ <- array(0, c(length(taxa_to_fit), nrow(cell_full), length(k_occ_cv)))
-pred_pot_arith <- pred_pot_larith <- array(0, c(length(taxa_to_fit), nrow(cell_full), length(k_pot_cv)))
+pred_pot_arith <- pred_pot_larith <- sig2_arith <- sig2_larith <-
+    array(0, c(length(taxa_to_fit), nrow(cell_full), length(k_pot_cv)))
     
-dimnames(pred_occ)[[1]] <- dimnames(pred_pot_arith)[[1]] <- dimnames(pred_pot_larith)[[1]] <- taxa_to_fit
+dimnames(pred_occ)[[1]] <- <- taxa_to_fit
 dimnames(pred_occ)[[3]] <- k_occ_cv
-dimnames(pred_pot_arith)[[3]] <- dimnames(pred_pot_larith)[[3]] <- k_pot_cv
+dimnames(pred_pot_arith)[[3]] <- dimnames(pred_pot_larith)[[3]] <- dimnames(sig2_arith)[[3]] <-
+    dimnames(sig2_larith)[[3]] <- k_pot_cv
+
+draws_logocc <- array(0, c(length(taxa_to_fit), nrow(cell_full), length(k_occ_cv), n_stat_samples))
+draws_logpot_arith1 <- draws_logpot_larith1 <- draws_logpot_arith70 <- draws_logpot_larith70 <- array(0, c(length(taxa_to_fit), nrow(cell_full), length(k_pot_cv), n_stat_samples))
+
 
 for(taxonIdx in seq_along(taxa_to_fit))
     for(i in seq_len(n_folds)) {
-        pred_occ[taxonIdx, cell_full$fold == i, ] <- output[[taxonIdx]][[i]][[1]]
-        pred_pot_arith[taxonIdx, cell_full$fold == i, ] <- output[[taxonIdx]][[i]][[2]]
-        pred_pot_larith[taxonIdx, cell_full$fold == i, ] <- output[[taxonIdx]][[i]][[3]]
+        pred_occ[taxonIdx, cell_full$fold == i, ] <- output[[taxonIdx]][[i]]$po$pred_occ
+        pred_pot_arith1[taxonIdx, cell_full$fold == i, ] <- output[[taxonIdx]][[i]]$ppa1$pred_pot
+        pred_pot_larith1[taxonIdx, cell_full$fold == i, ] <- output[[taxonIdx]][[i]]$ppl1$pred_pot
+        pred_pot_arith70[taxonIdx, cell_full$fold == i, ] <- output[[taxonIdx]][[i]]$ppa70$pred_pot
+        pred_pot_larith70[taxonIdx, cell_full$fold == i, ] <- output[[taxonIdx]][[i]]$ppl70$pred_pot
+        draws_logocc[taxonIdx, cell_full$fold == i, , ] <- output[[i]]$po$draws_logocc
+        draws_logpot_arith1[taxonIdx, cell_full$fold == i, , ] <- output[[i]]$ppa1$draws_logpot
+        draws_logpot_larith1[taxonIdx, cell_full$fold == i, , ] <- output[[i]]$ppl1$draws_logpot
+        draws_logpot_arith70[taxonIdx, cell_full$fold == i, , ] <- output[[i]]$ppa70$draws_logpot
+        draws_logpot_larith70[taxonIdx, cell_full$fold == i, , ] <- output[[i]]$ppl70$draws_logpot
+        sig2_arith1[taxonIdx, cell_full$fold == i, ] <- output[[taxonIdx]][[i]]$ppa1$model_pot
+        sig2_larith1[taxonIdx, cell_full$fold == i, ] <- output[[taxonIdx]][[i]]$ppl1$model_pot
+        sig2_arith70[taxonIdx, cell_full$fold == i, ] <- output[[taxonIdx]][[i]]$ppa70$model_pot
+        sig2_larith70[taxonIdx, cell_full$fold == i, ] <- output[[taxonIdx]][[i]]$ppl70$model_pot
     }
 
 ## Assess results.
 
-critArith <- critLogArith <- array(0, c(length(taxa_to_fit), length(k_occ_cv), length(k_pot_cv)))
-dimnames(critArith)[[1]] <- dimnames(critLogArith)[[1]] <- taxa_to_fit
-dimnames(critArith)[[2]] <- dimnames(critLogArith)[[2]] <- k_occ_cv
-dimnames(critArith)[[3]] <- dimnames(critLogArith)[[3]] <- k_pot_cv
+crit_point_arith1 <- crit_point_larith1 <- crit_point_arith70 <- crit_point_larith70 <- array(0, c(length(taxa_to_fit), length(k_occ_cv), length(k_pot_cv)))
+dimnames(crit_point_arith1)[[1]] <- dimnames(crit_point_larith1)[[1]] <- dimnames(crit_point_arith70)[[1]] <- dimnames(crit_point_larith70)[[1]] <- taxa_to_fit
+dimnames(crit_point_arith1)[[2]] <- dimnames(crit_point_larith1)[[2]] <- dimnames(crit_point_arith70)[[2]] <- dimnames(crit_point_larith70)[[2]] <- k_occ_cv
+dimnames(crit_point_arith1)[[3]] <- dimnames(crit_point_larith1)[[3]] <- dimnames(crit_point_arith70)[[3]] <- dimnames(crit_point_larith70)[[3]] <- k_pot_cv
+
+crit_cov_arith1 <- crit_cov_larith1 <- crit_cov_arith70 <- crit_cov_larith70 <- array(0, c(length(taxa_to_fit), length(k_occ_cv), length(k_pot_cv)))
+dimnames(crit_cov_arith1)[[1]] <- dimnames(crit_cov_larith1)[[1]] <- dimnames(crit_cov_arith70)[[1]] <- dimnames(crit_cov_larith70)[[1]] <- taxa_to_fit
+dimnames(crit_cov_arith1)[[2]] <- dimnames(crit_cov_larith1)[[2]] <- dimnames(crit_cov_arith70)[[2]] <- dimnames(crit_cov_larith70)[[2]] <- k_occ_cv
+dimnames(crit_cov_arith1)[[3]] <- dimnames(crit_cov_larith1)[[3]] <- dimnames(crit_cov_arith70)[[3]] <- dimnames(crit_cov_larith70)[[3]] <- k_pot_cv
+
+crit_length_arith1 <- crit_length_larith1 <- crit_length_arith70 <- crit_length_larith70 <- array(0, c(length(taxa_to_fit), length(k_occ_cv), length(k_pot_cv)))
+dimnames(crit_length_arith1)[[1]] <- dimnames(crit_length_larith1)[[1]] <- dimnames(crit_length_arith70)[[1]] <- dimnames(crit_length_larith70)[[1]] <- taxa_to_fit
+dimnames(crit_length_arith1)[[2]] <- dimnames(crit_length_larith1)[[2]] <- dimnames(crit_length_arith70)[[2]] <- dimnames(crit_length_larith70)[[2]] <- k_occ_cv
+dimnames(crit_length_arith1)[[3]] <- dimnames(crit_length_larith1)[[3]] <- dimnames(crit_length_arith70)[[3]] <- dimnames(crit_length_larith70)[[3]] <- k_pot_cv
+
+crit_loglength_arith1 <- crit_loglength_larith1 <- crit_loglength_arith70 <- crit_loglength_larith70 <- array(0, c(loglength(taxa_to_fit), loglength(k_occ_cv), loglength(k_pot_cv)))
+dimnames(crit_loglength_arith1)[[1]] <- dimnames(crit_loglength_larith1)[[1]] <- dimnames(crit_loglength_arith70)[[1]] <- dimnames(crit_loglength_larith70)[[1]] <- taxa_to_fit
+dimnames(crit_loglength_arith1)[[2]] <- dimnames(crit_loglength_larith1)[[2]] <- dimnames(crit_loglength_arith70)[[2]] <- dimnames(crit_loglength_larith70)[[2]] <- k_occ_cv
+dimnames(crit_loglength_arith1)[[3]] <- dimnames(crit_loglength_larith1)[[3]] <- dimnames(crit_loglength_arith70)[[3]] <- dimnames(crit_loglength_larith70)[[3]] <- k_pot_cv
 
 for(taxonIdx in seq_along(taxa_to_fit)) {
     ## extract raw data (again) for the taxon
@@ -121,13 +157,47 @@ for(taxonIdx in seq_along(taxa_to_fit)) {
     y[is.na(y)] <- 0  # cells with no points with trees (since $avg will be NA)
     y[is.na(cell_full_taxon$points_occ)] <- NA  # exclude cells with no valid points
     
-    critArith[taxonIdx, , ] <- calc_cv_criterion(pred_occ[taxonIdx, , ], pred_pot_arith[taxonIdx, , ],
+    crit_point_arith1[taxonIdx, , ] <- calc_point_criterion(pred_occ[taxonIdx, , ], pred_pot_arith1[taxonIdx, , ],
                                                  cell_full_taxon$points_total, y, cv_max_biomass)
-    critLogArith[taxonIdx, , ] <- calc_cv_criterion(pred_occ[taxonIdx, , ], pred_pot_larith[taxonIdx, , ],
-                                                    cell_full_taxon$points_total, y, cv_max_biomass)
+    crit_point_larith1[taxonIdx, , ] <- calc_point_criterion(pred_occ[taxonIdx, , ], pred_pot_larith1[taxonIdx, , ],
+                                                       cell_full_taxon$points_total, y, cv_max_biomass)
+    crit_point_arith70[taxonIdx, , ] <- calc_point_criterion(pred_occ[taxonIdx, , ], pred_pot_arith70[taxonIdx, , ],
+                                                 cell_full_taxon$points_total, y, cv_max_biomass)
+    crit_point_larith70[taxonIdx, , ] <- calc_point_criterion(pred_occ[taxonIdx, , ], pred_pot_larith70[taxonIdx, , ],
+                                                       cell_full_taxon$points_total, y, cv_max_biomass)
+
+    cell_full_taxon$y <- y
+    tmp <- calc_cov_criterion(draws_logocc[taxonIdx, , , ], draws_logpot_arith1[taxonIdx, , , ], sig2 = sig2_arith1[taxonIdx, , ],
+                              cell_full_taxon, type_pot = 'arith', scale = 1)
+    crit_cov_arith1[taxonIdx, , ] <- tmp$cov
+    crit_length_arith1[taxonIdx, , ] <- tmp$length
+    crit_loglength_arith1[taxonIdx, , ] <- tmp$loglength
+    
+    tmp <- calc_cov_criterion(draws_logocc[taxonIdx, , , ], draws_logpot_larith1[taxonIdx, , , ], sig2 = sig2_larith1[taxonIdx, , ],
+                                     cell_full_taxon, type_pot = 'log_arith', scale = 1)
+    crit_cov_larith1[taxonIdx, , ] <- tmp$cov
+    crit_length_larith1[taxonIdx, , ] <- tmp$length
+    crit_loglength_larith1[taxonIdx, , ] <- tmp$loglength
+
+    tmp <- calc_cov_criterion(draws_logocc[taxonIdx, , , ], draws_logpot_arith70[taxonIdx, , , ], sig2 = sig2_arith70[taxonIdx, , ],
+                                        cell_full_taxon, type_pot = 'arith', scale = 70)
+    crit_cov_arith70[taxonIdx, , ] <- tmp$cov
+    crit_length_arith70[taxonIdx, , ] <- tmp$length
+    crit_loglength_arith70[taxonIdx, , ] <- tmp$loglength
+
+    tmp <- calc_cov_criterion(draws_logocc[taxonIdx, , , ], draws_logpot_larith70[taxonIdx, , , ], sig2 = sig2_larith70[taxonIdx, , ],
+                                     cell_full_taxon, type_pot = 'log_arith', scale = 70)
+    crit_cov_larith70[taxonIdx, , ] <- tmp$cov
+    crit_length_larith70[taxonIdx, , ] <- tmp$length
+    crit_loglength_larith70[taxonIdx, , ] <- tmp$loglength
+
 }
 
-save(critArith, critLogArith, pred_occ, pred_pot_arith, pred_pot_larith,
+save(crit_point_arith1, crit_point_larith1, crit_point_arith70, crit_point_larith70,
+     crit_cov_arith1, crit_cov_larith1, crit_cov_arith70, crit_cov_larith70,
+     crit_length_arith1, crit_length_larith1, crit_length_arith70, crit_length_larith70,
+     crit_loglength_arith1, crit_loglength_larith1, crit_loglength_arith70, crit_loglength_larith70,
+     pred_occ, pred_pot_arith1, pred_pot_larith1, pred_pot_arith70, pred_pot_larith70,
      file = file.path(interim_results_dir, 'cv_taxon_biomass.Rda'))
 
 

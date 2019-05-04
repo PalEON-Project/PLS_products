@@ -280,34 +280,39 @@ calc_point_criterion <- function(pred_occ, pred_pot, n, y, mx, obj_fun = wgt_mse
             tmp[tmp > mx] <- mx
             crit[i, j] <- obj_fun(n, y, tmp)
         }}
+    dimnames(crit)[[1]] <- dimnames(pred_occ)[[2]]
+    dimnames(crit)[[2]] <- dimnames(pred_pot)[[2]]
     return(crit)
 }
 
-calc_cov_criterion <- function(pred_occ, pred_pot, sig2, data, min_points = 60, n_draw = 250, seed = 1, type_pot = 'arith', scale = TRUE, size = 0.90) {
+calc_cov_criterion <- function(draws_logocc, draws_logpot, sig2, data, min_points = 60, n_draw = 250, seed = 1, type_pot = 'arith', scale = 1, size = 0.90) {
     set.seed(seed)
     if(is.null(min_points)) min_points <- 0
     wh <- which(data$points_occ >= min_points)
     
-    cov <- length <- log_length <- matrix(0, ncol(pred_occ), ncol(pred_pot))
+    cov <- length <- loglength <- matrix(0, dim(draws_logocc)[[2]], dim(draws_logpot)[[2]])
     N <- nrow(data)
 
-    if(scale) sig2 <- sig2 / data$points_occ
+    if(scale) sig2 <- sig2 / (data$points_occ/scale)
+    sig2[sig2 == Inf] <- 1e6  # just so calcs don't fail; these should be left out when [wh] applied
     for(i in seq_len(nrow(cov))) {
         for(j in seq_len(ncol(cov))) {
             tmp <- matrix(0, N, n_draw)
             for(k in seq_len(n_draw)) {
-                yocc <- rbinom(N, cell_full$points_total, exp(biomass_total1$draws_logocc[ , i]))
-                ypot <- rnorm(N, biomass_total1$draws_logpot[ , i], sqrt(sig2))
+                yocc <- rbinom(N, data$points_total, exp(draws_logocc[ , i, k]))
+                ypot <- rnorm(N, draws_logpot[ , j, k], sqrt(sig2[ , j]))
                 if(type_pot == 'log_arith') ypot <- exp(ypot)
-                tmp[ , i] <- ypot*yocc/data$points_total
+                tmp[ , k] <- ypot*yocc/data$points_total
             }
             qq <- apply(tmp, 1, quantile, c((1-size)/2, 1-(1-size)/2), na.rm = TRUE)
             qq <- qq[, wh]
             cov[i,j] <- mean(data$y[wh] < qq[2, ] & data$y[wh] > qq[1, ])
             length[i, j] <- median(qq[2, ] - qq[1, ])
-            log_length[i, j] <- median(log(qq[2, ]) - log(qq[1, ]))
+            loglength[i, j] <- median(log(qq[2, ]) - log(qq[1, ]))
         }}
-    return(list(cov = cov, length = length, log_length = log_length))
+    dimnames(cov)[[1]] <- dimnames(length)[[1]] <- dimnames(loglength)[[1]] <- dimnames(draws_logocc)[[2]]
+    dimnames(cov)[[2]] <- dimnames(length)[[2]] <- dimnames(loglength)[[2]] <- dimnames(draws_logpot)[[2]]
+    return(list(cov = cov, length = length, loglength = loglength))
 
 }
 

@@ -1,3 +1,6 @@
+5/4/19:
+still not clear to use 1 or 70. Note that for taxon specific we usually won't have anywhere near 70.  From numerical standpoint for total biomass seems best to consdier the model to be logY ~ N(m, sigma2) and then adjust for cells with more or less than 70 points, but not clear how to do taxon-specific.
+
 1/8/19:
 [Note on 2/5/19: looks like intervals are 90% intervals so coverage >90% actually not great.]
 

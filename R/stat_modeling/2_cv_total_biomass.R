@@ -55,37 +55,55 @@ folds <- rep(1:n_folds, length.out = length(cells))
 
 cell_full <- cell_full %>% inner_join(data.frame(cell = cells, fold = folds), by = c('cell'))
 
-pred_occ <- sig2_arith1 <- sig2_arith70 <- sig2_larith1 <- sig2_larith70 <- matrix(0, nrow(cell_full), length(k_occ_cv))
+pred_occ <- matrix(0, nrow(cell_full), length(k_occ_cv))
 dimnames(pred_occ)[[2]] <- k_occ_cv
-pred_pot_arith1 <- pred_pot_larith1 <- pred_pot_arith70 <- pred_pot_larith70 <- matrix(0, nrow(cell_full), length(k_pot_cv))
+pred_pot_arith1 <- pred_pot_larith1 <- pred_pot_arith70 <- pred_pot_larith70 <-
+    sig2_arith1 <- sig2_arith70 <- sig2_larith1 <- sig2_larith70 <- matrix(0, nrow(cell_full), length(k_pot_cv))
 dimnames(pred_pot_arith1)[[2]] <- dimnames(pred_pot_larith1)[[2]] <-
-    dimnames(pred_pot_arith70)[[2]] <- dimnames(pred_pot_larith70)[[2]] <- k_pot_cv
+    dimnames(pred_pot_arith70)[[2]] <- dimnames(pred_pot_larith70)[[2]] <-
+    dimnames(sig2_arith1)[[2]] <- dimnames(sig2_arith70)[[2]] <-
+    dimnames(sig2_larith1)[[2]] <- dimnames(sig2_larith70)[[2]] <- k_pot_cv
+
+draws_logocc <- array(0, c(nrow(cell_full), length(k_occ_cv), n_stat_samples))
+draws_logpot_arith1 <- draws_logpot_larith1 <- draws_logpot_arith70 <- draws_logpot_larith70 <- array(0, c(nrow(cell_full), length(k_pot_cv), n_stat_samples))
 
 n_folds <- max(cell_full$fold)
 output <- foreach(i = seq_len(n_folds)) %dopar% {
     train <- cell_full %>% filter(fold != i)
     test <- cell_full %>% filter(fold == i)
     
-    po <- fit(train, newdata = test, k_occ = k_occ_cv, unc = TRUE, use_bam = TRUE)
-    ppa1 <- fit(train, newdata = test, k_pot = k_pot_cv, type_pot = 'arith', weight_scale = 1, unc = TRUE, use_bam = TRUE)
-    ppa70 <- fit(train, newdata = test, k_pot = k_pot_cv, type_pot = 'arith', weight_scale = 70, unc = TRUE, use_bam = TRUE)
-    ppl1 <- fit(train, newdata = test, k_pot = k_pot_cv, type_pot = 'log_arith', weight_scale = 1, unc = TRUE, use_bam = TRUE)
-    ppl70 <- fit(train, newdata = test, k_pot = k_pot_cv, type_pot = 'log_arith', weight_scale = 70, unc = TRUE, use_bam = TRUE)
+    po <- fit(train, newdata = test, k_occ = k_occ_cv, unc = TRUE, use_bam = TRUE, save_draws = TRUE, num_draws = n_stat_samples)
+    ppa1 <- fit(train, newdata = test, k_pot = k_pot_cv, type_pot = 'arith', weight_scale = 1, unc = TRUE,
+                use_bam = TRUE, save_draws = TRUE, num_draws = n_stat_samples)
+    ppa70 <- fit(train, newdata = test, k_pot = k_pot_cv, type_pot = 'arith', weight_scale = 70, unc = TRUE,
+                 use_bam = TRUE, save_draws = TRUE, num_draws = n_stat_samples)
+    ppl1 <- fit(train, newdata = test, k_pot = k_pot_cv, type_pot = 'log_arith', weight_scale = 1, unc = TRUE,
+                use_bam = TRUE, save_draws = TRUE, num_draws = n_stat_samples)
+    ppl70 <- fit(train, newdata = test, k_pot = k_pot_cv, type_pot = 'log_arith', weight_scale = 70, unc = TRUE,
+                 use_bam = TRUE, save_draws = TRUE, num_draws = n_stat_samples)
     cat("n_fold: ", i, " ", date(), "\n")
     list(po = po, ppa1 = ppa1, ppa70 = ppa70, ppl1 = ppl1, ppl70 = ppl70)
 }
 
 
 for(i in seq_len(n_folds)) {
+    subn <- sum(cell_full$fold == i)
     pred_occ[cell_full$fold == i, ] <- output[[i]]$po$pred_occ
     pred_pot_arith1[cell_full$fold == i, ] <- output[[i]]$ppa1$pred_pot
-    pred_pot_arith70[cell_full$fold == i, ] <- output[[i]]$ppa70$pred_pot
     pred_pot_larith1[cell_full$fold == i, ] <- output[[i]]$ppl1$pred_pot
+    pred_pot_arith70[cell_full$fold == i, ] <- output[[i]]$ppa70$pred_pot
     pred_pot_larith70[cell_full$fold == i, ] <- output[[i]]$ppl70$pred_pot
-    sig2_arith1[cell_full$fold == i, ] <- output[[i]]$ppa1$model_pot
-    sig2_arith70[cell_full$fold == i, ] <- output[[i]]$ppa70$model_pot
-    sig2_larith1[cell_full$fold == i, ] <- output[[i]]$ppl1$model_pot
-    sig2_larith70[cell_full$fold == i, ] <- output[[i]]$ppl70$model_pot
+
+    draws_logocc[cell_full$fold == i, , ] <- output[[i]]$po$draws_logocc
+    draws_logpot_arith1[cell_full$fold == i, , ] <- output[[i]]$ppa1$draws_logpot
+    draws_logpot_larith1[cell_full$fold == i, , ] <- output[[i]]$ppl1$draws_logpot
+    draws_logpot_arith70[cell_full$fold == i, , ] <- output[[i]]$ppa70$draws_logpot
+    draws_logpot_larith70[cell_full$fold == i, , ] <- output[[i]]$ppl70$draws_logpot
+    ## when model not returned, we do get back the 'sig2' value as the model_pot
+    sig2_arith1[cell_full$fold == i, ] <- rep(output[[i]]$ppa1$model_pot, each = subn)
+    sig2_larith1[cell_full$fold == i, ] <- rep(output[[i]]$ppl1$model_pot, each = subn)
+    sig2_arith70[cell_full$fold == i, ] <- rep(output[[i]]$ppa70$model_pot, each = subn)
+    sig2_larith70[cell_full$fold == i, ] <- rep(output[[i]]$ppl70$model_pot, each = subn)
 }
 
 
@@ -106,22 +124,17 @@ crit_larith70 <- calc_point_criterion(pred_occ, pred_pot_larith70, cell_full$poi
 
 cell_full$y <- y
 crit_arith1 <- c(list(point = crit_arith1),
-                 calc_cov_criterion(pred_occ, pred_pot_arith1, sig2 = sig2_arith1,
-                                    cell_full, type_pot = 'arith', scale = TRUE))
+                 calc_cov_criterion(draws_logocc, draws_logpot_arith1, sig2 = sig2_arith1,
+                                    cell_full, type_pot = 'arith', scale = 1))
 crit_larith1 <- c(list(point = crit_larith1),
-                  calc_cov_criterion(pred_occ, pred_pot_larith1, sig2 = sig2_larith1,
-                                     cell_full, type_pot = 'log_arith', scale = TRUE))
+                  calc_cov_criterion(draws_logocc, draws_logpot_larith1, sig2 = sig2_larith1,
+                                     cell_full, type_pot = 'log_arith', scale = 1))
 crit_arith70 <- c(list(point = crit_arith70),
-                  calc_cov_criterion(pred_occ, pred_pot_arith70, sig2 = sig2_arith70,
-                                     cell_full, type_pot = 'arith', scale = FALSE))
+                  calc_cov_criterion(draws_logocc, draws_logpot_arith70, sig2 = sig2_arith70,
+                                     cell_full, type_pot = 'arith', scale = 70))
 crit_larith70 <- c(list(point = crit_larith70),
-                   calc_cov_criterion(pred_occ, pred_pot_larith70, sig2 = sig2_larith70,
-                                      cell_full, type_pot = 'log_arith', scale = FALSE))
-
-dimnames(crit_arith1)[[1]] <- dimnames(crit_larith1)[[1]] <-
-    dimnames(crit_arith70)[[1]] <- dimnames(crit_larith70)[[1]] <- k_occ_cv
-dimnames(crit_arith1)[[2]] <- dimnames(crit_larith1)[[2]] <-
-    dimnames(crit_arith70)[[2]] <- dimnames(crit_larith70)[[2]] <- k_pot_cv
+                   calc_cov_criterion(draws_logocc, draws_logpot_larith70, sig2 = sig2_larith70,
+                                      cell_full, type_pot = 'log_arith', scale = 70))
 
 save(crit_arith1, crit_larith1, crit_arith70, crit_larith70,
      pred_occ, pred_pot_arith1, pred_pot_larith1, pred_pot_arith70, pred_pot_larith70, file = file.path(interim_results_dir,

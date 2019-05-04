@@ -9,6 +9,8 @@ library(dplyr)
 library(fields)
 library(assertthat)
 
+warning("still waiting for fix to issue 71 to add in no data, no tree etc for IN/IL/Det and also, I think, to have XA/XB/XC be 'No data'") 
+
 ## common column names for merging data subsets
 final_columns <- c("x","y","twp","surveyyear",
                      "L1_tree1", "L1_tree2", "L1_tree3", "L1_tree4",
@@ -113,8 +115,6 @@ det <- det %>% filter(!(L1_tree1 %in% c(nodata_flags, wet_flags)))
 
 
 ## Converting L1 (survey abbreviation) to L3 (Paleon nomenclature) taxa; currently this overwrites existing L3 in Indiana and Detroit (for Illinois it has already been removed) but ensuring use of current taxon conversion file; in future L3 will not be in the input files and will solely be created here.
-
-warning("waiting on Jody for issue #71 to have 'No tree' in conversion file so NAs not introduced")
 
 ## Indiana conversion
 spec_codes <- read_csv(file.path(conversions_data_dir, taxa_conversion_file), guess_max = 2000) %>% 
@@ -309,6 +309,8 @@ inildet <- inildet[final_columns]
 
 ## ----------------------------------DATA CLEANING: SOUTHERN MI --------------------------------------------------
 
+if(!file.exists(file.path(raw_data_dir, southern_michigan_zipfile))) 
+    unzip(file.path(raw_data_dir, southern_michigan_zipfile), exdir = raw_data_dir)
 somi <- read_csv(file.path(raw_data_dir, southern_michigan_file), guess_max = 100000)
 somi <- somi %>% mutate(point_id = seq_len(nrow(somi)), vegtype = NA, state = "SoMI")
 
@@ -676,6 +678,8 @@ if(sum(is.na(umw$L3_tree1)) != sum(is.na(umw$L1_tree1)) ||
    sum(is.na(umw$L3_tree3)) != sum(is.na(umw$L1_tree3)) ||
    sum(is.na(umw$L3_tree4)) != sum(is.na(umw$L1_tree4)))
     cat("Apparently some L1 taxa are missing from the UMW L1 to L3 conversion table.\n")
+
+stop()
 
 ## These are points in WI marked as XA/XB/XC where no corner data present.
 miss <- umw %>% filter(umw$L3_tree1 %in% nodata_flags)
