@@ -10,7 +10,8 @@
 
 library(dplyr)
 
-stop("check memory use when saving all these draws")
+warning("This code uses ~100 GB of RAM.")
+
 
 load(file.path(interim_results_dir, 'cell_with_biomass_grid.Rda'))
 
@@ -78,13 +79,14 @@ output <- foreach(taxonIdx = seq_along(taxa_to_fit)) %:%
     }
 
 pred_occ <- array(0, c(length(taxa_to_fit), nrow(cell_full), length(k_occ_cv)))
-pred_pot_arith <- pred_pot_larith <- sig2_arith <- sig2_larith <-
+pred_pot_arith1 <- pred_pot_larith1 <- sig2_arith1 <- sig2_larith1 <-
+pred_pot_arith70 <- pred_pot_larith70 <- sig2_arith70 <- sig2_larith70 <-
     array(0, c(length(taxa_to_fit), nrow(cell_full), length(k_pot_cv)))
     
-dimnames(pred_occ)[[1]] <- <- taxa_to_fit
+dimnames(pred_occ)[[1]] <- taxa_to_fit
 dimnames(pred_occ)[[3]] <- k_occ_cv
-dimnames(pred_pot_arith)[[3]] <- dimnames(pred_pot_larith)[[3]] <- dimnames(sig2_arith)[[3]] <-
-    dimnames(sig2_larith)[[3]] <- k_pot_cv
+dimnames(pred_pot_arith1)[[3]] <- dimnames(pred_pot_larith1)[[3]] <- dimnames(sig2_arith1)[[3]] <- dimnames(sig2_larith1)[[3]] <-
+dimnames(pred_pot_arith70)[[3]] <- dimnames(pred_pot_larith70)[[3]] <- dimnames(sig2_arith70)[[3]] <- dimnames(sig2_larith70)[[3]] <- k_pot_cv
 
 draws_logocc <- array(0, c(length(taxa_to_fit), nrow(cell_full), length(k_occ_cv), n_stat_samples))
 draws_logpot_arith1 <- draws_logpot_larith1 <- draws_logpot_arith70 <- draws_logpot_larith70 <- array(0, c(length(taxa_to_fit), nrow(cell_full), length(k_pot_cv), n_stat_samples))
@@ -97,11 +99,11 @@ for(taxonIdx in seq_along(taxa_to_fit))
         pred_pot_larith1[taxonIdx, cell_full$fold == i, ] <- output[[taxonIdx]][[i]]$ppl1$pred_pot
         pred_pot_arith70[taxonIdx, cell_full$fold == i, ] <- output[[taxonIdx]][[i]]$ppa70$pred_pot
         pred_pot_larith70[taxonIdx, cell_full$fold == i, ] <- output[[taxonIdx]][[i]]$ppl70$pred_pot
-        draws_logocc[taxonIdx, cell_full$fold == i, , ] <- output[[i]]$po$draws_logocc
-        draws_logpot_arith1[taxonIdx, cell_full$fold == i, , ] <- output[[i]]$ppa1$draws_logpot
-        draws_logpot_larith1[taxonIdx, cell_full$fold == i, , ] <- output[[i]]$ppl1$draws_logpot
-        draws_logpot_arith70[taxonIdx, cell_full$fold == i, , ] <- output[[i]]$ppa70$draws_logpot
-        draws_logpot_larith70[taxonIdx, cell_full$fold == i, , ] <- output[[i]]$ppl70$draws_logpot
+        draws_logocc[taxonIdx, cell_full$fold == i, , ] <- output[[taxonIdx]][[i]]$po$draws_logocc
+        draws_logpot_arith1[taxonIdx, cell_full$fold == i, , ] <- output[[taxonIdx]][[i]]$ppa1$draws_logpot
+        draws_logpot_larith1[taxonIdx, cell_full$fold == i, , ] <- output[[taxonIdx]][[i]]$ppl1$draws_logpot
+        draws_logpot_arith70[taxonIdx, cell_full$fold == i, , ] <- output[[taxonIdx]][[i]]$ppa70$draws_logpot
+        draws_logpot_larith70[taxonIdx, cell_full$fold == i, , ] <- output[[taxonIdx]][[i]]$ppl70$draws_logpot
         sig2_arith1[taxonIdx, cell_full$fold == i, ] <- output[[taxonIdx]][[i]]$ppa1$model_pot
         sig2_larith1[taxonIdx, cell_full$fold == i, ] <- output[[taxonIdx]][[i]]$ppl1$model_pot
         sig2_arith70[taxonIdx, cell_full$fold == i, ] <- output[[taxonIdx]][[i]]$ppa70$model_pot
@@ -125,7 +127,7 @@ dimnames(crit_length_arith1)[[1]] <- dimnames(crit_length_larith1)[[1]] <- dimna
 dimnames(crit_length_arith1)[[2]] <- dimnames(crit_length_larith1)[[2]] <- dimnames(crit_length_arith70)[[2]] <- dimnames(crit_length_larith70)[[2]] <- k_occ_cv
 dimnames(crit_length_arith1)[[3]] <- dimnames(crit_length_larith1)[[3]] <- dimnames(crit_length_arith70)[[3]] <- dimnames(crit_length_larith70)[[3]] <- k_pot_cv
 
-crit_loglength_arith1 <- crit_loglength_larith1 <- crit_loglength_arith70 <- crit_loglength_larith70 <- array(0, c(loglength(taxa_to_fit), loglength(k_occ_cv), loglength(k_pot_cv)))
+crit_loglength_arith1 <- crit_loglength_larith1 <- crit_loglength_arith70 <- crit_loglength_larith70 <- array(0, c(length(taxa_to_fit), length(k_occ_cv), length(k_pot_cv)))
 dimnames(crit_loglength_arith1)[[1]] <- dimnames(crit_loglength_larith1)[[1]] <- dimnames(crit_loglength_arith70)[[1]] <- dimnames(crit_loglength_larith70)[[1]] <- taxa_to_fit
 dimnames(crit_loglength_arith1)[[2]] <- dimnames(crit_loglength_larith1)[[2]] <- dimnames(crit_loglength_arith70)[[2]] <- dimnames(crit_loglength_larith70)[[2]] <- k_occ_cv
 dimnames(crit_loglength_arith1)[[3]] <- dimnames(crit_loglength_larith1)[[3]] <- dimnames(crit_loglength_arith70)[[3]] <- dimnames(crit_loglength_larith70)[[3]] <- k_pot_cv
@@ -198,7 +200,7 @@ save(crit_point_arith1, crit_point_larith1, crit_point_arith70, crit_point_larit
      crit_length_arith1, crit_length_larith1, crit_length_arith70, crit_length_larith70,
      crit_loglength_arith1, crit_loglength_larith1, crit_loglength_arith70, crit_loglength_larith70,
      pred_occ, pred_pot_arith1, pred_pot_larith1, pred_pot_arith70, pred_pot_larith70,
-     file = file.path(interim_results_dir, 'cv_taxon_biomass.Rda'))
+     file = file.path(interim_results_dir, 'cv_taxon_biomass_k_high.Rda'))
 
 
 if(use_mpi) closeCluster(cl)

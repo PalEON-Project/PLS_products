@@ -161,7 +161,6 @@ if(!shared_params_in_cell) {
 }
 cat("Note: currently using point estimate for individual tree biomass.\n")
 
-stop()
 assert_that(min(mw$biomass1, na.rm = TRUE) >= 0 & min(mw$biomass2, na.rm = TRUE) >= 0 &
             max(mw$biomass1, na.rm = TRUE) < 1e6 & max(mw$biomass2, na.rm = TRUE) < 1e6,
             msg = "extreme biomass values")

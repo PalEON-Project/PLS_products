@@ -87,9 +87,9 @@ for(taxonIdx in seq_along(taxa_to_fit))
         pred_occ[taxonIdx, cell_full$fold == i, ] <- output[[taxonIdx]][[i]]$po$pred_occ
         pred_pot_arith[taxonIdx, cell_full$fold == i, ] <- output[[taxonIdx]][[i]]$ppa$pred_pot
         pred_pot_larith[taxonIdx, cell_full$fold == i, ] <- output[[taxonIdx]][[i]]$ppl$pred_pot
-        draws_logocc[taxonIdx, cell_full$fold == i, , ] <- output[[i]]$po$draws_logocc
-        draws_logpot_arith[taxonIdx, cell_full$fold == i, , ] <- output[[i]]$ppa$draws_logpot
-        draws_logpot_larith[taxonIdx, cell_full$fold == i, , ] <- output[[i]]$ppl$draws_logpot
+        draws_logocc[taxonIdx, cell_full$fold == i, , ] <- output[[taxonIdx]][[i]]$po$draws_logocc
+        draws_logpot_arith[taxonIdx, cell_full$fold == i, , ] <- output[[taxonIdx]][[i]]$ppa$draws_logpot
+        draws_logpot_larith[taxonIdx, cell_full$fold == i, , ] <- output[[taxonIdx]][[i]]$ppl$draws_logpot
         sig2_arith[taxonIdx, cell_full$fold == i, ] <- output[[taxonIdx]][[i]]$ppa$model_pot
         sig2_larith[taxonIdx, cell_full$fold == i, ] <- output[[taxonIdx]][[i]]$ppl$model_pot
     }
@@ -111,7 +111,7 @@ dimnames(crit_length_arith)[[1]] <- dimnames(crit_length_larith)[[1]] <- taxa_to
 dimnames(crit_length_arith)[[2]] <- dimnames(crit_length_larith)[[2]] <- k_occ_cv
 dimnames(crit_length_arith)[[3]] <- dimnames(crit_length_larith)[[3]] <- k_pot_cv
 
-crit_loglength_arith <- crit_loglength_larith <- array(0, c(loglength(taxa_to_fit), loglength(k_occ_cv), loglength(k_pot_cv)))
+crit_loglength_arith <- crit_loglength_larith <- array(0, c(length(taxa_to_fit), length(k_occ_cv), length(k_pot_cv)))
 dimnames(crit_loglength_arith)[[1]] <- dimnames(crit_loglength_larith)[[1]] <- taxa_to_fit
 dimnames(crit_loglength_arith)[[2]] <- dimnames(crit_loglength_larith)[[2]] <- k_occ_cv
 dimnames(crit_loglength_arith)[[3]] <- dimnames(crit_loglength_larith)[[3]] <- k_pot_cv

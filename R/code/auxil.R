@@ -288,7 +288,7 @@ calc_point_criterion <- function(pred_occ, pred_pot, n, y, mx, obj_fun = wgt_mse
 calc_cov_criterion <- function(draws_logocc, draws_logpot, sig2, data, min_points = 60, n_draw = 250, seed = 1, type_pot = 'arith', scale = 1, size = 0.90) {
     set.seed(seed)
     if(is.null(min_points)) min_points <- 0
-    wh <- which(data$points_occ >= min_points)
+    wh <- which(data$points_total >= min_points)
     
     cov <- length <- loglength <- matrix(0, dim(draws_logocc)[[2]], dim(draws_logpot)[[2]])
     N <- nrow(data)

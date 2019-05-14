@@ -58,7 +58,7 @@ indiana_conversion_domain="Indiana v1.8"
 illinois_conversion_domain="Illinois_v1.9"
 southern_michigan_conversion_domain="Southern MI v1.5"
 upper_midwest_conversion_domain="Upper Midwest"
-detroit_conversion_domain="Southern MI_Detroit_ND"
+detroit_conversion_domain="Southern MI_Detroit_ND_v1.0"
 
 correction_factors_zipfile="cogbill_density_corrections_full_midwest_v1.3.zip"
 correction_factors_file="cogbill_density_corrections_full_midwest_v1.3.csv"

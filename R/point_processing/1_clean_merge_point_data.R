@@ -9,8 +9,6 @@ library(dplyr)
 library(fields)
 library(assertthat)
 
-warning("still waiting for fix to issue 71 to add in no data, no tree etc for IN/IL/Det and also, I think, to have XA/XB/XC be 'No data'") 
-
 ## common column names for merging data subsets
 final_columns <- c("x","y","twp","surveyyear",
                      "L1_tree1", "L1_tree2", "L1_tree3", "L1_tree4",
@@ -86,7 +84,7 @@ assert_that(!sum(is.na(ind$x)) && !sum(is.na(ind$y)) &&
     msg = "Missing locations for points in IN or IL or Detroit.")
 
 nodata_flags <- c("No data", "no data")
-wet_flags <- c('water','wet','Water','Wet')
+water_flags <- c('water','Water')
 
 
 assert_that(!sum(ind$L1_tree2 %in% nodata_flags, na.rm = TRUE) &&
@@ -95,11 +93,11 @@ assert_that(!sum(ind$L1_tree2 %in% nodata_flags, na.rm = TRUE) &&
             msg = "'No data' found for second tree in IN or IL or Detroit; this case not handled by the code.")
 
 
-cat("Found ", sum(ind$L1_tree1 %in% wet_flags), " wet corners in Indiana.\n",
+cat("Found ", sum(ind$L1_tree1 %in% water_flags), " water corners in Indiana.\n",
     sep = '')
-cat("Found ", sum(il$L1_tree1 %in% wet_flags), " wet corners in Illinois.\n",
+cat("Found ", sum(il$L1_tree1 %in% water_flags), " water corners in Illinois.\n",
     sep = '')
-cat("Found ", sum(det$L1_tree1 %in% wet_flags), " wet corners in Detroit.\n",
+cat("Found ", sum(det$L1_tree1 %in% water_flags), " water corners in Detroit.\n",
     sep = '')
 cat("Found ", sum(ind$L1_tree1 %in% nodata_flags), " 'no data' corners in Indiana.\n",
     sep = '')
@@ -109,9 +107,9 @@ cat("Found ", sum(det$L1_tree1 %in% nodata_flags), " 'no data' corners in Detroi
     sep = '')
 
 ## Our density/biomass calculations are on a per-land-area basis, excluding water area
-ind <- ind %>% filter(!(L1_tree1 %in% c(nodata_flags, wet_flags)))
-il <- il %>% filter(!(L1_tree1 %in% c(nodata_flags, wet_flags)))
-det <- det %>% filter(!(L1_tree1 %in% c(nodata_flags, wet_flags)))
+ind <- ind %>% filter(!(L1_tree1 %in% c(nodata_flags, water_flags)))
+il <- il %>% filter(!(L1_tree1 %in% c(nodata_flags, water_flags)))
+det <- det %>% filter(!(L1_tree1 %in% c(nodata_flags, water_flags)))
 
 
 ## Converting L1 (survey abbreviation) to L3 (Paleon nomenclature) taxa; currently this overwrites existing L3 in Indiana and Detroit (for Illinois it has already been removed) but ensuring use of current taxon conversion file; in future L3 will not be in the input files and will solely be created here.
@@ -325,7 +323,7 @@ if(FALSE) {
 }
 
 ## These codes are not used in southern Michigan so don't need to do this filtering:
-## somi <- somi %>% filter(!(species1 %in% c('No data', 'Water', 'Wet')))
+## somi <- somi %>% filter(!(species1 %in% c('No data', 'Water')))
 
 ## formerly we check for species1 and species2 being missing but having a positive diameter but
 ## there is only one case of missing species and existing diameter and that is 4th tree in
@@ -515,10 +513,10 @@ mn <- mn %>% mutate(sp1 = convert_to_NA(sp1, '_'),
 
 ## exclude water points -- all water as well as points with 1 tree are remaining water, per issue #35
 numQQ <- apply(mn[ , paste0('sp', 1:4)], 1, function(x) sum(x == 'QQ', na.rm = TRUE))
-cat("Found ", sum(numQQ > 2), " wet corners in Minnesota.\n", sep = '')
+cat("Excluding ", sum(numQQ > 2), " wet corners in Minnesota.\n", sep = '')
 mn <- mn %>% filter(numQQ <= 2)
 
-cat("Keeping ", sum(numQQ %in% c(1,2)), " corners in possibly wet areas with at least two trees.\n")
+cat("Keeping ", sum(numQQ %in% c(1,2)), " corners in Minnesota in possibly wet areas with at least two trees.\n")
 
 ## Next exclude no-tree points with unclear vegtype values
 
@@ -578,7 +576,7 @@ assert_that(sum(is.na(wi$sp3[wi$sp1 == 'QQ'])) + sum(wi$sp3[wi$sp1 == 'QQ'] %in%
             sum(wi$sp1 == 'QQ'), msg = "Found tree taxa in Wisconsin water points.")
 assert_that(sum(is.na(wi$sp4[wi$sp1 == 'QQ'])) + sum(wi$sp4[wi$sp1 == 'QQ'] %in% notree_vals) ==
             sum(wi$sp1 == 'QQ'), msg = "Found tree taxa in Wisconsin water points.")
-cat("Found ", sum(wi$sp1 == 'QQ'), " water points in Wisconsin.\n")
+cat("Excluding ", sum(wi$sp1 == 'QQ'), " water points in Wisconsin.\n")
 wi <- wi %>% filter(sp1 != 'QQ')
 
 ## based on parsing notes field, we do include some points that seem to be no-tree points
@@ -678,8 +676,6 @@ if(sum(is.na(umw$L3_tree1)) != sum(is.na(umw$L1_tree1)) ||
    sum(is.na(umw$L3_tree3)) != sum(is.na(umw$L1_tree3)) ||
    sum(is.na(umw$L3_tree4)) != sum(is.na(umw$L1_tree4)))
     cat("Apparently some L1 taxa are missing from the UMW L1 to L3 conversion table.\n")
-
-stop()
 
 ## These are points in WI marked as XA/XB/XC where no corner data present.
 miss <- umw %>% filter(umw$L3_tree1 %in% nodata_flags)
