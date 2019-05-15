@@ -51,7 +51,8 @@ detroit_zipfile="southernmi_detroit_projected_v1.0.zip"
 detroit_file="southernmi_detroit_projected_v1.0.csv"
 
 ## taxon conversion files
-taxa_conversion_file="level0_to_level3a_v0.8.csv"
+taxa_zipfile="level0_to_level3a_v0.9.zip"
+taxa_conversion_file="level0_to_level3a_v0.9.csv"
 level_3a_to_3s_conversion_file="level3a_to_level3s_v0.4.csv"
 pls_to_pecan_conversion_file="level3a_to_pecan_v0.3.csv"
 indiana_conversion_domain="Indiana v1.8"
