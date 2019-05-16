@@ -84,14 +84,15 @@ draws_logpot_arith <- draws_logpot_larith <- array(0, c(length(taxa_to_fit), nro
 
 for(taxonIdx in seq_along(taxa_to_fit))
     for(i in seq_len(n_folds)) {
+        subn <- sum(cell_full$fold == i)
         pred_occ[taxonIdx, cell_full$fold == i, ] <- output[[taxonIdx]][[i]]$po$pred_occ
         pred_pot_arith[taxonIdx, cell_full$fold == i, ] <- output[[taxonIdx]][[i]]$ppa$pred_pot
         pred_pot_larith[taxonIdx, cell_full$fold == i, ] <- output[[taxonIdx]][[i]]$ppl$pred_pot
         draws_logocc[taxonIdx, cell_full$fold == i, , ] <- output[[taxonIdx]][[i]]$po$draws_logocc
         draws_logpot_arith[taxonIdx, cell_full$fold == i, , ] <- output[[taxonIdx]][[i]]$ppa$draws_logpot
         draws_logpot_larith[taxonIdx, cell_full$fold == i, , ] <- output[[taxonIdx]][[i]]$ppl$draws_logpot
-        sig2_arith[taxonIdx, cell_full$fold == i, ] <- output[[taxonIdx]][[i]]$ppa$model_pot
-        sig2_larith[taxonIdx, cell_full$fold == i, ] <- output[[taxonIdx]][[i]]$ppl$model_pot
+        sig2_arith[taxonIdx, cell_full$fold == i, ] <- rep(output[[taxonIdx]][[i]]$ppa$model_pot, each = subn)
+        sig2_larith[taxonIdx, cell_full$fold == i, ] <- rep(output[[taxonIdx]][[i]]$ppl$model_pot, each = subn)
     }
 
 ## Assess results.
@@ -146,7 +147,7 @@ for(taxonIdx in seq_along(taxa_to_fit)) {
     crit_larith[taxonIdx, , ] <- calc_cv_criterion(pred_occ[taxonIdx, , ], pred_pot_larith[taxonIdx, , ], cell_full_taxon$points_total,
                                                    y, cv_max_density)
 
-    cell_full_taxon$y <- y
+    cell_full_taxon$obs <- y
     crit_arith <- c(list(point = crit_arith),
                      calc_cov_criterion(pred_occ[taxonIdx, , ], pred_pot_arith[taxonIdx, , ], sig2 = sig2_arith[taxonIdx, , ],
                                         cell_full_taxon, type_pot = 'arith', scale = 1))

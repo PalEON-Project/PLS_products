@@ -94,6 +94,7 @@ draws_logpot_arith1 <- draws_logpot_larith1 <- draws_logpot_arith70 <- draws_log
 
 for(taxonIdx in seq_along(taxa_to_fit))
     for(i in seq_len(n_folds)) {
+        subn <- sum(cell_full$fold == i)
         pred_occ[taxonIdx, cell_full$fold == i, ] <- output[[taxonIdx]][[i]]$po$pred_occ
         pred_pot_arith1[taxonIdx, cell_full$fold == i, ] <- output[[taxonIdx]][[i]]$ppa1$pred_pot
         pred_pot_larith1[taxonIdx, cell_full$fold == i, ] <- output[[taxonIdx]][[i]]$ppl1$pred_pot
@@ -104,10 +105,10 @@ for(taxonIdx in seq_along(taxa_to_fit))
         draws_logpot_larith1[taxonIdx, cell_full$fold == i, , ] <- output[[taxonIdx]][[i]]$ppl1$draws_logpot
         draws_logpot_arith70[taxonIdx, cell_full$fold == i, , ] <- output[[taxonIdx]][[i]]$ppa70$draws_logpot
         draws_logpot_larith70[taxonIdx, cell_full$fold == i, , ] <- output[[taxonIdx]][[i]]$ppl70$draws_logpot
-        sig2_arith1[taxonIdx, cell_full$fold == i, ] <- output[[taxonIdx]][[i]]$ppa1$model_pot
-        sig2_larith1[taxonIdx, cell_full$fold == i, ] <- output[[taxonIdx]][[i]]$ppl1$model_pot
-        sig2_arith70[taxonIdx, cell_full$fold == i, ] <- output[[taxonIdx]][[i]]$ppa70$model_pot
-        sig2_larith70[taxonIdx, cell_full$fold == i, ] <- output[[taxonIdx]][[i]]$ppl70$model_pot
+        sig2_arith1[taxonIdx, cell_full$fold == i, ] <- rep(output[[taxonIdx]][[i]]$ppa1$model_pot, each = subn)
+        sig2_larith1[taxonIdx, cell_full$fold == i, ] <- rep(output[[taxonIdx]][[i]]$ppl1$model_pot, each = subn)
+        sig2_arith70[taxonIdx, cell_full$fold == i, ] <- rep(output[[taxonIdx]][[i]]$ppa70$model_pot, each = subn)
+        sig2_larith70[taxonIdx, cell_full$fold == i, ] <- rep(output[[taxonIdx]][[i]]$ppl70$model_pot, each = subn)
     }
 
 ## Assess results.
@@ -168,7 +169,7 @@ for(taxonIdx in seq_along(taxa_to_fit)) {
     crit_point_larith70[taxonIdx, , ] <- calc_point_criterion(pred_occ[taxonIdx, , ], pred_pot_larith70[taxonIdx, , ],
                                                        cell_full_taxon$points_total, y, cv_max_biomass)
 
-    cell_full_taxon$y <- y
+    cell_full_taxon$obs <- y
     tmp <- calc_cov_criterion(draws_logocc[taxonIdx, , , ], draws_logpot_arith1[taxonIdx, , , ], sig2 = sig2_arith1[taxonIdx, , ],
                               cell_full_taxon, type_pot = 'arith', scale = 1)
     crit_cov_arith1[taxonIdx, , ] <- tmp$cov

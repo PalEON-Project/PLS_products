@@ -68,14 +68,15 @@ output <- foreach(i = seq_len(n_folds)) %dopar% {
     list(po = po, ppa = ppa, ppl = ppl)
 }
 for(i in seq_len(n_folds)) {
+    subn <- sum(cell_full$fold == i)
     pred_occ[cell_full$fold == i, ] <- output[[i]]$po$pred_occ
     pred_pot_arith[cell_full$fold == i, ] <- output[[i]]$ppa$pred_pot
     pred_pot_larith[cell_full$fold == i, ] <- output[[i]]$ppl$pred_pot
     draws_logocc[cell_full$fold == i, , ] <- output[[i]]$po$draws_logocc
     draws_logpot_arith[cell_full$fold == i, , ] <- output[[i]]$ppa$draws_logpot
     draws_logpot_larith[cell_full$fold == i, , ] <- output[[i]]$ppl$draws_logpot
-    sig2_arith[cell_full$fold == i, ] <- output[[i]]$ppa$model_pot
-    sig2_larith[cell_full$fold == i, ] <- output[[i]]$ppl$model_pot
+    sig2_arith[cell_full$fold == i, ] <- rep(output[[i]]$ppa$model_pot, each = subn)
+    sig2_larith[cell_full$fold == i, ] <- rep(output[[i]]$ppl$model_pot, each = subn)
 }
 
 
@@ -88,7 +89,7 @@ crit_arith <- calc_cv_criterion(pred_occ, pred_pot_arith, cell_full$points_total
 crit_larith <- calc_cv_criterion(pred_occ, pred_pot_larith, cell_full$points_total,
                                   y, cv_max_density)
 
-cell_full$y <- y
+cell_full$obs <- y
 crit_arith <- c(list(point = crit_arith),
                  calc_cov_criterion(draws_logocc, draws_logpot_arith, sig2 = sig2_arith,
                                     cell_full, type_pot = 'arith', scale = 1))

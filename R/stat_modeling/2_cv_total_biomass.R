@@ -122,7 +122,7 @@ crit_arith70 <- calc_point_criterion(pred_occ, pred_pot_arith70, cell_full$point
 crit_larith70 <- calc_point_criterion(pred_occ, pred_pot_larith70, cell_full$points_total,
                                   y, cv_max_biomass)
 
-cell_full$y <- y
+cell_full$obs <- y
 crit_arith1 <- c(list(point = crit_arith1),
                  calc_cov_criterion(draws_logocc, draws_logpot_arith1, sig2 = sig2_arith1,
                                     cell_full, type_pot = 'arith', scale = 1))

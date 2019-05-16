@@ -151,7 +151,7 @@ fit <- function(data, newdata, k_occ = NULL, k_pot = NULL, unc = FALSE, points_t
         
         if((is.null(k_occ) || length(k_occ) == 1) && length(k_pot) == 1) {
             if(is.null(k_occ)) {
-                draws <- draws_logpot[ , 1, ]
+                draws <- exp(draws_logpot[ , 1, ])
             } else draws <- exp(draws_logocc[ , 1, ] + draws_logpot[ , 1, ])
             pp.sd <- apply(draws, 1, sd)
             pred <- data.frame(mean = pred, sd = pp.sd)

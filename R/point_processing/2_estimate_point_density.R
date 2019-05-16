@@ -14,7 +14,7 @@ load(file.path(interim_results_dir, 'cleaned_point.Rda'))
 
 wet_flags <- c("wet", "Wet")
 assert_that(sum(mw$L3_tree1 %in% wet_flags, na.rm = TRUE) + 
-            sum(mw$L3_tree2 %in% wet_flags, na.rm = TRUE) == 0, "'wet' found as tree species.")
+            sum(mw$L3_tree2 %in% wet_flags, na.rm = TRUE) == 0, msg = "'wet' found as tree species.")
 
 num_trees <- rep(2, nrow(mw))
 num_trees[is.na(mw$L3_tree1) | mw$L3_tree1 == "No tree"] <- 0

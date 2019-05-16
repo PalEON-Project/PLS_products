@@ -293,27 +293,34 @@ calc_cov_criterion <- function(draws_logocc, draws_logpot, sig2, data, min_point
     cov <- length <- loglength <- matrix(0, dim(draws_logocc)[[2]], dim(draws_logpot)[[2]])
     N <- nrow(data)
 
-    if(scale) sig2 <- sig2 / (data$points_occ/scale)
-    sig2[sig2 == Inf] <- 1e6  # just so calcs don't fail; these should be left out when [wh] applied
     for(i in seq_len(nrow(cov))) {
         for(j in seq_len(ncol(cov))) {
             tmp <- matrix(0, N, n_draw)
             for(k in seq_len(n_draw)) {
                 yocc <- rbinom(N, data$points_total, exp(draws_logocc[ , i, k]))
-                ypot <- rnorm(N, draws_logpot[ , j, k], sqrt(sig2[ , j]))
-                if(type_pot == 'log_arith') ypot <- exp(ypot)
+                NnonZero <- sum(yocc > 0)
+                ## variance of potential scales inversely with number of occupied points
+                if(type_pot == 'arith') {
+                    ypot <- rep(0, N)
+                    ypot[yocc > 0] <- rnorm(NnonZero, exp(draws_logpot[yocc > 0, j, k]),
+                                            sqrt(sig2[yocc >0, j]/(yocc[yocc > 0]/scale)))
+                } else {
+                    ypot <- rep(-Inf, N)
+                    ypot[yocc > 0] <- rnorm(NnonZero, draws_logpot[yocc > 0, j, k],
+                                            sqrt(sig2[yocc > 0, j]/(yocc[yocc > 0]/scale)))
+                    ypot <- exp(ypot)
+                }
                 tmp[ , k] <- ypot*yocc/data$points_total
             }
             qq <- apply(tmp, 1, quantile, c((1-size)/2, 1-(1-size)/2), na.rm = TRUE)
             qq <- qq[, wh]
-            cov[i,j] <- mean(data$y[wh] < qq[2, ] & data$y[wh] > qq[1, ])
+            cov[i,j] <- mean(data$obs[wh] <= qq[2, ] & data$obs[wh] >= qq[1, ])
             length[i, j] <- median(qq[2, ] - qq[1, ])
             loglength[i, j] <- median(log(qq[2, ]) - log(qq[1, ]))
         }}
     dimnames(cov)[[1]] <- dimnames(length)[[1]] <- dimnames(loglength)[[1]] <- dimnames(draws_logocc)[[2]]
     dimnames(cov)[[2]] <- dimnames(length)[[2]] <- dimnames(loglength)[[2]] <- dimnames(draws_logpot)[[2]]
     return(list(cov = cov, length = length, loglength = loglength))
-
 }
 
 convert_chains_to_links <- function(dists) {
