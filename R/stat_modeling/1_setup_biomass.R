@@ -3,9 +3,14 @@ library(dplyr)
 library(readr)
 library(ncdf4)
 
-if(shared_params_in_cell) {
-    load(file.path(interim_results_dir, 'point_with_biomass_shared.Rda'))
-} else load(file.path(interim_results_dir, 'point_with_biomass.Rda'))
+fn <- 'point_with_biomass'
+if(shared_params_in_cell)
+    fn <- paste0(fn, '_shared')
+if(use_agb)
+    fn <- paste0(fn, '_agb')
+fn <-  paste0(fn, '.Rda')
+
+load(file.path(interim_results_dir, fn))
 
 if(!'cell' %in% names(mw)) 
     mw <- mw %>% add_paleon_grid()
@@ -63,4 +68,5 @@ pred_grid_paleon <- pred_grid[regions %in% paleon_regions, ]
 pred_grid_west <- pred_grid[regions %in% paleon_regions_west, ]
 
 save(mw, taxa, pred_grid, pred_grid_paleon, pred_grid_west, grid, regions,
-     file = file.path(interim_results_dir, 'cell_with_biomass_grid.Rda'))
+     file = file.path(interim_results_dir,
+                      paste0('cell_with_biomass_grid', ifelse(use_agb, "_agb", ""), ".Rda")))

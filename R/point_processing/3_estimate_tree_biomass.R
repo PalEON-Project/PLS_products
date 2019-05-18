@@ -21,6 +21,27 @@ cols_conv <- cols(
 
 ## MASS masks select, so need dplyr::select (MASS -- comes from Pecan)
 
+if(use_agb) {
+
+    taxa_conversion <- read_csv(file.path(conversions_data_dir, pls_to_chojnacky_conversion_file),
+                                col_types = cols_conv) %>%
+        dplyr::select(level3a, beta0, beta1)
+
+    mw <- mw %>% left_join(taxa_conversion, by = c("L3_tree1" = "level3a")) %>%
+        rename(int1 = beta0, slope1 = beta1) %>%
+        left_join(taxa_conversion, by = c("L3_tree2" = "level3a")) %>%
+        rename(int2 = beta0, slope2 = beta1)
+
+    predict_biomass <- function(dbh_inch, b0, b1) {
+        return(exp(b0+b1*log(dbh_inch * cm_per_inch)))
+    }
+
+    mw <- mw %>% mutate(biomass1 = predict_biomass(diam1, int1, slope1)) %>% 
+        mutate(biomass2 = predict_biomass(diam2, int2, slope2))
+
+
+}  else {
+    
 taxa_conversion <- read_csv(file.path(conversions_data_dir, pls_to_pecan_conversion_file),
                             col_types = cols_conv) %>%
     dplyr::select(level3a, pecan_allometry_spcd)
@@ -161,6 +182,8 @@ if(!shared_params_in_cell) {
 }
 cat("Note: currently using point estimate for individual tree biomass.\n")
 
+}
+    
 assert_that(min(mw$biomass1, na.rm = TRUE) >= 0 & min(mw$biomass2, na.rm = TRUE) >= 0 &
             max(mw$biomass1, na.rm = TRUE) < 1e6 & max(mw$biomass2, na.rm = TRUE) < 1e6,
             msg = "extreme biomass values")
@@ -185,6 +208,11 @@ if(FALSE) {
                         biomass2 = ifelse(!is.na(diam2) & diam2 < diameter_cutoff_inches, NA, biomass2))
 }
 
-if(shared_params_in_cell) {
-    save(mw, file = file.path(interim_results_dir, 'point_with_biomass_shared.Rda'))
-} else save(mw, file = file.path(interim_results_dir, 'point_with_biomass.Rda'))
+fn <- 'point_with_biomass'
+if(shared_params_in_cell)
+    fn <- paste0(fn, '_shared')
+if(use_agb)
+    fn <- paste0(fn, '_agb')
+fn <-  paste0(fn, '.Rda')
+
+save(mw, file = file.path(interim_results_dir, fn))

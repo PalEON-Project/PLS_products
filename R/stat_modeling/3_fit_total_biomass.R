@@ -5,8 +5,10 @@
 ## Estimated biomass is the product of occupancy and potential.
 
 library(dplyr)
+library(assertthat)
 
-load(file.path(interim_results_dir, 'cell_with_biomass_grid.Rda'))
+load(file.path(interim_results_dir, paste0('cell_with_biomass_grid',
+                                           ifelse(use_agb, '_agb', ''), '.Rda')))
 
 if(!exists('k_pot_total_biomass'))
     stop("Must specify 'k_pot_total_biomass'")
@@ -52,4 +54,4 @@ cell_full <- cell_full %>% left_join(cell_occ, by = c("cell" = "cell")) %>%
 ## fit stats model
 biomass_total <- fit(cell_full, newdata = pred_grid_west, k_occ = k_occ_total_biomass, k_pot = k_pot_total_biomass, return_model = TRUE, unc = TRUE, type_pot = fit_scale_biomass, num_draws = n_stat_samples, save_draws = TRUE, use_bam = TRUE)
 
-save(biomass_total, file = file.path(interim_results_dir, 'fitted_total_biomass.Rda'))
+save(biomass_total, file = file.path(interim_results_dir, paste0('fitted_total_biomass', ifelse(use_agb, '_agb',''), '.Rda')))

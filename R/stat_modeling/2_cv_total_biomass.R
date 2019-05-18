@@ -12,7 +12,8 @@
 
 library(dplyr)
 
-load(file.path(interim_results_dir, 'cell_with_biomass_grid.Rda'))
+load(file.path(interim_results_dir, paste0('cell_with_biomass_grid',
+                                           ifelse(use_agb, "_agb", ""), ".Rda")))
 
 library(doParallel)
 if(n_cores == 0) {
@@ -138,4 +139,4 @@ crit_larith70 <- c(list(point = crit_larith70),
 
 save(crit_arith1, crit_larith1, crit_arith70, crit_larith70,
      pred_occ, pred_pot_arith1, pred_pot_larith1, pred_pot_arith70, pred_pot_larith70, file = file.path(interim_results_dir,
-                                                        'cv_total_biomass.Rda'))
+                                                        paste0('cv_total_biomass', ifelse(use_agb, '_agb',''), '.Rda')))

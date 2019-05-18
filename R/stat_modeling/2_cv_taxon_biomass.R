@@ -13,7 +13,8 @@ library(dplyr)
 warning("This code uses ~100 GB of RAM.")
 
 
-load(file.path(interim_results_dir, 'cell_with_biomass_grid.Rda'))
+load(file.path(interim_results_dir, paste0('cell_with_biomass_grid',
+                                           ifelse(use_agb, '_agb', ''), '.Rda')))
 
 if(use_mpi) {
     library(doMPI)
@@ -201,7 +202,7 @@ save(crit_point_arith1, crit_point_larith1, crit_point_arith70, crit_point_larit
      crit_length_arith1, crit_length_larith1, crit_length_arith70, crit_length_larith70,
      crit_loglength_arith1, crit_loglength_larith1, crit_loglength_arith70, crit_loglength_larith70,
      pred_occ, pred_pot_arith1, pred_pot_larith1, pred_pot_arith70, pred_pot_larith70,
-     file = file.path(interim_results_dir, 'cv_taxon_biomass_k_low.Rda'))
+     file = file.path(interim_results_dir, paste0('cv_taxon_biomass_k_low', ifelse(use_agb, '_agb',''), '.Rda')))
 
 
 if(use_mpi) closeCluster(cl)

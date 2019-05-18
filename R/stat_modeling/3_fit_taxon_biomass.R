@@ -5,8 +5,10 @@
 ## Estimated biomass is the product of occupancy and potential.
 
 library(dplyr)
+library(assertthat)
 
-load(file.path(interim_results_dir, 'cell_with_biomass_grid.Rda'))
+load(file.path(interim_results_dir, paste0('cell_with_biomass_grid',
+                                           ifelse(use_agb, '_agb', ''), '.Rda')))
 
 ## Allow for parallelization across taxa, including on Berkeley Statistics cluster with SLURM scheduler
 library(doParallel)
@@ -54,4 +56,4 @@ biomass_taxon <- foreach(taxonIdx = seq_along(taxa_to_fit)) %dopar% {
 }
 
 names(biomass_taxon) <- taxa_to_fit
-save(biomass_taxon, file = file.path(interim_results_dir, 'fitted_taxon_biomass.Rda'))
+save(biomass_taxon, file = file.path(interim_results_dir, paste0('fitted_taxon_biomass', ifelse(use_agb, '_agb',''), '.Rda')))
