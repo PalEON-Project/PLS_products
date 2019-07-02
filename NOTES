@@ -1,3 +1,10 @@
+5/18/19:
+New AGB analysis: weight of 70 vs 1 makes little diffrence
+for total biomass: 2500/3500 still seems fine - a bit worse in terms of point loss compared to 3500/3500, maybe slightly better for interval length
+arith fit clearly worse
+
+for taxon biomass: for non-agb some evidence that k=3500 for occ is worth it though not a huge difference
+
 5/4/19:
 still not clear to use 1 or 70. Note that for taxon specific we usually won't have anywhere near 70.  From numerical standpoint for total biomass seems best to consdier the model to be logY ~ N(m, sigma2) and then adjust for cells with more or less than 70 points, but not clear how to do taxon-specific.
 

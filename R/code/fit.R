@@ -47,8 +47,12 @@ fit <- function(data, newdata, k_occ = NULL, k_pot = NULL, unc = FALSE, points_t
         for(k_idx in seq_along(k_occ)) {
             model_occ[[k_idx]] <- fitter(z ~ s(x, y, k = k_occ[k_idx]), data = data, family = 'binomial',
                                          gamma = gamma)
-            pred_occ[[k_idx]] <- predict(model_occ[[k_idx]], newdata = newdata, type = 'response',
-                                         se.fit = se.fit)
+            tmp <- predict(model_occ[[k_idx]], newdata = newdata, type = 'response',
+                           se.fit = se.fit)
+            if(se.fit) {
+                pred_occ[[k_idx]] <- tmp$fit
+                pred_occ_se[[k_idx]] <- tmp$se.fit
+            } else pred_occ[[k_idx]] <- tmp
         }
     } else pred_occ <- 1
  
@@ -82,7 +86,7 @@ fit <- function(data, newdata, k_occ = NULL, k_pot = NULL, unc = FALSE, points_t
   #####################
 
     if((is.null(k_occ) || length(k_occ) == 1) && length(k_pot) == 1) {
-        pred <- pred_occ * pred_pot
+        pred <- pred_occ[[1]] * pred_pot[[1]]
     } else pred <- 0   # don't do all pairs of possible preds across different k_occ and k_pot
   
     if(unc) {  # implement approx. Bayesian posterior draws following Wood (2004) section 4.8
@@ -95,7 +99,9 @@ fit <- function(data, newdata, k_occ = NULL, k_pot = NULL, unc = FALSE, points_t
         ## posterior draws of (log) occupancy
         if(!is.null(k_occ)) {
             draws_logocc <- array(0, c(nrow(newdata), length(k_occ), num_draws))
-            dimnames(draws_logocc)[[2]] <- k_occ
+            nm <- k_occ
+            if(length(k_occ) == 1) nm <- list(nm)
+            dimnames(draws_logocc)[[2]] <- nm
             if(bound_draws_low || bound_draws_high) 
                 draws_logocc_orig <- draws_logocc 
             for(k_idx in seq_along(k_occ)) {
@@ -136,7 +142,9 @@ fit <- function(data, newdata, k_occ = NULL, k_pot = NULL, unc = FALSE, points_t
         ## posterior draws of (log) potential result
         if(!is.null(k_pot)) {
             draws_logpot <- array(0, c(nrow(newdata), length(k_pot), num_draws))
-            dimnames(draws_logpot)[[2]] <- k_pot
+            nm <- k_pot
+            if(length(k_pot) == 1) nm <- list(nm)
+            dimnames(draws_logpot)[[2]] <- nm
             for(k_idx in seq_along(k_pot)) {
                 Xp <- predict(model_pot[[k_idx]], newdata = newdata, type="lpmatrix")
                 draws_coef <- rmvn(num_draws , coef(model_pot[[k_idx]]), model_pot[[k_idx]]$Vp) 
@@ -163,13 +171,12 @@ fit <- function(data, newdata, k_occ = NULL, k_pot = NULL, unc = FALSE, points_t
     ## also reduce dim of draws_logocc, draws_logpot
     if(length(k_occ) == 1) {
         model_occ <- model_occ[[1]]
-        tmpfit <- pred_occ[[1]]$fit
-        pred_occ_se <- pred_occ[[1]]$se.fit
-        pred_occ <- tmpfit
+        pred_occ <- pred_occ[[1]]
+        pred_occ_se <- pred_occ_se[[1]]
         if(unc && save_draws) {
-            draws_logocc <- draws_logcc[[1]]
+            draws_logocc <- draws_logocc[ , 1, ]
             if(bound_draws_low || bound_draws_high) 
-                draws_logocc_orig <- draws_logocc_orig[[1]]
+                draws_logocc_orig <- draws_logocc_orig[ , 1, ]
         }
     } else {
         if(length(k_occ) > 1) {
@@ -179,24 +186,26 @@ fit <- function(data, newdata, k_occ = NULL, k_pot = NULL, unc = FALSE, points_t
             dimnames(pred_occ)[[2]] <- k_occ
         }
     }
+    if(!return_model) model_occ <- NULL
+    
     if(length(k_pot) == 1) {
         model_pot <- model_pot[[1]]
+        if(!return_model) model_pot <- model_pot$sig2
         pred_pot <- pred_pot[[1]]
         if(unc && save_draws)
-            draws_logpot <- draws_logpot[[1]]
+            draws_logpot <- draws_logpot[ , 1, ]
     } else {
         if(length(k_pot) > 1) {
+            if(!return_model)
+                model_pot <- sapply(model_pot, '[[', 'sig2')
             names(model_pot) <- names(pred_pot) <- k_pot
             pred_pot <- as.matrix(as.data.frame(pred_pot))
             dimnames(pred_pot) <- NULL
             dimnames(pred_pot)[[2]] <- k_pot
+            
         }
     }
 
-    if(!return_model) {
-        model_occ <- NULL
-        model_pot <- sapply(model_pot, '[[', 'sig2')
-    }
     return(list(locs = data.frame(x = newdata$x*scaling, y = newdata$y*scaling),
                 pred = pred, pred_occ = pred_occ, pred_occ_se = pred_occ_se,
                 pred_pot = pred_pot, draws = draws,

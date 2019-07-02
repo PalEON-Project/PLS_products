@@ -3,8 +3,8 @@
 
 library(ncdf4)
 
-load(file.path(interim_results_dir, paste0('fitted_total_biomass_', fit_scale_biomass, ifelse(use_agb, '_agb', ''),'.Rda')))
-load(file.path(interim_results_dir, paste0('fitted_taxon_biomass_', fit_scale_biomass, ifelse(use_agb, '_agb', ''), '.Rda')))
+load(file.path(interim_results_dir, paste0('fitted_total_biomass', ifelse(use_agb, '_agb', ''),'.Rda')))
+load(file.path(interim_results_dir, paste0('fitted_taxon_biomass', ifelse(use_agb, '_agb', ''), '.Rda')))
 load(file.path(interim_results_dir, 'cell_with_biomass_grid.Rda')) # for grid info
 
 ## center draws on point estimates so mean of draws equal point estimate
@@ -19,7 +19,7 @@ if(FALSE) {  # this can cause negative biomasses...
 taxa <- names(biomass_taxon)
 taxaNames <- gsub("/", ",", taxa)  ## netCDF interprets / as 'groups'
 
-type <- ifelse(use_agb, 'agb', 'biomass')
+type <- ifelse(use_agb, 'biomass_agb', 'biomass_stem')
 output_netcdf_name <- paste0("PLS_", type, "_western_v", product_version, ".nc")
 output_netcdf_name_point <- paste0("PLS_", type, "_western_point_v", product_version, ".nc")
 

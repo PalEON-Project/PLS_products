@@ -60,7 +60,7 @@ illinois_conversion_domain="Illinois_v1.9"
 southern_michigan_conversion_domain="Southern MI v1.5"
 upper_midwest_conversion_domain="Upper Midwest"
 detroit_conversion_domain="Southern MI_Detroit_ND_v1.0"
-pls_to_chojnacky_conversion_file="pls_to_chojnacky_v0.1.csv"
+pls_to_chojnacky_conversion_file="level3a_to_chojnacky_v0.1.csv"
 
 correction_factors_zipfile="cogbill_density_corrections_full_midwest_v1.3.zip"
 correction_factors_file="cogbill_density_corrections_full_midwest_v1.3.csv"
@@ -95,7 +95,7 @@ do_allom_uncertainty=0  # for now, don't include allometric uncertainty
 dmin_allom_fit=10
 dmax_allom_fit=150
 ## use simple equations for AGB from Chojnacky, rather than full PEcAn
-use_agb=1
+use_agb=0
 
 shared_params_in_cell=1  # for speed, do single allometry call for all points ina cell
 
