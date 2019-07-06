@@ -3,8 +3,8 @@
 
 library(ncdf4)
 
-load(file.path(interim_results_dir, paste0('fitted_total_density_', fit_scale_density, '.Rda')))
-load(file.path(interim_results_dir, paste0('fitted_taxon_density_', fit_scale_density, '.Rda')))
+load(file.path(interim_results_dir, 'fitted_total_density.Rda'))
+load(file.path(interim_results_dir, 'fitted_taxon_density.Rda'))
 load(file.path(interim_results_dir, 'cell_with_density_grid.Rda')) # for grid info
 
 ## center draws on point estimates so mean of draws equal point estimate
