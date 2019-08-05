@@ -52,7 +52,7 @@ if(class(det$L1_tree4) == "logical")
 
 IN_duplicates <- c("608889", "603781", "661407", "661405", "659856", "659848", "605089", "605085", "R_cZ5Z28lG2ZhD7Ex", "R_3Db6wD9TJdiFlCB",
                    "82309", "82514", "82424", "82425", "713965", "713968", "704640", "704623", "705088", "705091", "662751", "662755", 
-                   "R_1LJGyvH7k2ihanj", "R_1HUnqzw2giTgXFr", '600423", "600396")
+                   "R_1LJGyvH7k2ihanj", "R_1HUnqzw2giTgXFr", "600423", "600396")
 
 
 ind <- ind %>% filter(!entry_id %in% IN_duplicates)
@@ -67,8 +67,7 @@ il <- il %>% filter(!entry_id %in% IL_duplicates)
 ## Remove the following corners from IL because they are on the IL-WI border and these IL corners are very close to adjacent WI corners.  
 ## These IL corners are less than 165 m away from the WI corners and both sets of corners have similar taxa in that most are Oaks at Level 3a
 
-IL_WI_overlap_points <- c("642067","642022","642315","642443","641958","642391","639084","639089","639087","639156","638543","639082","698794","696675","698842","699244","698820","696658", "R_2sBDZK3mX8HCfhb
-")
+IL_WI_overlap_points <- c("642067","642022","642315","642443","641958","642391","639084","639089","639087","639156","638543","639082","698794","696675","698842","699244","698820","696658", "R_2sBDZK3mX8HCfhb")
 
 il <- il %>% filter(!entry_id %in% IL_WI_overlap_points)
 
