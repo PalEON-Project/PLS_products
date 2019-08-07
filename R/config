@@ -62,8 +62,8 @@ upper_midwest_conversion_domain="Upper Midwest"
 detroit_conversion_domain="Southern MI_Detroit_ND_v1.0"
 pls_to_chojnacky_conversion_file="level3a_to_chojnacky_v0.3.csv"
 
-correction_factors_zipfile="cogbill_density_corrections_full_midwest_v1.3.zip"
-correction_factors_file="cogbill_density_corrections_full_midwest_v1.3.csv"
+correction_factors_zipfile="cogbill_density_corrections_full_midwest_v1.4.zip"
+correction_factors_file="cogbill_density_corrections_full_midwest_v1.4.csv"
 ## file identifying townships that have specific correction factors
 michigan_special_township_file="NETwns_EMeridian_southernMI.csv"
 
