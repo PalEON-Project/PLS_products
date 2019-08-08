@@ -232,9 +232,11 @@ det <- det %>% mutate(surveyyear = ifelse(year >= 1825, '>=1825', '<=1824'))
 assert_that(all(det$surveyyear == "<=1824"), msg = "Found Detroit data with year >1824.")
 
 ## As of April 2019, we now split IL into three sets
-il <- il %>% mutate(surveyyear = ifelse(year <= 1810, '<=1810',
-                                            ifelse(year >= 1838, ">=1838", ">1810  <1838")))
+## il <- il %>% mutate(surveyyear = ifelse(year <= 1810, '<=1810',
+##                                            ifelse(year >= 1838, ">=1838", ">1810  <1838")))
 
+## As of August 2019, we don't split IL at all
+il <- il %>% mutate(surveyyear = ">=1804")
 
 columns_to_keep <- c("x","y","twp","surveyyear",
                      "L1_tree1", "L1_tree2", "L1_tree3", "L1_tree4",
