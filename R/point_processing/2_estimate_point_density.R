@@ -61,8 +61,8 @@ if(any(mw[ , paste0('az', 1:4)] == 360)) {
 ## We should have a limited number of trees > 50 remaining.
 ## Note allometries mostly wouldn't go above 80 cm = 32 inches.
 tmp <- mw %>% filter(diam1 >= 50 | diam2 >= 50)
-assert_that(nrow(tmp) < 500,
-            msg = "more than 500 points with trees with diameter greater than 50 inches")
+assert_that(nrow(tmp) < 550,
+            msg = "more than 550 points with trees with diameter greater than 50 inches")
 
 ## keep 2-tree points regardless of distances and truncate density (at say 1000 for now)
 ## use 2-tree points with small or NA diameter trees for density calculation,

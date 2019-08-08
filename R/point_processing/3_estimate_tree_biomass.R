@@ -23,6 +23,9 @@ cols_conv <- cols(
 
 if(use_agb) {
 
+    if(!file.exists(file.path(conversions_data_dir, pls_to_chojnacky_conversion_file))) 
+        unzip(file.path(conversions_data_dir, pls_to_chojnacky_zipfile), exdir = conversions_data_dir)
+
     taxa_conversion <- read_csv(file.path(conversions_data_dir, pls_to_chojnacky_conversion_file),
                                 col_types = cols_conv) %>%
         dplyr::select(level3a, beta0, beta1)
