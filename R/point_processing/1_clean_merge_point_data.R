@@ -18,6 +18,10 @@ final_columns <- c("x","y","twp","surveyyear",
                      "diam1", "diam2", "diam3", "diam4",
                      "corner", "sectioncorner","state", "point_id", "vegtype")
 
+if(!file.exists(file.path(conversions_data_dir, taxa_conversion_file))) 
+    unzip(file.path(conversions_data_dir, taxa_zipfile), exdir = conversions_data_dir)
+
+
 ## -------------------------DATA CLEANING: IN + IL + Detroit area ----------------------------------------------
 
 ## Detroit area was re-entered by Notre Dame so in same format as IL/IN

@@ -74,6 +74,9 @@ assert_that(nrow(mw[mw$state == "SoMI" & mw$point == "2nQ",]) < 50,
 mw <- mw %>% mutate(point = ifelse(state == "SoMI" & point == "2nQ", "Pair", point))
 
 ## Correction factors to account for surveyor sampling 'design'
+if(!file.exists(file.path(conversions_data_dir, correction_factors_file))) 
+    unzip(file.path(conversions_data_dir, correction_factors_zipfile), exdir = conversions_data_dir)
+
 corr_factors <- read_csv(file.path(conversions_data_dir, correction_factors_file),
                          na = c("", "NA", "na"))
 
