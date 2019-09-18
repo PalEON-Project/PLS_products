@@ -203,6 +203,8 @@ calc_stem_density <- function(data, corr_factors, use_phi =  TRUE) {
     cat("Found ", sum(same_quad), " corners with trees in same quadrant.\n")
     density[same_quad] <- NA
 
+    exceedences <- sum(density > max_density, na.rm = TRUE)
+    cat("Found ", exceedences, " greater than max_density with phi equal ", use_phi, ".")
     density[density > max_density] <- max_density
 
     return(density)

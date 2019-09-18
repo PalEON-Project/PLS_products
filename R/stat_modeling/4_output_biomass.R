@@ -5,7 +5,7 @@ library(ncdf4)
 
 load(file.path(interim_results_dir, paste0('fitted_total_biomass', ifelse(use_agb, '_agb', ''),'.Rda')))
 load(file.path(interim_results_dir, paste0('fitted_taxon_biomass', ifelse(use_agb, '_agb', ''), '.Rda')))
-load(file.path(interim_results_dir, 'cell_with_biomass_grid.Rda')) # for grid info
+load(file.path(interim_results_dir, paste0('cell_with_biomass', ifelse(use_agb, '_agb', ''), '_grid.Rda'))) # for grid info
 
 ## center draws on point estimates so mean of draws equal point estimate
 if(FALSE) {  # this can cause negative biomasses...

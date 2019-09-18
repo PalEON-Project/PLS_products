@@ -1,6 +1,7 @@
 ## Estimate tree-level basal area using diameter of trees 
 
 library(dplyr)
+library(assertthat)
 
 load(file.path(interim_results_dir, 'point_with_density.Rda'))
 

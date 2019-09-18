@@ -3,11 +3,11 @@
 ## this is sourced by R, but in a format that could
 ## be sourced in the shell if desired (use of '=' and without spaces)
 
-product_version="1.0rc1"
+product_version="1.0rc2"
 
 use_original_R_package_versions=1
-R_version="3.5.1"  # v. 0.999 done with R 3.4.3
-checkpoint_date="2019-04-13"  # v. 0.999 done with checkpoint date of 2018-09-20)
+R_version="3.6.1"  # v. 0.999 done with R 3.4.3; v 1.0rc1 done with R 3.5.1
+checkpoint_date="2019-09-01"  # v. 0.999 done with checkpoint date of 2018-09-20)
 
 ## directory locations: these default to ../data/{points,conversions,allom}, code, and ../output in master.R
 raw_data_dir=""
