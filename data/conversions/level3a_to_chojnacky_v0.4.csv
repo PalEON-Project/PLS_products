@@ -1,0 +1,36 @@
+level3a,Chojnacky et al. grouping,beta0,beta1
+Alder,Betulaceae < 0.40 spg,-2.5932,2.5349
+Ash,Oleaceae >= 0.55 spg,-1.8384,2.3524
+Atlantic white cedar,Cupressaceae < 0.30 spg,-1.9615,2.1063
+Bald cypress,Cupressaceae >= 0.40 spg,-2.6327,2.4757
+Basswood,Hippocastanaceae/Tiliaceae,-2.4108,2.4177
+Beech,Fagaceae; deciduous,-2.0705,2.441
+Birch,Betulaceae 0.50-0.59 spg,-1.8096,2.348
+Black gum,Cornaceae/Ericaceae/Lauraceae/Platanaceae/Rosaceae/Ulmaceae,-2.2118,2.4133
+Black gum/sweet gum,Cornaceae/Ericaceae/Lauraceae/Platanaceae/Rosaceae/Ulmaceae,-2.2118,2.4133
+Buckeye,Hippocastanaceae/Tiliaceae,-2.4108,2.4177
+Cedar/juniper,Cupressaceae < 0.30 spg,-1.9615,2.1063
+Cherry,Cornaceae/Ericaceae/Lauraceae/Platanaceae/Rosaceae/Ulmaceae,-2.2118,2.4133
+Chestnut,Fagaceae; deciduous,-2.0705,2.441
+Dogwood,Cornaceae/Ericaceae/Lauraceae/Platanaceae/Rosaceae/Ulmaceae,-2.2118,2.4133
+Elm,Cornaceae/Ericaceae/Lauraceae/Platanaceae/Rosaceae/Ulmaceae,-2.2118,2.4133
+Fir,Abies < 0.35 spg,-2.3123,2.3482
+Hackberry,Cornaceae/Ericaceae/Lauraceae/Platanaceae/Rosaceae/Ulmaceae,-2.2118,2.4133
+Hemlock,Tsuga < 0.40 spg,-2.348,2.3876
+Hickory,Fabaceae/Juglandaceae; Carya,-2.5095,2.6175
+Ironwood,Betulaceae >= 0.60 spg,-2.2652,2.5349
+Locust,Fabaceae/Juglandaceae; other,-2.5095,2.5437
+Maple,Aceraceae >= 0.50 spg,-1.8011,2.3852
+Mulberry,Fagaceae; deciduous,-2.0705,2.441
+Oak,Fagaceae; deciduous,-2.0705,2.441
+Other hardwood,average of all hardwoods,-2.2424,2.4498
+Pine,Pinus < 0.45 spg,-2.6177,2.4638
+Poplar,Salicaceae < 0.35 spg,-2.6863,2.4561
+Poplar/tulip poplar,Magnoliaceae,-2.5497,2.5011
+Spruce,Picea >= 0.35 spg,-2.1364,2.3233
+Sweet gum,Cornaceae/Ericaceae/Lauraceae/Platanaceae/Rosaceae/Ulmaceae,-2.2118,2.4133
+Sycamore,Cornaceae/Ericaceae/Lauraceae/Platanaceae/Rosaceae/Ulmaceae,-2.2118,2.4133
+Tamarack,Larix,-2.3012,2.3853
+Tulip poplar,Magnoliaceae,-2.5497,2.5011
+Walnut,Fabaceae/Juglandaceae; Carya,-2.5095,2.6175
+Willow,Salicaceae >= 0.35 spg,-2.4441,2.4561

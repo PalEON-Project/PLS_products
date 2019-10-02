@@ -114,29 +114,36 @@ for(i in seq_len(n_folds)) {
 y <- cell_full$avg*cell_full$points_occ/cell_full$points_total ## actual average biomass over all cells
 y[is.na(y)] <- 0   # cells with no points with trees (since $avg will be NA)
 
-crit_arith1 <- calc_point_criterion(pred_occ, pred_pot_arith1, cell_full$points_total,
-                               y, cv_max_biomass)
-crit_larith1 <- calc_point_criterion(pred_occ, pred_pot_larith1, cell_full$points_total,
-                                  y, cv_max_biomass)
-crit_arith70 <- calc_point_criterion(pred_occ, pred_pot_arith70, cell_full$points_total,
-                               y, cv_max_biomass)
-crit_larith70 <- calc_point_criterion(pred_occ, pred_pot_larith70, cell_full$points_total,
-                                  y, cv_max_biomass)
+crit_arith1 <- list(mse = calc_point_criterion(pred_occ, pred_pot_arith1, cell_full$points_total,
+                               y, cv_max_biomass, wgt_mse))
+crit_larith1 <- list(mse = calc_point_criterion(pred_occ, pred_pot_larith1, cell_full$points_total,
+                                  y, cv_max_biomass, wgt_mse))
+crit_arith70 <- list(mse = calc_point_criterion(pred_occ, pred_pot_arith70, cell_full$points_total,
+                               y, cv_max_biomass, wgt_mse))
+crit_larith70 <- list(mse = calc_point_criterion(pred_occ, pred_pot_larith70, cell_full$points_total,
+                                  y, cv_max_biomass, wgt_mse))
+
+crit_arith1$bias <- calc_point_criterion(pred_occ, pred_pot_arith1, cell_full$points_total,
+                               y, cv_max_biomass, wgt_bias)
+crit_larith1$bias <-  calc_point_criterion(pred_occ, pred_pot_larith1, cell_full$points_total,
+                                  y, cv_max_biomass, wgt_bias)
+crit_arith70$bias <- calc_point_criterion(pred_occ, pred_pot_arith70, cell_full$points_total,
+                               y, cv_max_biomass, wgt_bias)
+crit_larith70$bias <- calc_point_criterion(pred_occ, pred_pot_larith70, cell_full$points_total,
+                                  y, cv_max_biomass, wgt_bias)
 
 cell_full$obs <- y
-crit_arith1 <- c(list(point = crit_arith1),
-                 calc_cov_criterion(draws_logocc, draws_logpot_arith1, sig2 = sig2_arith1,
+crit_arith1 <- c(crit_arith1, calc_cov_criterion(draws_logocc, draws_logpot_arith1, sig2 = sig2_arith1,
                                     cell_full, type_pot = 'arith', scale = 1))
-crit_larith1 <- c(list(point = crit_larith1),
-                  calc_cov_criterion(draws_logocc, draws_logpot_larith1, sig2 = sig2_larith1,
+crit_larith1 <- c(crit_larith1, calc_cov_criterion(draws_logocc, draws_logpot_larith1, sig2 = sig2_larith1,
                                      cell_full, type_pot = 'log_arith', scale = 1))
-crit_arith70 <- c(list(point = crit_arith70),
-                  calc_cov_criterion(draws_logocc, draws_logpot_arith70, sig2 = sig2_arith70,
+crit_arith70 <- c(crit_arith70, calc_cov_criterion(draws_logocc, draws_logpot_arith70, sig2 = sig2_arith70,
                                      cell_full, type_pot = 'arith', scale = 70))
-crit_larith70 <- c(list(point = crit_larith70),
-                   calc_cov_criterion(draws_logocc, draws_logpot_larith70, sig2 = sig2_larith70,
+crit_larith70 <- c(crit_larith70, calc_cov_criterion(draws_logocc, draws_logpot_larith70, sig2 = sig2_larith70,
                                       cell_full, type_pot = 'log_arith', scale = 70))
 
 save(crit_arith1, crit_larith1, crit_arith70, crit_larith70,
      pred_occ, pred_pot_arith1, pred_pot_larith1, pred_pot_arith70, pred_pot_larith70, file = file.path(interim_results_dir,
                                                         paste0('cv_total_biomass', ifelse(use_agb, '_agb',''), '.Rda')))
+
+

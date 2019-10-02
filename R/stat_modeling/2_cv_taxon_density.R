@@ -97,10 +97,15 @@ for(taxonIdx in seq_along(taxa_to_fit))
 
 ## Assess results.
 
-crit_point_arith <- crit_point_larith <- array(0, c(length(taxa_to_fit), length(k_occ_cv), length(k_pot_cv)))
-dimnames(crit_point_arith)[[1]] <- dimnames(crit_point_larith)[[1]] <- taxa_to_fit
-dimnames(crit_point_arith)[[2]] <- dimnames(crit_point_larith)[[2]] <- k_occ_cv
-dimnames(crit_point_arith)[[3]] <- dimnames(crit_point_larith)[[3]] <- k_pot_cv
+crit_mse_arith <- crit_mse_larith <- array(0, c(length(taxa_to_fit), length(k_occ_cv), length(k_pot_cv)))
+dimnames(crit_mse_arith)[[1]] <- dimnames(crit_mse_larith)[[1]] <- taxa_to_fit
+dimnames(crit_mse_arith)[[2]] <- dimnames(crit_mse_larith)[[2]] <- k_occ_cv
+dimnames(crit_mse_arith)[[3]] <- dimnames(crit_mse_larith)[[3]] <- k_pot_cv
+
+crit_bias_arith <- crit_bias_larith <- array(0, c(length(taxa_to_fit), length(k_occ_cv), length(k_pot_cv)))
+dimnames(crit_bias_arith)[[1]] <- dimnames(crit_bias_larith)[[1]] <- taxa_to_fit
+dimnames(crit_bias_arith)[[2]] <- dimnames(crit_bias_larith)[[2]] <- k_occ_cv
+dimnames(crit_bias_arith)[[3]] <- dimnames(crit_bias_larith)[[3]] <- k_pot_cv
 
 crit_cov_arith <- crit_cov_larith <- array(0, c(length(taxa_to_fit), length(k_occ_cv), length(k_pot_cv)))
 dimnames(crit_cov_arith)[[1]] <- dimnames(crit_cov_larith)[[1]] <- taxa_to_fit
@@ -142,23 +147,37 @@ for(taxonIdx in seq_along(taxa_to_fit)) {
     y[is.na(y)] <- 0  # cells with no points with trees (since $avg will be NA)
     y[is.na(cell_full_taxon$points_occ)] <- NA  # exclude cells with no valid points (but for density, unlike biomass, this shouldn't occur because NA density values are excluded in 1_setup_density.R)
 
-    crit_arith[taxonIdx, , ] <- calc_cv_criterion(pred_occ[taxonIdx, , ], pred_pot_arith[taxonIdx, , ], cell_full_taxon$points_total,
-                                                 y, cv_max_density)
-    crit_larith[taxonIdx, , ] <- calc_cv_criterion(pred_occ[taxonIdx, , ], pred_pot_larith[taxonIdx, , ], cell_full_taxon$points_total,
-                                                   y, cv_max_density)
+    crit_mse_arith[taxonIdx, , ] <- calc_point_criterion(pred_occ[taxonIdx, , ], pred_pot_arith[taxonIdx, , ],
+                                                 cell_full_taxon$points_total, y, cv_max_density, wgt_mse)
+    crit_mse_larith[taxonIdx, , ] <- calc_point_criterion(pred_occ[taxonIdx, , ], pred_pot_larith[taxonIdx, , ],
+                                                       cell_full_taxon$points_total, y, cv_max_density, wgt_mse)
 
+    crit_bias_arith[taxonIdx, , ] <- calc_point_criterion(pred_occ[taxonIdx, , ], pred_pot_arith[taxonIdx, , ],
+                                                 cell_full_taxon$points_total, y, cv_max_density, wgt_bias)
+    crit_bias_larith[taxonIdx, , ] <- calc_point_criterion(pred_occ[taxonIdx, , ], pred_pot_larith[taxonIdx, , ],
+                                                       cell_full_taxon$points_total, y, cv_max_density, wgt_bias)
+    
     cell_full_taxon$obs <- y
-    crit_arith <- c(list(point = crit_arith),
-                     calc_cov_criterion(pred_occ[taxonIdx, , ], pred_pot_arith[taxonIdx, , ], sig2 = sig2_arith[taxonIdx, , ],
-                                        cell_full_taxon, type_pot = 'arith', scale = 1))
-    crit_larith <- c(list(point = crit_larith),
-                      calc_cov_criterion(pred_occ[taxonIdx, , ], pred_pot_larith[taxonIdx, , ], sig2 = sig2_larith[taxonIdx, , ],
-                                     cell_full_taxon, type_pot = 'log_arith', scale = 1))
-
+    tmp <- calc_cov_criterion(draws_logocc[taxonIdx, , , ], draws_logpot_arith[taxonIdx, , , ], sig2 = sig2_arith[taxonIdx, , ],
+                              cell_full_taxon, type_pot = 'arith', scale = 1)
+    crit_cov_arith[taxonIdx, , ] <- tmp$cov
+    crit_length_arith[taxonIdx, , ] <- tmp$length
+    crit_loglength_arith[taxonIdx, , ] <- tmp$loglength
+    
+    tmp <- calc_cov_criterion(draws_logocc[taxonIdx, , , ], draws_logpot_larith[taxonIdx, , , ], sig2 = sig2_larith[taxonIdx, , ],
+                                     cell_full_taxon, type_pot = 'log_arith', scale = 1)
+    crit_cov_larith[taxonIdx, , ] <- tmp$cov
+    crit_length_larith[taxonIdx, , ] <- tmp$length
+    crit_loglength_larith[taxonIdx, , ] <- tmp$loglength
 }
 
-save(crit_arith, crit_larith, pred_occ, pred_pot_arith, pred_pot_larith,
-     file = file.path(interim_results_dir, 'cv_taxon_density.Rda'))
+save(crit_mse_arith, crit_mse_larith, 
+     crit_bias_arith, crit_bias_larith, 
+     crit_cov_arith, crit_cov_larith, 
+     crit_length_arith, crit_length_larith, 
+     crit_loglength_arith, crit_loglength_larith, 
+     pred_occ, pred_pot_arith, pred_pot_larith, 
+     file = file.path(interim_results_dir, paste0('cv_taxon_density_density.Rda')))
 
 
 if(use_mpi) closeCluster(cl)

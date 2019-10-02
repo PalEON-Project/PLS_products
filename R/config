@@ -103,7 +103,7 @@ shared_params_in_cell=1  # for speed, do single allometry call for all points in
 ## cross-validation folds
 n_folds=10
 # truncate at these values when using CV to compare data and fits
-cv_max_biomass=200
+cv_max_biomass=600
 cv_max_density=600
 
 ## parallelization

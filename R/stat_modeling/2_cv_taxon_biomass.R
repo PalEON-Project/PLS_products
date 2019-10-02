@@ -114,10 +114,15 @@ for(taxonIdx in seq_along(taxa_to_fit))
 
 ## Assess results.
 
-crit_point_arith1 <- crit_point_larith1 <- crit_point_arith70 <- crit_point_larith70 <- array(0, c(length(taxa_to_fit), length(k_occ_cv), length(k_pot_cv)))
-dimnames(crit_point_arith1)[[1]] <- dimnames(crit_point_larith1)[[1]] <- dimnames(crit_point_arith70)[[1]] <- dimnames(crit_point_larith70)[[1]] <- taxa_to_fit
-dimnames(crit_point_arith1)[[2]] <- dimnames(crit_point_larith1)[[2]] <- dimnames(crit_point_arith70)[[2]] <- dimnames(crit_point_larith70)[[2]] <- k_occ_cv
-dimnames(crit_point_arith1)[[3]] <- dimnames(crit_point_larith1)[[3]] <- dimnames(crit_point_arith70)[[3]] <- dimnames(crit_point_larith70)[[3]] <- k_pot_cv
+crit_mse_arith1 <- crit_mse_larith1 <- crit_mse_arith70 <- crit_mse_larith70 <- array(0, c(length(taxa_to_fit), length(k_occ_cv), length(k_pot_cv)))
+dimnames(crit_mse_arith1)[[1]] <- dimnames(crit_mse_larith1)[[1]] <- dimnames(crit_mse_arith70)[[1]] <- dimnames(crit_mse_larith70)[[1]] <- taxa_to_fit
+dimnames(crit_mse_arith1)[[2]] <- dimnames(crit_mse_larith1)[[2]] <- dimnames(crit_mse_arith70)[[2]] <- dimnames(crit_mse_larith70)[[2]] <- k_occ_cv
+dimnames(crit_mse_arith1)[[3]] <- dimnames(crit_mse_larith1)[[3]] <- dimnames(crit_mse_arith70)[[3]] <- dimnames(crit_mse_larith70)[[3]] <- k_pot_cv
+
+crit_bias_arith1 <- crit_bias_larith1 <- crit_bias_arith70 <- crit_bias_larith70 <- array(0, c(length(taxa_to_fit), length(k_occ_cv), length(k_pot_cv)))
+dimnames(crit_bias_arith1)[[1]] <- dimnames(crit_bias_larith1)[[1]] <- dimnames(crit_bias_arith70)[[1]] <- dimnames(crit_bias_larith70)[[1]] <- taxa_to_fit
+dimnames(crit_bias_arith1)[[2]] <- dimnames(crit_bias_larith1)[[2]] <- dimnames(crit_bias_arith70)[[2]] <- dimnames(crit_bias_larith70)[[2]] <- k_occ_cv
+dimnames(crit_bias_arith1)[[3]] <- dimnames(crit_bias_larith1)[[3]] <- dimnames(crit_bias_arith70)[[3]] <- dimnames(crit_bias_larith70)[[3]] <- k_pot_cv
 
 crit_cov_arith1 <- crit_cov_larith1 <- crit_cov_arith70 <- crit_cov_larith70 <- array(0, c(length(taxa_to_fit), length(k_occ_cv), length(k_pot_cv)))
 dimnames(crit_cov_arith1)[[1]] <- dimnames(crit_cov_larith1)[[1]] <- dimnames(crit_cov_arith70)[[1]] <- dimnames(crit_cov_larith70)[[1]] <- taxa_to_fit
@@ -161,15 +166,25 @@ for(taxonIdx in seq_along(taxa_to_fit)) {
     y[is.na(y)] <- 0  # cells with no points with trees (since $avg will be NA)
     y[is.na(cell_full_taxon$points_occ)] <- NA  # exclude cells with no valid points
     
-    crit_point_arith1[taxonIdx, , ] <- calc_point_criterion(pred_occ[taxonIdx, , ], pred_pot_arith1[taxonIdx, , ],
-                                                 cell_full_taxon$points_total, y, cv_max_biomass)
-    crit_point_larith1[taxonIdx, , ] <- calc_point_criterion(pred_occ[taxonIdx, , ], pred_pot_larith1[taxonIdx, , ],
-                                                       cell_full_taxon$points_total, y, cv_max_biomass)
-    crit_point_arith70[taxonIdx, , ] <- calc_point_criterion(pred_occ[taxonIdx, , ], pred_pot_arith70[taxonIdx, , ],
-                                                 cell_full_taxon$points_total, y, cv_max_biomass)
-    crit_point_larith70[taxonIdx, , ] <- calc_point_criterion(pred_occ[taxonIdx, , ], pred_pot_larith70[taxonIdx, , ],
-                                                       cell_full_taxon$points_total, y, cv_max_biomass)
+    crit_mse_arith1[taxonIdx, , ] <- calc_point_criterion(pred_occ[taxonIdx, , ], pred_pot_arith1[taxonIdx, , ],
+                                                 cell_full_taxon$points_total, y, cv_max_biomass, wgt_mse)
+    crit_mse_larith1[taxonIdx, , ] <- calc_point_criterion(pred_occ[taxonIdx, , ], pred_pot_larith1[taxonIdx, , ],
+                                                       cell_full_taxon$points_total, y, cv_max_biomass, wgt_mse)
+    crit_mse_arith70[taxonIdx, , ] <- calc_point_criterion(pred_occ[taxonIdx, , ], pred_pot_arith70[taxonIdx, , ],
+                                                 cell_full_taxon$points_total, y, cv_max_biomass, wgt_mse)
+    crit_mse_larith70[taxonIdx, , ] <- calc_point_criterion(pred_occ[taxonIdx, , ], pred_pot_larith70[taxonIdx, , ],
+                                                       cell_full_taxon$points_total, y, cv_max_biomass, wgt_mse)
 
+    crit_bias_arith1[taxonIdx, , ] <- calc_point_criterion(pred_occ[taxonIdx, , ], pred_pot_arith1[taxonIdx, , ],
+                                                 cell_full_taxon$points_total, y, cv_max_biomass, wgt_bias)
+    crit_bias_larith1[taxonIdx, , ] <- calc_point_criterion(pred_occ[taxonIdx, , ], pred_pot_larith1[taxonIdx, , ],
+                                                       cell_full_taxon$points_total, y, cv_max_biomass, wgt_bias)
+    crit_bias_arith70[taxonIdx, , ] <- calc_point_criterion(pred_occ[taxonIdx, , ], pred_pot_arith70[taxonIdx, , ],
+                                                 cell_full_taxon$points_total, y, cv_max_biomass, wgt_bias)
+    crit_bias_larith70[taxonIdx, , ] <- calc_point_criterion(pred_occ[taxonIdx, , ], pred_pot_larith70[taxonIdx, , ],
+                                                       cell_full_taxon$points_total, y, cv_max_biomass, wgt_bias)
+
+    
     cell_full_taxon$obs <- y
     tmp <- calc_cov_criterion(draws_logocc[taxonIdx, , , ], draws_logpot_arith1[taxonIdx, , , ], sig2 = sig2_arith1[taxonIdx, , ],
                               cell_full_taxon, type_pot = 'arith', scale = 1)
@@ -197,12 +212,13 @@ for(taxonIdx in seq_along(taxa_to_fit)) {
 
 }
 
-save(crit_point_arith1, crit_point_larith1, crit_point_arith70, crit_point_larith70,
+save(crit_mse_arith1, crit_mse_larith1, crit_mse_arith70, crit_mse_larith70,
+     crit_bias_arith1, crit_bias_larith1, crit_bias_arith70, crit_bias_larith70,
      crit_cov_arith1, crit_cov_larith1, crit_cov_arith70, crit_cov_larith70,
      crit_length_arith1, crit_length_larith1, crit_length_arith70, crit_length_larith70,
      crit_loglength_arith1, crit_loglength_larith1, crit_loglength_arith70, crit_loglength_larith70,
      pred_occ, pred_pot_arith1, pred_pot_larith1, pred_pot_arith70, pred_pot_larith70,
-     file = file.path(interim_results_dir, paste0('cv_taxon_biomass_k_low', ifelse(use_agb, '_agb',''), '.Rda')))
+     file = file.path(interim_results_dir, paste0('cv_taxon_biomass', ifelse(use_agb, '_agb',''), '.Rda')))
 
 
 if(use_mpi) closeCluster(cl)

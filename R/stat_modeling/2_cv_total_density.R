@@ -53,7 +53,7 @@ dimnames(pred_pot_arith)[[2]] <- dimnames(pred_pot_larith)[[2]] <- dimnames(sig2
     dimnames(sig2_larith)[[2]] <-k_pot_cv
 
 draws_logocc <- array(0, c(nrow(cell_full), length(k_occ_cv), n_stat_samples))
-draws_logpot_arith1 <- draws_logpot_larith1 <- draws_logpot_arith70 <- draws_logpot_larith70 <- array(0, c(nrow(cell_full), length(k_pot_cv), n_stat_samples))
+draws_logpot_arith <- draws_logpot_larith <- array(0, c(nrow(cell_full), length(k_pot_cv), n_stat_samples))
 
 
 n_folds <- max(cell_full$fold)
@@ -81,22 +81,32 @@ for(i in seq_len(n_folds)) {
 
 
 ## assess results
+
 y <- cell_full$avg*cell_full$points_occ/cell_full$points_total ## actual average density over all cells
 y[is.na(y)] <- 0   # cells with no points with trees (since $avg will be NA)
 
-crit_arith <- calc_cv_criterion(pred_occ, pred_pot_arith, cell_full$points_total,
-                               y, cv_max_density)
-crit_larith <- calc_cv_criterion(pred_occ, pred_pot_larith, cell_full$points_total,
-                                  y, cv_max_density)
+crit_arith <- list(mse = calc_point_criterion(pred_occ, pred_pot_arith, cell_full$points_total,
+                               y, cv_max_density, wgt_mse))
+crit_larith <- list(mse = calc_point_criterion(pred_occ, pred_pot_larith, cell_full$points_total,
+                                  y, cv_max_density, wgt_mse))
+
+crit_arith$bias <- calc_point_criterion(pred_occ, pred_pot_arith, cell_full$points_total,
+                               y, cv_max_density, wgt_bias)
+crit_larith$bias <-  calc_point_criterion(pred_occ, pred_pot_larith, cell_full$points_total,
+                                  y, cv_max_density, wgt_bias)
 
 cell_full$obs <- y
-crit_arith <- c(list(point = crit_arith),
-                 calc_cov_criterion(draws_logocc, draws_logpot_arith, sig2 = sig2_arith,
+crit_arith <- c(crit_arith, calc_cov_criterion(draws_logocc, draws_logpot_arith, sig2 = sig2_arith,
                                     cell_full, type_pot = 'arith', scale = 1))
-crit_larith <- c(list(point = crit_larith),
-                  calc_cov_criterion(draws_logocc, draws_pot_larith, sig2 = sig2_larith,
+crit_larith <- c(crit_larith, calc_cov_criterion(draws_logocc, draws_logpot_larith, sig2 = sig2_larith,
                                      cell_full, type_pot = 'log_arith', scale = 1))
 
-save(crit_arith, crit_larith, pred_occ, pred_pot_arith, pred_pot_larith, file = file.path(interim_results_dir,
-                                                        'cv_total_density.Rda'))
+save(crit_arith, crit_larith, pred_occ, pred_pot_arith, pred_pot_larith,
+     file = file.path(interim_results_dir,
+                      paste0('cv_total_density', ifelse(use_agb, '_agb',''), '.Rda')))
+
+
+
+
+
 

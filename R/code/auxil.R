@@ -270,7 +270,11 @@ calc_density_taxon <- function(num_trees, density, L3_tree1, L3_tree2, taxon) {
 }
 
 wgt_mse <- function(n, y, yhat) {
-    sum(n * (y - yhat)^2, na.rm = TRUE) / sum(n > 0, na.rm = TRUE)
+    sum(n * (y - yhat)^2, na.rm = TRUE) / sum(n, na.rm = TRUE)
+}
+
+wgt_bias <- function(n, y, yhat) {
+    sum(n * (yhat - y), na.rm = TRUE) / sum(n, na.rm = TRUE)
 }
 
 calc_point_criterion <- function(pred_occ, pred_pot, n, y, mx, obj_fun = wgt_mse) {
