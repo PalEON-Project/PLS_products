@@ -273,9 +273,14 @@ wgt_mse <- function(n, y, yhat) {
     sum(n * (y - yhat)^2, na.rm = TRUE) / sum(n, na.rm = TRUE)
 }
 
+wgt_mae <- function(n, y, yhat) {
+    sum(n * abs(y - yhat), na.rm = TRUE) / sum(n, na.rm = TRUE)
+}
+
 wgt_bias <- function(n, y, yhat) {
     sum(n * (yhat - y), na.rm = TRUE) / sum(n, na.rm = TRUE)
 }
+
 
 calc_point_criterion <- function(pred_occ, pred_pot, n, y, mx, obj_fun = wgt_mse) {
     crit <- matrix(0, ncol(pred_occ), ncol(pred_pot))

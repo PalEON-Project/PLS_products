@@ -102,6 +102,11 @@ dimnames(crit_mse_arith)[[1]] <- dimnames(crit_mse_larith)[[1]] <- taxa_to_fit
 dimnames(crit_mse_arith)[[2]] <- dimnames(crit_mse_larith)[[2]] <- k_occ_cv
 dimnames(crit_mse_arith)[[3]] <- dimnames(crit_mse_larith)[[3]] <- k_pot_cv
 
+crit_mae_arith <- crit_mae_larith <- array(0, c(length(taxa_to_fit), length(k_occ_cv), length(k_pot_cv)))
+dimnames(crit_mae_arith)[[1]] <- dimnames(crit_mae_larith)[[1]] <- taxa_to_fit
+dimnames(crit_mae_arith)[[2]] <- dimnames(crit_mae_larith)[[2]] <- k_occ_cv
+dimnames(crit_mae_arith)[[3]] <- dimnames(crit_mae_larith)[[3]] <- k_pot_cv
+
 crit_bias_arith <- crit_bias_larith <- array(0, c(length(taxa_to_fit), length(k_occ_cv), length(k_pot_cv)))
 dimnames(crit_bias_arith)[[1]] <- dimnames(crit_bias_larith)[[1]] <- taxa_to_fit
 dimnames(crit_bias_arith)[[2]] <- dimnames(crit_bias_larith)[[2]] <- k_occ_cv
@@ -152,6 +157,11 @@ for(taxonIdx in seq_along(taxa_to_fit)) {
     crit_mse_larith[taxonIdx, , ] <- calc_point_criterion(pred_occ[taxonIdx, , ], pred_pot_larith[taxonIdx, , ],
                                                        cell_full_taxon$points_total, y, cv_max_density, wgt_mse)
 
+    crit_mae_arith[taxonIdx, , ] <- calc_point_criterion(pred_occ[taxonIdx, , ], pred_pot_arith[taxonIdx, , ],
+                                                 cell_full_taxon$points_total, y, cv_max_density, wgt_mae)
+    crit_mae_larith[taxonIdx, , ] <- calc_point_criterion(pred_occ[taxonIdx, , ], pred_pot_larith[taxonIdx, , ],
+                                                       cell_full_taxon$points_total, y, cv_max_density, wgt_mae)
+
     crit_bias_arith[taxonIdx, , ] <- calc_point_criterion(pred_occ[taxonIdx, , ], pred_pot_arith[taxonIdx, , ],
                                                  cell_full_taxon$points_total, y, cv_max_density, wgt_bias)
     crit_bias_larith[taxonIdx, , ] <- calc_point_criterion(pred_occ[taxonIdx, , ], pred_pot_larith[taxonIdx, , ],
@@ -172,6 +182,7 @@ for(taxonIdx in seq_along(taxa_to_fit)) {
 }
 
 save(crit_mse_arith, crit_mse_larith, 
+     crit_mae_arith, crit_mae_larith, 
      crit_bias_arith, crit_bias_larith, 
      crit_cov_arith, crit_cov_larith, 
      crit_length_arith, crit_length_larith, 

@@ -123,6 +123,15 @@ crit_arith70 <- list(mse = calc_point_criterion(pred_occ, pred_pot_arith70, cell
 crit_larith70 <- list(mse = calc_point_criterion(pred_occ, pred_pot_larith70, cell_full$points_total,
                                   y, cv_max_biomass, wgt_mse))
 
+crit_arith1$mae <- calc_point_criterion(pred_occ, pred_pot_arith1, cell_full$points_total,
+                               y, cv_max_biomass, wgt_mae)
+crit_larith1$mae <-  calc_point_criterion(pred_occ, pred_pot_larith1, cell_full$points_total,
+                                  y, cv_max_biomass, wgt_mae)
+crit_arith70$mae <- calc_point_criterion(pred_occ, pred_pot_arith70, cell_full$points_total,
+                               y, cv_max_biomass, wgt_mae)
+crit_larith70$mae <- calc_point_criterion(pred_occ, pred_pot_larith70, cell_full$points_total,
+                                          y, cv_max_biomass, wgt_mae)
+
 crit_arith1$bias <- calc_point_criterion(pred_occ, pred_pot_arith1, cell_full$points_total,
                                y, cv_max_biomass, wgt_bias)
 crit_larith1$bias <-  calc_point_criterion(pred_occ, pred_pot_larith1, cell_full$points_total,

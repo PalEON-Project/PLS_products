@@ -1,3 +1,7 @@
+2019-10-02:
+
+median of unweighted bias for log scale is near 0 but mean of unweighted bias and weighted bias are around -7 to -10 for log scale, because of longer left tail for (yhat - y) values.
+
 5/18/19:
 New AGB analysis: weight of 70 vs 1 makes little diffrence
 for total biomass: 2500/3500 still seems fine - a bit worse in terms of point loss compared to 3500/3500, maybe slightly better for interval length

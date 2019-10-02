@@ -90,6 +90,11 @@ crit_arith <- list(mse = calc_point_criterion(pred_occ, pred_pot_arith, cell_ful
 crit_larith <- list(mse = calc_point_criterion(pred_occ, pred_pot_larith, cell_full$points_total,
                                   y, cv_max_density, wgt_mse))
 
+crit_arith$mae <- calc_point_criterion(pred_occ, pred_pot_arith, cell_full$points_total,
+                               y, cv_max_density, wgt_mae)
+crit_larith$mae <-  calc_point_criterion(pred_occ, pred_pot_larith, cell_full$points_total,
+                                  y, cv_max_density, wgt_mae)
+
 crit_arith$bias <- calc_point_criterion(pred_occ, pred_pot_arith, cell_full$points_total,
                                y, cv_max_density, wgt_bias)
 crit_larith$bias <-  calc_point_criterion(pred_occ, pred_pot_larith, cell_full$points_total,
@@ -102,8 +107,7 @@ crit_larith <- c(crit_larith, calc_cov_criterion(draws_logocc, draws_logpot_lari
                                      cell_full, type_pot = 'log_arith', scale = 1))
 
 save(crit_arith, crit_larith, pred_occ, pred_pot_arith, pred_pot_larith,
-     file = file.path(interim_results_dir,
-                      paste0('cv_total_density', ifelse(use_agb, '_agb',''), '.Rda')))
+     file = file.path(interim_results_dir, 'cv_total_density.Rda'))
 
 
 
