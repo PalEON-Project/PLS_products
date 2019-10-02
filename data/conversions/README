@@ -1,0 +1,48 @@
+This file documents the conversion files (in CSV format) used in producing statistically-estimated biomass and stem density from PLS point data.
+
+#################### Information on taxonomic aggregation ############
+
+The PalEON project aggregates tree/shrub taxa into various 'levels' in the process of converting surveyor names to unambigous, modern names that can be related directly to scientific names (generally at the genus level).
+
+The levels are:
+
+Level 0: The original taxon names as entered from the survey notes. Similar but not identical to the actual surveyor notes (e.g., may be corrected for misspellings). For some regions, only level 1 and not level 0 are used by PalEON.
+Level 1: Within dataset standardization that have not been aggregated to Level 2. 
+Level 2: The best available taxonomic resolution available given the surveyor notes. Includes some lumping of synomous names. For example, the Level-1 “balsam”, “fir”, and “balsam fir” are all lumped into “Fir” (FI). The effective taxonomic resolution will vary among locations, because of differences in surveyor identification. For example, some surveyors discriminate pine to species and some don't.
+Level 3a: Taxon names lumped up to a standardized level, i.e. one that minimizes inter-surveyor effects. Usable across PalEON domain. 
+Level 3s: Level 3a, with rare tree taxa lumped into an 'other hardwood' category.
+
+The biomass and stem density modeling are done at level3s, but the assignment of allometric equation coefficients is done based on level3a.
+
+##################### Formats of conversion files #######################
+
+level0_to_level3a (current version as of October 2019 is version 1.1):
+
+This file allows conversion from surveyor names to aggregated modern taxa used in the statistical modeling based on Levels 0, 1, 2, and 3s. The conversion is specific to spatial regions (given in the 'domain' field). Comments on ambiguous cases are given in the 'comments' field.
+
+level3a_to_chojnacky (current version as of October 2019 is version 0.4):
+
+This file provides assignment of Chojnacky et al. (2014) allometric equation coefficients to the Level 3a taxa. 'Chojnacky et al. grouping' is the grouping of taxa provided in the 'Taxa' column of Table 5 of Chojnacky et al. (2014). 'beta0' and 'beta1' are the intercept and slope of the log-log regression of aboveground biomass (log kg) on dbh (log cm) from the 'beta0' and 'beta1' columns of Table 5.
+
+level3a_to_level3s (current version as of October 2019 is version 0.4):
+
+This file allows conversion from Level 3a to Level 3s.
+
+cogbill_density_corrections_full_midwest (current version as of October 2019 is version 1.4):
+
+This file provides the correction factors (which vary by state or portions of a state, generally based on year of surveying) that allow one to adjust the raw stem density at each corner (using the Morisita estimator) for changes in surveyor behavior. The fields in the file are:
+
+state - state in the Midwest (Indiana, Illinois, Michigan, Wisconsin, Minnesota)
+regions - regions within each state (all states except Illinois and Minnesota are split roughly north and south)
+year - range of years for which the correction factors are appropriate
+corner - "external" corners are on the border of each township surveyed, "internal" corners are within each township
+sectioncorner - the correction depends on if a corner is a "section" corner or "quartersection" corner
+point - "Pair" stands for proper corner analysis where there are 2 trees and "2nQ" is when there are 4 trees listed for the corner (we use 2nQ where there are 3 trees listed as well). 
+kappa - the Kappa or Cottam estimator correction factor that  corrects for simple sampling design of which quadrants are used (i.e. if the pair is one side of the sample line or if it is two - sides of the section line or the nearest tree in the second nearest quadrant.)
+theta - the correction factor that corrects for surveyor bias due to the geometry of the two-tree corners (i.e., biased angle of sampling opposite the nearest tree).
+zeta - the correction factor that corrects for azimuthal bias for bearings near the cardinal directions
+phi - the correction factor that corrects for diameter bias from surveyors including trees less than 20 cm
+
+############################ Licensing ##############################
+
+CC-BY 4.0 (Creative Commons Attribution 4.0 International) License
