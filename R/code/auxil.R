@@ -296,7 +296,7 @@ calc_point_criterion <- function(pred_occ, pred_pot, n, y, mx, obj_fun = wgt_mse
     return(crit)
 }
 
-calc_cov_criterion <- function(draws_logocc, draws_logpot, sig2, data, min_points = 60, n_draw = 250, seed = 1, type_pot = 'arith', scale = 1, size = 0.90) {
+calc_cov_criterion <- function(draws_logocc, draws_logpot, sig2, data, min_points = 60, n_draw = 250, seed = 1, type_pot = 'arith', scale = 1, size = 0.90, family = 'rgamma') {
     set.seed(seed)
     if(is.null(min_points)) min_points <- 0
     wh <- which(data$points_total >= min_points)

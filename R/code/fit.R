@@ -7,7 +7,8 @@ library(mgcv)
 fit <- function(data, newdata, k_occ = NULL, k_pot = NULL, unc = FALSE, points_total = 'points_total',
                 points_occ = 'points_occ', weight = points_occ, weight_scale = 1, avg = 'avg', geom_avg = 'geom_avg',
                 gamma = 1, units = 'm', use_bam = FALSE, type_pot = 'arith', return_model = FALSE,
-                save_draws = FALSE, num_draws = 250, bound_draws_low = FALSE, bound_draws_high = TRUE) {
+                save_draws = FALSE, num_draws = 250, bound_draws_low = FALSE, bound_draws_high = TRUE,
+                pot_family = Gamma(link='log')) {
     ## fits occ and pot components for single k values, with uncertainty if desired OR
     ## fits one or both components for one or more k values, without uncertainty
     
@@ -73,7 +74,7 @@ fit <- function(data, newdata, k_occ = NULL, k_pot = NULL, unc = FALSE, points_t
             kval <- min(k_pot[k_idx], round(nrow(data)*0.9))
 
             model_pot[[k_idx]] <- fitter(z ~ s(x,y, k = kval), data = data, weights = weight,
-                                     gamma = gamma)            
+                                     gamma = gamma, family = family = Gamma(link = 'log'))            
             pred_pot[[k_idx]] <- predict(model_pot[[k_idx]], newdata= newdata, type='response')
             if(type_pot != 'arith') {
                 pred_pot[[k_idx]] <- exp(pred_pot[[k_idx]])
