@@ -1,3 +1,9 @@
+2020-02-18:
+
+tried gamma model - very slow and sometimes out of memory
+didn't converge for total biomass
+had problem with non-positive values in taxon biomass - perhaps there is a problem with input data?
+
 2019-10-02:
 
 median of unweighted bias for log scale is near 0 but mean of unweighted bias and weighted bias are around -7 to -10 for log scale, because of longer left tail for (yhat - y) values.
